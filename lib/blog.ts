@@ -2,7 +2,11 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 
+import { normalizeTag, POSTS_PER_PAGE, tagToSlug } from "./blog-utils";
+
 const blogDirectory = path.join(process.cwd(), "content/blog");
+
+export { normalizeTag, tagToSlug, POSTS_PER_PAGE };
 
 export interface BlogPost {
   slug: string;
@@ -23,6 +27,11 @@ export interface BlogPostMeta {
   tags: string[];
   author: string;
   readingTime?: number;
+}
+
+export interface TagCount {
+  tag: string;
+  count: number;
 }
 
 /**
@@ -103,15 +112,36 @@ export function getPostBySlug(slug: string): BlogPost | null {
 }
 
 /**
+ * Build tag counts, merged case-insensitively.
+ */
+export function getTagCounts(postsInput?: BlogPostMeta[]): TagCount[] {
+  const posts = postsInput ?? getAllPosts();
+  const bucket = new Map<string, { tag: string; count: number }>();
+
+  posts.forEach((post) => {
+    post.tags.forEach((rawTag) => {
+      const tag = rawTag.trim();
+      if (!tag) return;
+
+      const key = normalizeTag(tag);
+      const existing = bucket.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        bucket.set(key, { tag, count: 1 });
+      }
+    });
+  });
+
+  return Array.from(bucket.values()).sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return a.tag.localeCompare(b.tag);
+  });
+}
+
+/**
  * Get all unique tags from all blog posts
  */
 export function getAllTags(): string[] {
-  const posts = getAllPosts();
-  const tags = new Set<string>();
-
-  posts.forEach((post) => {
-    post.tags.forEach((tag) => tags.add(tag));
-  });
-
-  return Array.from(tags).sort();
+  return getTagCounts().map((item) => item.tag);
 }

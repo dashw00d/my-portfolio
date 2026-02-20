@@ -47,7 +47,7 @@ if ($user->hasRole('admin') && $request->input('action') === 'approve') {
 
 Then, in the event detail view, we surfaced it plainly:
 
-> Approved by {{ $event->approver->name }} on {{ $event->approved_at->format('M j, Y') }}
+> Approved by `{{ $event->approver->name }}` on `{{ $event->approved_at->format('M j, Y') }}`
 
 This created a clear chain of custody. And because we tied it to existing roles and actions, there was no training overhead. Admins didn’t even notice the change—they just kept doing what they were already doing.
 

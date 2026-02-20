@@ -38,7 +38,7 @@ function detectUpAxis(animClip: AnimationClip, hipBoneName: string = 'Hips'): 'Y
   // Sample first 30 frames (or fewer)
   const sampleCount = Math.min(30, values.length / step);
 
-  for (let i = 1; i < sample grinding="" through="" deltas="">
+  for (let i = 1; i < sampleCount; i++) {
     const prevY = values[(i - 1) * step + 1];
     const currY = values[i * step + 1];
     const prevZ = values[(i - 1) * step + 2];
@@ -61,7 +61,7 @@ This isn’t 100% perfect. Some animations have no hip bob—like floating robot
 
 The real lesson? **Use heuristics, not absolutes.** We don’t rely on this alone. If the detected axis produces a skeleton that looks wrong during preview, we fall back to user override. And we still support manual metadata tagging—for when the AI (yes, I called it AI) gets lazy.
 
-Performance? Negligible. We run this once per animation, not per frame. On average, it adds <10ms to asset processing—well worth the tradeoff for not having to babysit orientation.
+Performance? Negligible. We run this once per animation, not per frame. On average, it adds under 10ms to asset processing—well worth the tradeoff for not having to babysit orientation.
 
 This technique is now live in Animation Staging Studio as part of our R3F integration. It’s one of those small, invisible wins that makes the whole system feel more robust. No more "why is this model on its side?" Slack messages.
 

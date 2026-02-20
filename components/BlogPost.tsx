@@ -2,6 +2,8 @@ import React from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
+import { tagToSlug } from "@/lib/blog-utils";
+
 interface BlogPostProps {
   title: string;
   date: string;
@@ -53,12 +55,13 @@ export default function BlogPost({
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-2 pt-2">
             {tags.map((tag) => (
-              <span
+              <Link
                 key={tag}
-                className="rounded-full bg-brand-500/10 px-3 py-1 text-xs font-medium text-brand-600"
+                href={`/blog/tag/${tagToSlug(tag)}`}
+                className="rounded-full bg-brand-500/10 px-3 py-1 text-xs font-medium text-brand-600 transition hover:bg-brand-100"
               >
                 {tag}
-              </span>
+              </Link>
             ))}
           </div>
         )}
