@@ -18,6 +18,10 @@ interface BlogPageProps {
 
 type PageToken = number | "ellipsis";
 
+function getSingleQueryParam(param: string | string[] | undefined): string {
+  return typeof param === "string" ? param : "";
+}
+
 function buildPageTokens(currentPage: number, totalPages: number): PageToken[] {
   if (totalPages <= 7) {
     return Array.from({ length: totalPages }, (_, i) => i + 1);
@@ -38,22 +42,23 @@ function buildPageTokens(currentPage: number, totalPages: number): PageToken[] {
 
 export default function BlogPage({ posts, tagCounts }: BlogPageProps) {
   const router = useRouter();
+  const { asPath, isReady, pathname, query, replace } = router;
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTagKey, setSelectedTagKey] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    if (!router.isReady) return;
+    if (!isReady) return;
 
-    const q = typeof router.query.q === "string" ? router.query.q : "";
-    const tag = typeof router.query.tag === "string" ? router.query.tag : "";
+    const q = typeof query.q === "string" ? query.q : "";
+    const tag = typeof query.tag === "string" ? query.tag : "";
     const pageQuery =
-      typeof router.query.page === "string" ? Number.parseInt(router.query.page, 10) : NaN;
+      typeof query.page === "string" ? Number.parseInt(query.page, 10) : NaN;
 
     setSearchQuery(q);
     setSelectedTagKey(tag ? normalizeTag(tag) : null);
     setPage(Number.isFinite(pageQuery) && pageQuery > 0 ? pageQuery : 1);
-  }, [router.isReady, router.query.page, router.query.q, router.query.tag]);
+  }, [isReady, query.page, query.q, query.tag]);
 
   const trimmedQuery = searchQuery.trim().toLowerCase();
 
@@ -80,22 +85,52 @@ export default function BlogPage({ posts, tagCounts }: BlogPageProps) {
   const currentPage = Math.min(page, totalPages);
 
   useEffect(() => {
-    if (!router.isReady) return;
+    if (!isReady) return;
 
     const nextQuery: Record<string, string> = {};
     if (trimmedQuery) nextQuery.q = trimmedQuery;
     if (selectedTagKey) nextQuery.tag = selectedTagKey;
     if (currentPage > 1) nextQuery.page = String(currentPage);
 
-    router.replace(
+    if (pathname !== "/blog") return;
+
+    const currentQueryQ = getSingleQueryParam(query.q).trim().toLowerCase();
+    const currentQueryTag = getSingleQueryParam(query.tag).trim().toLowerCase();
+    const currentQueryPage = getSingleQueryParam(query.page);
+
+    const nextQueryQ = nextQuery.q || "";
+    const nextQueryTag = nextQuery.tag || "";
+    const nextQueryPage = nextQuery.page || "";
+
+    const queryIsUpToDate =
+      currentQueryQ === nextQueryQ &&
+      currentQueryTag === nextQueryTag &&
+      currentQueryPage === nextQueryPage;
+
+    if (queryIsUpToDate) return;
+
+    const currentPath = asPath.split("?")[0] || "/blog";
+
+    void replace(
       {
-        pathname: "/blog",
+        pathname: currentPath,
         query: nextQuery,
       },
       undefined,
-      { shallow: true }
+      { shallow: true, scroll: false }
     );
-  }, [router, router.isReady, trimmedQuery, selectedTagKey, currentPage]);
+  }, [
+    asPath,
+    isReady,
+    pathname,
+    query.page,
+    query.q,
+    query.tag,
+    replace,
+    trimmedQuery,
+    selectedTagKey,
+    currentPage,
+  ]);
 
   const paginatedPosts = useMemo(() => {
     const start = (currentPage - 1) * POSTS_PER_PAGE;

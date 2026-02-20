@@ -16,6 +16,9 @@ import {
 } from "@/lib/blog";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 
+const useStaticExport = process.env.STATIC_EXPORT === "true";
+const BLOG_REVALIDATE_SECONDS = 60 * 30;
+
 interface AdjacentPost {
   slug: string;
   title: string;
@@ -175,6 +178,13 @@ export default function BlogPostPage({
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
+  if (!useStaticExport) {
+    return {
+      paths: [],
+      fallback: "blocking",
+    };
+  }
+
   const slugs = getAllPostSlugs();
 
   return {
@@ -221,13 +231,22 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       },
     });
 
-    return {
+    const staticProps = {
       props: {
         post,
         mdxSource,
         previousPost,
         nextPost,
       },
+    };
+
+    if (useStaticExport) {
+      return staticProps;
+    }
+
+    return {
+      ...staticProps,
+      revalidate: BLOG_REVALIDATE_SECONDS,
     };
   } catch (error) {
     // Skip malformed generated MDX entries rather than failing the entire site build.

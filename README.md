@@ -28,22 +28,29 @@ npm run build
 npm run start
 ```
 
+(`npm run start` serves the standalone build output.)
+
 ## Deployment
 
-This project is configured for static site generation and can be deployed to:
+This project is configured for a Next.js server runtime by default (`output: "standalone"`).
 
-### Vercel (Recommended)
+### Coolify (Recommended for self-hosting)
+1. Use the included `Dockerfile`
+2. Build context: repository root
+3. Exposed port: `3000`
+4. Start command is baked into the image (`node server.js`)
+
+This keeps installs/build layers cached between deploys and is typically much faster than generic buildpacks.
+
+### Vercel
 1. Push to GitHub
 2. Connect your repo to [Vercel](https://vercel.com)
 3. Deploy automatically
 
-### Netlify
-1. Build command: `npm run build`
-2. Publish directory: `out`
-3. Deploy
+### Static export (optional)
+If you need a fully static export, set `STATIC_EXPORT=true` for build time and deploy the generated `out/` directory.
 
-### Other Platforms
-The `next.config.js` is configured for static export, so it works on any static hosting service.
+Note: static export disables server features (like API routes).
 
 ## Customization
 

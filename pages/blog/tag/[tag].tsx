@@ -12,6 +12,9 @@ import type { BlogPostMeta, TagCount } from "@/lib/blog";
 import { tagToSlug, POSTS_PER_PAGE } from "@/lib/blog-utils";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 
+const useStaticExport = process.env.STATIC_EXPORT === "true";
+const TAG_REVALIDATE_SECONDS = 60 * 30;
+
 interface TagPageProps {
   tag: string;
   tagSlug: string;
@@ -20,6 +23,10 @@ interface TagPageProps {
 }
 
 type PageToken = number | "ellipsis";
+
+function getSingleQueryParam(param: string | string[] | undefined): string {
+  return typeof param === "string" ? param : "";
+}
 
 function buildPageTokens(currentPage: number, totalPages: number): PageToken[] {
   if (totalPages <= 7) {
@@ -40,34 +47,50 @@ function buildPageTokens(currentPage: number, totalPages: number): PageToken[] {
 
 export default function BlogTagPage({ tag, tagSlug, posts, allTagCounts }: TagPageProps) {
   const router = useRouter();
+  const { asPath, isReady, pathname, query, replace } = router;
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    if (!router.isReady) return;
+    if (!isReady) return;
 
     const pageQuery =
-      typeof router.query.page === "string" ? Number.parseInt(router.query.page, 10) : NaN;
+      typeof query.page === "string" ? Number.parseInt(query.page, 10) : NaN;
     setPage(Number.isFinite(pageQuery) && pageQuery > 0 ? pageQuery : 1);
-  }, [router.isReady, router.query.page]);
+  }, [isReady, query.page]);
 
   const totalPages = Math.max(1, Math.ceil(posts.length / POSTS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
 
   useEffect(() => {
-    if (!router.isReady) return;
+    if (!isReady) return;
+    if (pathname !== "/blog/tag/[tag]") return;
 
     const nextQuery: Record<string, string> = {};
     if (currentPage > 1) nextQuery.page = String(currentPage);
 
-    router.replace(
+    const currentQueryPage = getSingleQueryParam(query.page);
+    const nextQueryPage = nextQuery.page || "";
+    if (currentQueryPage === nextQueryPage) return;
+
+    const currentPath = asPath.split("?")[0] || `/blog/tag/${tagSlug}`;
+
+    void replace(
       {
-        pathname: `/blog/tag/${tagSlug}`,
+        pathname: currentPath,
         query: nextQuery,
       },
       undefined,
-      { shallow: true }
+      { shallow: true, scroll: false }
     );
-  }, [router, router.isReady, currentPage, tagSlug]);
+  }, [
+    asPath,
+    isReady,
+    pathname,
+    query.page,
+    replace,
+    currentPage,
+    tagSlug,
+  ]);
 
   const paginatedPosts = useMemo(() => {
     const start = (currentPage - 1) * POSTS_PER_PAGE;
@@ -256,6 +279,13 @@ export default function BlogTagPage({ tag, tagSlug, posts, allTagCounts }: TagPa
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
+  if (!useStaticExport) {
+    return {
+      paths: [],
+      fallback: "blocking",
+    };
+  }
+
   const posts = getAllPosts();
   const tagCounts = getTagCounts(posts);
 
@@ -290,12 +320,21 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     };
   }
 
-  return {
+  const staticProps = {
     props: {
       tag,
       tagSlug,
       posts: taggedPosts,
       allTagCounts,
     },
+  };
+
+  if (useStaticExport) {
+    return staticProps;
+  }
+
+  return {
+    ...staticProps,
+    revalidate: TAG_REVALIDATE_SECONDS,
   };
 };
