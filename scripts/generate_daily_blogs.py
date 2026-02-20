@@ -221,6 +221,9 @@ Rules:
 - Keep tone punchy and human (not corporate).
 - Excerpt must be 1 sentence, under 170 chars.
 - Tags: 3-6 concise tags.
+- Ryan only uses Next.js for this blog project (`my-portfolio` / `dashwood.net`).
+- Do NOT use `Next.js` as a tag unless the post is explicitly about this blog project.
+- For all other projects, prefer tags like `Laravel`, `Hybrid Architecture`, `Frontend`, `Full-Stack`, `PHP`.
 - `content` must be markdown body only (NO frontmatter).
 """
 
