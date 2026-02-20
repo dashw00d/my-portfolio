@@ -1,0 +1,93 @@
+---
+title: "How We Fixed a Silent Email Bug in Our Laravel Quote Form (And How Tailwind Helped Catch Mobile Layout Issues)"
+date: "2024-07-17"
+excerpt: "A real-world fix for a silent email failure in a Laravel 12 form—and how Tailwind CSS saved us from mobile layout regressions."
+tags: ["Laravel", "Tailwind CSS", "form handling", "debugging", "responsive design"]
+author: "Ryan Dashwood"
+---
+## The Quote Form That Almost Worked Perfectly
+
+At AustinsElite, our quote request form is the front door to new client conversations. It’s a critical touchpoint—simple, clean, and built to convert. The frontend lives in a modern Blade template powered by Laravel 12, styled with Tailwind CSS, and backed by a custom mail handler. Everything *looked* solid. Submissions appeared to go through. Success messages popped up. But then we got the message: "We haven’t received your quote emails."
+
+No errors. No logs. Just silence.
+
+That’s the worst kind of bug.
+
+## The Silent Mail Class Mismatch
+
+Our first clue came from a user reporting a missing quote submission. I checked the logs—nothing. No failed jobs, no exceptions. The form submitted successfully, returned a 200, and redirected as expected. But the email never arrived.
+
+I dug into the controller handling the form:
+
+```php
+Mail::to($email)->send(new QuoteRequestMail($data));
+```
+
+`QuoteRequestMail`—that class existed. It was in `app/Mail/QuoteRequestMail.php`. But something felt off. I opened it and compared it to our working `ContactMail` class. Then I saw it: a namespace mismatch.
+
+The controller was calling:
+
+```php
+use App\Mail\QuoteRequestMail;
+```
+
+But the actual file was saved as `QuoteRequestMail.php`, while the class inside was named `class QuoteMail`. Classic mismatch. PHP didn’t complain because the autoloader found *a* class in the file—but it wasn’t the one we were calling.
+
+So `new QuoteRequestMail($data)` was throwing a `Class 'App\Mail\QuoteRequestMail' not found` error—but because we weren’t wrapping the `Mail::send()` in a try-catch and logging failures, it failed silently. No notification. No trace.
+
+The fix was simple:
+
+```php
+// Rename the class in the file
+class QuoteRequestMail extends Mailable
+```
+
+And add error handling:
+
+```php
+try {
+    Mail::to($email)->send(new QuoteRequestMail($data));
+} catch (Exception $e) {
+    \Log::error('Quote email failed: ' . $e->getMessage());
+}
+```
+
+Suddenly, the emails started flowing. And if they fail again, we’ll know.
+
+## Tailwind to the Rescue on Mobile
+
+While debugging the backend, I noticed something else: on mobile, the footer hero section was smashed into the content. On desktop, it looked great—generous padding, clean separation. But on iPhone, the margin collapsed.
+
+The Blade template used:
+
+```blade
+<div class="mt-20 sm:mt-16 md:mt-20">
+```
+
+Looks fine, right? But here’s the catch: `sm:` applies at 640px, which is *portrait* mobile. So on smaller screens, it was using `mt-16`, but our design needed `mt-8` for mobile to avoid visual clutter.
+
+I adjusted the classes:
+
+```blade
+<div class="mt-20 sm:mt-8 md:mt-16">
+```
+
+Now, mobile gets a tighter margin, tablet scales up, and desktop keeps the full breathability. I tested across devices using Chrome DevTools and confirmed the fix.
+
+What I love about Tailwind is that it makes responsive tweaks *visible* in the markup. No digging through CSS files. No mystery overrides. Just classes that tell you exactly what’s happening—and when.
+
+## Lessons from the Trenches
+
+This two-part bug taught me a few hard lessons:
+
+1. **Silent failures are deadly.** Always wrap external interactions—email, APIs, file writes—in try-catch blocks and log the hell out of them. A 200 response doesn’t mean success.
+
+2. **Class name ≠ file name ≠ class usage.** PHP’s autoloader is forgiving, but that forgiveness hides bugs. Use static analysis tools like PHPStan or Laravel Pint to catch mismatches early.
+
+3. **Responsive design isn’t optional.** Test on real devices, not just emulators. Tailwind’s utility-first approach makes it easy to tweak, but you still have to *look*.
+
+4. **Blade and Tailwind are a powerful combo**—but only if you respect the details. A single misplaced class can break the experience for half your users.
+
+At the end of the day, our quote form now works as intended: submissions go through, emails get sent, and mobile users see a clean, intentional layout. No magic—just attention to detail.
+
+If you’re building forms in Laravel, don’t assume success just because the frontend behaves. Check the backend. Check the logs. And always, *always* test on mobile.

@@ -1,0 +1,60 @@
+---
+title: "How We Decoupled Data from UI in Git Context Using a Client-Side Database"
+date: "2025-11-26"
+excerpt: "We untangled Git Context's frontend by introducing a branch-aware client-side database to manage commit data independently of the UI."
+tags: ["Git", "frontend architecture", "client-side database", "real-time UI", "TypeScript"]
+author: "Ryan Dashwood"
+---
+## The Problem: UI and Data Were Too Close for Comfort
+
+A few months ago, Git Context’s frontend was a house of cards built on tight coupling. Every time a user switched branches or pulled new commits, the UI components reached directly into Git data fetching logic, parsed raw diffs, and managed local state in ad-hoc ways. This worked—until it didn’t.
+
+We started seeing race conditions during branch switches: the Cockpit view would sometimes display commits from the previous branch, or analysis metrics would lag behind the actual state. The root cause? Data management was scattered across React components, useEffects, and service calls. There was no single source of truth, and worse—no awareness of branch context. When the active branch changed, we had no clean way to invalidate stale data or synchronize downstream consumers.
+
+This wasn’t just a bug—it was a design smell. We needed to separate concerns: let the UI render, and let a dedicated layer handle data.
+
+## The Solution: A Client-Side Database with Branch Awareness
+
+We decided to introduce a client-side database to act as the source of truth for commit data. But this wasn’t just localStorage with extra steps. We needed something that could:
+
+- Store structured commit, file, and analysis data
+- Invalidate and reload data when the active Git branch changes
+- Support real-time updates from background sync processes
+- Serve multiple UI components without duplication or inconsistency
+
+Our stack is TypeScript-based, so we built a lightweight database layer using IndexedDB wrapped in a reactive store pattern. We structured it around three core stores: `CommitStore`, `FileChangeStore`, and `AnalysisStore`. Each store is scoped to a branch, meaning data for `main` is siloed from `feature/auth-redesign`.
+
+The key innovation was branch-aware synchronization. When the user switches branches, we don’t just fetch new data—we trigger a coordinated invalidation across all stores, then initiate a fresh sync. This happens in a controlled sequence:
+
+1. Pause all active data subscriptions
+2. Clear stores for the previous branch
+3. Load or fetch data for the new branch
+4. Resume subscriptions with fresh data
+
+This ensured that no component ever saw mixed-state data. It also made testing easier—we could simulate branch switches and verify store consistency.
+
+We exposed this database through a clean service layer, `GitDataContextService`, which the UI consumes via hooks like `useCommits()` or `useLiveAnalysis()`. These hooks don’t talk to APIs directly—they query the local database, which handles sync behind the scenes.
+
+## Implementation: From Tangled Logic to Clean Stores
+
+The refactor touched five core commits, starting with abstracting data access out of the Cockpit UI components. We began by identifying all places where `fetchCommits()` or `getAnalysisResults()` were called directly in components. These were replaced with calls to our new service layer.
+
+Next, we built the IndexedDB wrapper with Dexie.js for simpler schema management. We defined tables like `commits`, `files`, and `analysis`, each with a `branch` field as part of the composite key. This made branch scoping trivial at the query level.
+
+```ts
+// Simplified schema
+const db = new Dexie('GitContextDB');
+db.version(1).stores({
+  commits: 'hash, branch, author, date',
+  files: '[commit+path], branch, status',
+  analysis: 'commit, branch, metrics'
+});
+```
+
+Then came the sync engine. We wrote a `BranchSyncManager` that listens for branch change events (from our Git service) and orchestrates the reload. It uses a simple queue to prevent overlapping syncs and emits progress updates for loading states in the UI.
+
+Finally, we updated the Cockpit UI to use the new `useLiveAnalysis` hook, which subscribes to real-time updates from the `AnalysisStore`. This powered the new Live Analysis tab, where users see metrics update as new commits are processed—without full page reloads or manual refreshes.
+
+The result? Faster loads, zero cross-branch data leaks, and a UI that feels snappier because it’s no longer doing data heavy lifting. More importantly, we now have a foundation for offline support and background sync in future releases.
+
+This refactor didn’t just fix bugs—it changed how we think about data in Git tools. The lesson? Even in client-side apps, a proper database layer can be the difference between fragile UIs and resilient, scalable ones.

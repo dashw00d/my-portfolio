@@ -1,0 +1,73 @@
+---
+title: "Building a Live-Editable Admin Interface with htmx and SQLite in Lockline AI"
+date: "2025-08-18"
+excerpt: "How I used htmx and SQLite in Docker to build a fast, live-editable admin panel for Lockline AI—no heavy JS frameworks needed."
+tags: ["htmx", "Flask", "SQLite", "Docker", "admin interface", "Python"]
+author: "Ryan Dashwood"
+---
+## Why We Needed a Smarter Admin Panel
+
+Lockline AI started as a lean internal tool, but as our team grew, so did the need for non-engineers to tweak configurations—things like feature flags, user roles, and workflow rules. Our original admin interface was static. Any change meant opening a PR or running a script. That wasn’t sustainable.
+
+We needed something live, intuitive, and editable in place—without dragging in React or Vue. The goal: let product managers and ops folks make safe, immediate changes while keeping the stack simple and maintainable.
+
+Enter htmx.
+
+## Making Edits Live with htmx (and Almost No JavaScript)
+
+I’d been watching htmx for a while, intrigued by its promise: modern interactivity without the frontend overhead. The idea is simple—use HTML attributes to trigger AJAX requests, swap content, and update the UI. No client-side routing, no state management libraries. Just HTML that does more.
+
+In Lockline AI’s admin panel, I implemented inline editing using htmx’s `hx-get`, `hx-post`, and `hx-swap` directly in Flask-rendered templates. For example, a user role field now looks like this:
+
+```html
+<td hx-get="/edit/role/{{ user.id }}" 
+    hx-swap="outerHTML">
+    {{ user.role }}
+</td>
+```
+
+Click it, and it swaps out the static text for an editable `<select>` dropdown loaded from a lightweight Flask endpoint. After selection, it `POST`s back and replaces itself with the new value—live, no page refresh.
+
+The backend is just a few Flask routes returning HTML snippets. No JSON APIs, no frontend framework glue. The entire change landed in a single commit on August 18th: 'editable admin, other stuff'. And it worked—first try.
+
+The best part? The team didn’t need training. They just clicked and edited, like a Google Sheet. That’s the htmx win: interactivity that feels native to the web, not bolted on.
+
+## SQLite + Docker: Consistent, Shareable State
+
+Early versions of Lockline AI used in-memory storage, which made admin changes vanish on restart. Not ideal. We needed persistence, but without the ops burden of PostgreSQL or MongoDB.
+
+Switching to SQLite was a no-brainer. Lightweight, file-based, zero-config. But we still had to solve environment parity—dev, staging, and preview instances needed the same schema and seed data.
+
+Solution: Docker with an initialized SQLite volume.
+
+Our `Dockerfile` now runs a setup script that:
+
+- Creates the SQLite DB file if it doesn’t exist
+- Applies migrations via Flask-SQLAlchemy
+- Seeds default admin entries (roles, flags, etc.)
+
+```dockerfile
+COPY scripts/init-db.sh /app/init-db.sh
+RUN chmod +x /app/init-db.sh
+CMD ["/bin/sh", "-c", "/app/init-db.sh && python app.py"]
+```
+
+Now every instance starts with the same baseline. When a teammate pulls the latest image, they get a working admin panel—editable from minute one. No "ask Ryan to send the dump file."
+
+This combo—SQLite for simplicity, Docker for consistency—turned our admin from a fragile script into a shared, mutable control plane.
+
+## Faster UX, Faster Iterations
+
+Since deploying the htmx-powered interface, we’ve seen real gains:
+
+- **Edit-to-commit time dropped from hours to seconds**
+- **Zero frontend bugs reported** (seriously)
+- **Team confidence in self-service ops is up**
+
+We’re also seeing fewer "staging vs prod" surprises because everyone’s testing against the same initialized state. That predictability is gold.
+
+More than that, the stack feels *calm*. No Webpack errors, no hydration mismatches. Just HTML, a Flask backend, and a few smart attributes doing heavy lifting.
+
+htmx didn’t just make the admin editable—it made it feel like part of the web again. And SQLite in Docker proved you don’t need a heavyweight database to build a robust internal tool.
+
+For full-stack devs building lightweight backends: consider skipping the JS framework next time. Sometimes, the fastest way to a live UI is fewer moving parts—not more.

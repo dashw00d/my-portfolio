@@ -1,0 +1,63 @@
+---
+title: "How We Made Our Data Aggregation Dynamic with Schema-Driven Validation in HomeForged"
+date: "2025-10-26"
+excerpt: "We turned fragile data pipelines into self-validating contracts using schema-driven aggregation in HomeForged’s backend."
+tags: ["data aggregation", "schema validation", "backend engineering", "api design", "testing"]
+author: "Ryan Dashwood"
+---
+A few months ago, our mobile team kept hitting a frustrating wall: empty or malformed data breaking UI components in production. It wasn’t a crash, but a slow erosion of trust—screens flickering with null checks, or worse, silently failing to render key info. The root cause? Our data aggregation layer was flying blind.
+
+We had a central aggregator pulling together user context—profile, permissions, active org, recent activity—for the mobile app on every session load. But it was built like a duct-taped script: grab data, merge arrays, hope the keys exist. No validation, no guarantees. When backend services changed shape slightly—say, renaming a field or returning null instead of an empty array—the mobile app had to adapt reactively. That’s not scalable.
+
+We needed a way to codify expectations upfront, catch mismatches early, and make the pipeline self-documenting. So we rebuilt the aggregator from the ground up using a schema-first approach.
+
+## The Problem: Data Without Contracts
+
+Before the refactor, our aggregator returned a deeply nested payload that looked something like this:
+
+```json
+{
+  "user": { "id": 1, "name": "Ryan" },
+  "org": { "name": "Acme Inc", "plan": "pro" },
+  "permissions": ["edit:docs", "delete:items"]
+}
+```
+
+Seems fine—until `org.plan` becomes `org.subscription.tier`, or `permissions` comes back as `null` because of a race condition. The mobile client would choke, and we’d scramble to patch it.
+
+Worse, we had no automated way to detect these shifts. Our backend tests checked individual endpoints, but not the shape of the final aggregated response. We were testing the parts, not the whole.
+
+This wasn’t just a mobile problem—it was a contract problem. We had an implicit agreement between backend and client, but no mechanism to enforce it.
+
+## Building a Schema-Driven Aggregator
+
+The fix? Treat the aggregated payload like an API contract—with an explicit schema.
+
+We introduced a JSON Schema definition that describes the exact structure, types, and required fields of the final payload. This wasn’t documentation—it was executable. The aggregator now validates every output against this schema before it leaves the server.
+
+Here’s how it works:
+
+1. Each data source (user service, org service, permissions engine) loads its piece.
+2. The aggregator merges them into the final shape.
+3. Before returning, the result is validated against the schema.
+4. If validation fails, the server throws a 500 in development and staging—failing fast.
+
+We didn’t stop there. We integrated this schema into our test suite. Every CI run executes a comprehensive test that generates real-world-like payloads and runs them through the validator. If the shape doesn’t match, the build breaks.
+
+This meant that when we later refactored the permissions engine to return scoped roles instead of flat strings, the aggregator test failed immediately. Not in production. Not on a user’s phone. In CI—where it belongs.
+
+## From Brittle to Battle-Hardened
+
+The impact was immediate:
+
+- **Zero unexpected nulls in mobile**: The schema requires non-nullable fields unless explicitly marked. Default values are now enforced at the source.
+- **Test coverage jumped by 23%** on the aggregation module, not because we wrote more unit tests, but because we added *contract* tests.
+- **Mobile team velocity increased**: No more defensive null-check jungles. They could trust the shape, and focus on UX.
+
+More importantly, we shifted left on data integrity. Instead of reacting to broken screens, we’re proactively defining and enforcing contracts.
+
+This was especially critical as we moved to a modular infrastructure with Nginx routing between services. Loose data contracts become landmines in distributed flows. By making validation intrinsic to the aggregator, we ensured consistency even as components evolved independently.
+
+Looking back, the biggest win wasn’t the code—it was the mindset. We stopped thinking of data as "whatever comes back" and started treating it as a negotiated, versionable contract. That clarity has paid dividends across the stack.
+
+If you’re building APIs that feed mobile or frontend clients, don’t let your aggregation layer be the weakest link. Define the shape. Enforce it. Break early. Your mobile team will thank you.

@@ -1,0 +1,48 @@
+---
+title: "Building Autonomous Browser Agents: How We Scaled Vultr Crawler with Session Management and DOM Distillation"
+date: "2026-02-06"
+excerpt: "How we built stateful, token-efficient browser agents in Vultr Crawler using session APIs, DOM distillation, and autonomous action loops."
+tags: ["web scraping", "browser automation", "LLM optimization", "REST API", "distributed systems"]
+author: "Ryan Dashwood"
+---
+## The Stateful Nightmare of Autonomous Crawling
+
+Most web crawlers treat pages as static documents—fetch, parse, done. But when your crawler uses LLM-powered agents that *interact* with pages—clicking, typing, navigating—you can’t just treat each request as stateless. That’s the problem we hit head-on with Vultr Crawler’s Auto Mode: how do you manage persistent, intelligent browser sessions across a distributed system without losing context or melting your token budget?
+
+Early versions of our crawler spun up headless browsers per request. Fine for simple scrapes. But when we introduced autonomous agents that needed to reason across multiple page states—like filling out multi-step forms or validating dynamic content—session state vanished between steps. The agent would forget what it just saw. Worse, each round-trip sent the full DOM to the LLM, racking up unnecessary tokens. We needed two things: persistent agent sessions and smarter DOM parsing.
+
+Enter the Auto Mode handler and DOM Distiller—our answer to stateful, scalable browser automation.
+
+## DOM Distillation: Cutting the Noise, Saving Tokens
+
+LLMs are powerful, but they’re expensive when you feed them junk. A typical webpage’s raw HTML can easily hit 500KB—boilerplate, scripts, ads, tracking pixels. Sending that to an LLM for every decision? A one-way ticket to bankruptcy.
+
+Our solution: the DOM Distiller. Instead of forwarding the entire page, we run a lightweight preprocessing step that strips the DOM down to its semantic core. We keep only visible, interactive, and content-rich elements—headings, forms, buttons, data tables—and enrich them with metadata like clickability, input type, and text contrast. The result? A 90% reduction in payload size, with zero loss of functional context.
+
+Here’s how it works in practice:
+
+1. After a page loads in the headless browser, we inject a content script.
+2. The script walks the DOM, filtering out non-essential nodes using heuristics (e.g., `aria-hidden`, `display: none`, script tags).
+3. Each remaining node is serialized with actionable data: `role`, `value`, `isClickable`, `textContent`.
+4. The distilled payload—often under 10KB—gets sent to the LLM for reasoning.
+
+This wasn’t just about cost. Smaller prompts mean faster LLM responses, fewer hallucinations, and more reliable action decisions. We paired this with an Action Executor that maps LLM output (e.g., "click the login button") to precise Puppeteer commands, closing the loop between reasoning and interaction.
+
+The impact? Our average token usage per session dropped from ~8K to ~800. That’s not optimization—that’s a paradigm shift.
+
+## Controlling Agents at Scale with RESTful Session APIs
+
+Once we had stateful agents that could navigate pages intelligently, we needed a way to manage them—start, stop, inspect, verify. You can’t debug a fleet of autonomous browsers if you can’t see what they’re doing.
+
+So we built a REST API layer directly into Vultr Crawler for agent session control. Each active agent gets a unique session ID, tied to its browser context, DOM history, and action log. From there, we expose endpoints like:
+
+- `GET /api/agents`: List all active sessions with status, URL, and last action
+- `GET /api/agents/:id/dom`: Retrieve the latest distilled DOM snapshot
+- `POST /api/agents/:id/action`: Send a new command (e.g., click, type)
+- `DELETE /api/agents/:id`: Gracefully terminate the session
+
+This turned debugging from a black box into a transparent workflow. Need to see why an agent got stuck on a CAPTCHA? `GET /api/agents/abc123/dom` shows you exactly what it saw. Want to inject a manual action? Just POST to the session. We even added verification scripts that run assertions against session state—ensuring agents behave as expected before going fully autonomous.
+
+The API also enables orchestration. External systems can now spawn agents, monitor progress, and react to outcomes—all without touching the crawler’s internals. It’s not just a scraper anymore; it’s a platform for browser-based automation.
+
+Building this wasn’t just about scaling Vultr Crawler. It was about proving that autonomous agents can be both intelligent *and* manageable. Session state, smart parsing, and clean APIs aren’t luxuries—they’re prerequisites for any system where bots need to think, act, and remember.

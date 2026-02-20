@@ -1,0 +1,90 @@
+---
+title: "How We Built a Real-Time Fleet Dashboard for Distributed Scraping Workers in GhostGraph"
+date: "2026-02-10"
+excerpt: "We built a lightweight, real-time dashboard to monitor GhostGraph's distributed scraping workers using FastAPI, Redis Streams, and server-sent events."
+tags: ["FastAPI", "Redis Streams", "real-time monitoring", "distributed systems", "web scraping", "Python"]
+author: "Ryan Dashwood"
+---
+Managing a growing fleet of distributed scraping workers used to feel like flying blind. In GhostGraph, we run dozens of long-lived Python workers across multiple Vultr instances, pulling data from tricky targets that love to block, throttle, or return garbage. When something goes wrong—like a worker freezing or a cron job missing its window—it’s not enough to wait for logs or alerts. You need to *see* it, right now, in context.
+
+So we built a real-time dashboard. Not with React, not with WebSockets, not with a mountain of state management. Just plain HTML, server-sent events (SSE), and the tools we already trusted: FastAPI and Redis Streams.
+
+## The Problem with Invisible Workers
+
+Before the dashboard, debugging was reactive and painful. A cron job would fail silently. A worker would stall. We’d notice hours later—usually when data pipelines broke downstream. We had logs, sure, but they were scattered across servers, and we had no central view of worker health, job queue depth, or execution frequency.
+
+We needed visibility. Not just for ops, but for developers and analysts who needed to know: *Is my scraper running? Did it run? Why not?*
+
+The answer wasn’t more logging—it was real-time observability baked into the system.
+
+## FastAPI Routers: Exposing the Fleet’s Pulse
+
+We started by structuring our backend routes around two core resources: `workers` and `jobs`. Using FastAPI, we built lightweight routers to expose their state:
+
+```python
+@router.get("/workers")
+async def list_workers():
+    return worker_registry.get_all()
+
+@router.get("/jobs/pending")
+async def pending_jobs():
+    length = await redis.xlen("scrape_jobs")
+    return {"count": length}
+```
+
+Simple, but powerful. These endpoints became the source of truth for the dashboard. We also added metadata—worker uptime, last heartbeat, assigned tasks—so we could detect stale or unresponsive instances.
+
+But polling these endpoints every few seconds? That felt clunky. We wanted *push*, not *pull*.
+
+That’s where Redis Streams came in.
+
+## Real-Time Updates with Redis Streams and SSE
+
+We were already using Redis Streams to manage job queues, so we repurposed it as an event bus. Every time a worker started, finished, or errored, it published a message to a `fleet_events` stream:
+
+```python
+await redis.xadd("fleet_events", {
+    "type": "worker_heartbeat",
+    "worker_id": worker_id,
+    "timestamp": time.time(),
+    "job_id": current_job
+})
+```
+
+On the backend, we spun up a FastAPI endpoint that opened a server-sent events stream and yielded updates as they arrived:
+
+```python
+@router.get("/events")
+async def event_stream():
+    async def event_generator():
+        while True:
+            events = await redis.xread({"fleet_events": "$"}, count=1, block=1000)
+            if events:
+                for _, message_list in events:
+                    for msg_id, fields in message_list:
+                        yield f"data: {json.dumps(fields)}\n\n"
+            await asyncio.sleep(0.1)
+    return EventSourceResponse(event_generator())
+```
+
+In the browser, it’s just:
+
+```javascript
+const eventSource = new EventSource("/api/events");
+eventSource.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    updateDashboard(data);
+};
+```
+
+No WebSockets, no external broker, no frontend framework. Just HTML that updates itself as events flow in. We used Alpine.js for minimal interactivity, but even that’s optional.
+
+## Lightweight, Deployable, and Surprisingly Capable
+
+One of the best decisions was to avoid heavy frontend tooling. No build step, no bundler, no npm. The dashboard is a single `index.html` served directly by FastAPI, with inline JS and CSS. It deploys with the API, scales with it, and survives even when other services flake.
+
+We added simple visual indicators: green for active workers, red for stale ones, a counter for pending jobs, and a timeline of recent cron executions. It’s not flashy, but it’s *immediately* useful.
+
+Since deploying it, mean time to detect worker failures dropped from *hours* to *seconds*. We caught a stuck worker during a standup—live, on the big screen.
+
+Building this taught us that real-time observability doesn’t need complexity. With Redis Streams as a source of truth and SSE as a delivery mechanism, you can go from zero to live dashboard in a weekend. And sometimes, that’s all you need to stop flying blind.

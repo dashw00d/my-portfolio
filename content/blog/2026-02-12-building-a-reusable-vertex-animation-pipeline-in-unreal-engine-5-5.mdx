@@ -1,0 +1,55 @@
+---
+title: "Building a Reusable Vertex Animation Pipeline in Unreal Engine 5.5"
+date: "2026-02-12"
+excerpt: "How I automated VAT imports and playback in UE 5.5 using Python, master materials, and Niagara for faster character animation workflows."
+tags: ["Unreal Engine", "Vertex Animation Textures", "Python Automation", "Niagara", "Technical Art", "Pipeline Tools"]
+author: "Ryan Dashwood"
+---
+## The VAT Grind: Why Manual Workflows Don’t Scale
+
+If you’ve worked with vertex animation textures (VAT) in Unreal Engine, you know the drill: export EXRs from your DCC, import them one-by-one, set up material parameters, wire up timelines, and pray the UVs align. It’s tedious, error-prone, and doesn’t scale—especially when you’re iterating on multiple animated props or characters. At Austin’s Elite (legacy), we used VAT for cloth simulations and creature deformations, but each new asset meant 20 minutes of boilerplate setup. With UE 5.5’s improved texture streaming and Niagara integration, I saw a chance to build a pipeline that *just works*—so I did.
+
+The goal was simple: drop a set of EXRs into a folder, run a script, and have a fully tagged, material-ready VAT asset in the content browser. No manual tweaking. No missed parameters. Just animation, ready to play.
+
+## Automating the Grunt Work with Python
+
+Unreal’s Python API has come a long way, and UE 5.5 made it stable enough for production scripting. I wrote a lightweight editor script that watches a designated folder (e.g., `/Import/VAT/`) and processes any new EXR sequences dropped in. Here’s what it does:
+
+- Detects frame count, resolution, and channel packing (RGB = position, A = mask)
+- Imports the sequence as a 2D texture array with compression settings optimized for floating-point data
+- Creates a data asset to store metadata: frame rate, loop count, total frames
+- Tags the asset with a custom `VAT_Source` label for easy querying
+
+The magic is in the automation of metadata. Instead of hardcoding frame rates or relying on naming conventions, the script extracts timing from the filename (e.g., `Cloth_Sim_30fps_%04d.exr`) and stores it in a `DataAsset`. This lets downstream systems—like Niagara or Blueprints—query playback settings dynamically.
+
+```python
+# Snippet: Auto-tagging VAT assets
+asset_registry.set_metadata_tag(texture, "VAT_Source", "True")
+asset_registry.set_metadata_tag(data_asset, "FrameRate", str(fps))
+```
+
+This step alone cut import time from 20 minutes to under 2. And because everything is tagged, I can write asset audit tools or auto-generate documentation later. Future-proofing for the win.
+
+## Master Materials & Niagara: One Shader to Rule Them All
+
+With assets auto-imported, the next challenge was playback. We used to build a new material for every VAT, copying the same UV offset math and time sampling logic. Not anymore.
+
+I built a **VAT Master Material** that handles all standard playback modes: loop, ping-pong, play-once, and even speed ramping. It uses a `Scalar Parameter Collection` for global time control and dynamic parameters for per-instance overrides. The material reads the frame count and UV range from the metadata asset, so it adapts to any input resolution or length.
+
+But the real game-changer? Integrating it with **Niagara**.
+
+Instead of relying on Blueprints or timelines, I built a Niagara system that reads the VAT metadata and drives playback directly in the particle graph. This lets me:
+
+- Sync vertex animations to particle events (e.g., debris spawning on cloth tear)
+- Blend between multiple VATs using curve controls
+- Offload time management from the CPU entirely
+
+The Niagara module pulls frame count and FPS from the data asset via a custom `VAT Player` parameter initializer, then uses `Floor(Time * FPS) / TotalFrames` to index into the texture array. No external time input needed—just plug in the texture, and it plays.
+
+This system is now live in **Vertex Anim**, our internal toolkit, and has already been used to streamline animation for two prototype characters in **GhostGraph**. No more copy-pasting material graphs. No more broken references. Just drag, drop, and go.
+
+## What’s Next?
+
+This pipeline isn’t just about saving time—it’s about enabling iteration. When artists can import and test a new VAT in under a minute, they’re more likely to experiment. And that’s where the magic happens.
+
+Next up: adding support for sparse VATs (only storing delta frames) and integrating with Control Rig for hybrid skeletal/VAT characters. Because the future of animation isn’t just high-fidelity—it’s fast, flexible, and frictionless.

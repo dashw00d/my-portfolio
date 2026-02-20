@@ -1,0 +1,75 @@
+---
+title: "Why We Swapped to SQLite for Local Development in Our AI-Powered Lead Gen App"
+date: "2025-08-02"
+excerpt: "We switched to SQLite for local dev in our Dockerized AI app—here’s how it simplified setup and boosted team velocity."
+tags: ["SQLite", "Docker", "Python", "Developer Experience", "AI Applications"]
+author: "Ryan Dashwood"
+---
+## The Local DB Setup Was Slowing Us Down
+
+Before last week, every new dev on Lockline AI had to jump through hoops just to get the local environment running. We were using Postgres in Docker for both production and development, which sounded clean in theory—but in practice, it meant every `docker-compose up` came with a side of "why won’t the database connect?".
+
+The issues weren’t exotic. Sometimes it was a stale volume. Other times, a port conflict on 5432 from some forgotten Postgres instance lurking from a side project. Migrations would fail because the local schema drifted. Onboarding a teammate? Budget two hours just for database setup.
+
+We’re building an AI-powered lead generation tool with Flask and htmx—fast, lightweight, and focused on rapid iteration. But our local dev experience felt like pushing a boulder uphill. The irony wasn’t lost on us: we’re using AI to streamline sales workflows, yet our own development flow was anything but smooth.
+
+Something had to give.
+
+## Why SQLite Was the Obvious (But Overlooked) Fix
+
+We didn’t start out looking to replace Postgres. But after one too many "works on my machine" moments, we asked: what if we just used SQLite for local development?
+
+At first glance, it seemed like a step backward. SQLite is "for small apps," right? Not for something with AI pipelines, async background jobs, and real user data. But then we remembered: this wasn’t for production. This was for *local development*—where the priorities are speed, simplicity, and consistency.
+
+SQLite nailed all three:
+
+- **Zero configuration**: No Docker container for the DB. No credentials, no ports, no volumes. Just a `.db` file.
+- **Portability**: The entire database lives in a file that’s easy to delete, reset, or git-ignore. New dev? `git clone`, `pip install -e .`, and you’re up.
+- **Docker compatibility**: We still run the Flask app in Docker—SQLite just runs inside that same container. No networking headaches.
+
+And critically, SQLite speaks SQL. Our ORM (SQLAlchemy) didn’t care. Our migration scripts (Alembic) didn’t care. The AI services that query lead data? They didn’t care either. As long as the schema’s right, the backend logic works the same.
+
+The switch wasn’t about scaling down—it was about optimizing for developer time.
+
+## Making It Work (Safely) in Docker
+
+The actual change was trivial—just a few lines in our config:
+
+```python
+# config.py
+def get_database_url():
+    if os.environ.get("FLASK_ENV") == "development":
+        return "sqlite:///instance/lockline_dev.db"
+    else:
+        return "postgresql://..."
+```
+
+We updated `docker-compose.yml` to skip the Postgres service in dev and mounted the instance volume so the `.db` file persists across restarts (but not across rebuilds, which is fine).
+
+The trickier part was ensuring we didn’t accidentally commit database files or run SQLite in production. We added:
+
+- `.gitignore` entry for `instance/*.db`
+- A startup check that warns if SQLite is used outside development
+- CI tests that run migrations against both SQLite and Postgres to catch dialect issues early
+
+We also made sure our migration scripts avoided Postgres-specific features (like JSONB or partial indexes) during dev—either by conditionally skipping or using standard SQL equivalents. So far, zero conflicts.
+
+The commit was small—'switched to sqlite for development, added gitignore'—but the impact wasn’t. Onboarding time dropped from hours to minutes. Local rebuilds are faster. And we’re not wasting mental RAM on database plumbing.
+
+## When SQLite Works (And When It Doesn’t)
+
+Let’s be clear: SQLite isn’t a universal replacement. It’s not for production workloads with heavy write concurrency or complex replication. If you’re building the next Twitter, stick with Postgres or similar.
+
+But for local development in an AI-driven, Dockerized Flask app? It’s a no-brainer.
+
+We’ve found SQLite works best when:
+
+- Your app is read-heavy during dev (ours is—AI scoring runs async)
+- You’re using an ORM that abstracts dialect differences
+- Your team values fast iteration over database realism
+
+It falls short when you’re testing full-text search, geospatial queries, or complex triggers that rely on DB-specific features. In those cases, we spin up a Postgres container selectively—but that’s the exception, not the rule.
+
+The bigger lesson? Tooling should serve the team, not the other way around. We got caught up in the "right" architecture and overlooked the simplest solution. Sometimes, the best database is the one you don’t have to think about.
+
+Now, when I spin up Lockline AI locally, it just works. And that’s a win worth writing about.

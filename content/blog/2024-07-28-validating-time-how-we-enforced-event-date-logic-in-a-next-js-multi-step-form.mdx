@@ -1,0 +1,104 @@
+---
+title: "Validating Time: How We Enforced Event Date Logic in a Next.js Multi-Step Form"
+date: "2024-07-28"
+excerpt: "How we built reusable, conditional date validation for a multi-step form in Next.js using React Hook Form and Zod—decoupled for testability."
+tags: ["Next.js", "React Hook Form", "Zod", "form validation", "TypeScript"]
+author: "Ryan Dashwood"
+---
+## Breaking Down the Form Architecture
+
+At AustinsElite, our onboarding flow guides users through a multi-step process to submit event details—ranging from weddings to corporate gatherings. While the primary production app runs on Laravel 12, we’ve been iterating on a companion Next.js interface for specific client-facing workflows, including this form.
+
+We chose React Hook Form for its performance and flexibility with complex state, paired with Zod for schema validation. This combo gives us type safety, clear error handling, and seamless integration with TypeScript. The form spans multiple steps, so we needed a way to manage state across stages without losing validation integrity or triggering unnecessary re-renders.
+
+Each step is a separate component, but they share a single `useForm` instance initialized at the top level with `useFormContext`. This keeps form state unified while allowing logical separation of concerns. The real challenge? Conditional validation based on event type—specifically, dates.
+
+## The Conditional Date Problem
+
+Halfway through the form, users select their event type: wedding, birthday, conference, etc. If they pick 'wedding', we require both a ceremony date and a reception date. For all other events, just a single event date is enough. But here’s the catch: both sets of fields exist in the DOM (for flexibility), so we can’t rely on visibility alone to control validation.
+
+We needed rules that adapt:
+
+- If event type is 'wedding', validate `weddingCeremonyDate` and `weddingReceptionDate`.
+- Otherwise, validate `eventDate`.
+- In all cases, dates must be in the future.
+- And no, 'tomorrow' isn’t good enough—we require at least 48 hours out to allow for planning.
+
+Our first pass used inline validation within the schema, but it got messy fast. We were embedding business logic directly into Zod, making it harder to test and reuse. Plus, conditional branching in Zod schemas can quickly become unreadable when dealing with cross-field dependencies.
+
+## Abstracting Logic into Reusable Hooks
+
+The fix? Pull the validation logic out entirely and make it composable.
+
+We created a custom hook, `useEventDateValidation`, that returns a Zod schema based on the current event type. This keeps the business rule—'weddings need two future dates, others need one'—decoupled from the form component.
+
+Here’s a simplified version:
+
+```ts
+// hooks/useEventDateValidation.ts
+import { z } from 'zod';
+
+export const useEventDateValidation = (eventType: string) => {
+  const isWedding = eventType === 'wedding';
+
+  return z.object({
+    eventDate: isWedding
+      ? z.never().optional()
+      : z.coerce.date().refine(
+          (date) => isFutureDateWithBuffer(date),
+          'Event date must be at least 48 hours ahead'
+        ),
+    weddingCeremonyDate: isWedding
+      ? z.coerce.date().refine(
+          (date) => isFutureDateWithBuffer(date),
+          'Ceremony date must be at least 48 hours ahead'
+        )
+      : z.never().optional(),
+    weddingReceptionDate: isWedding
+      ? z.coerce.date().refine(
+          (date) => isFutureDateWithBuffer(date),
+          'Reception date must be at least 48 hours ahead'
+        )
+      : z.never().optional(),
+  });
+};
+
+const isFutureDateWithBuffer = (date: Date) => {
+  const now = new Date();
+  const twoDaysFromNow = new Date(now.setDate(now.getDate() + 2));
+  return date >= twoDaysFromNow;
+};
+```
+
+Back in the form, we call this hook with the current `eventType` value (from form state) and pass the resulting schema to React Hook Form’s `useForm`:
+
+```ts
+const { eventType } = useWatch({ control }); // from React Hook Form
+const schema = useEventDateValidation(eventType);
+
+const methods = useForm({
+  resolver: zodResolver(schema),
+  defaultValues: initialValues,
+});
+```
+
+Now, whenever `eventType` changes, the validation schema updates dynamically. And because the logic lives in a standalone hook, we can unit test it independently:
+
+```ts
+// tests/useEventDateValidation.test.ts
+it('requires eventDate for non-weddings', () => {
+  const schema = useEventDateValidation('birthday');
+  expect(schema.safeParse({ eventDate: yesterday }).success).toBe(false);
+});
+
+it('requires wedding dates for weddings', () => {
+  const schema = useEventDateValidation('wedding');
+  expect(schema.safeParse({ weddingCeremonyDate: tomorrow }).success).toBe(false);
+});
+```
+
+This pattern turned a tangled validation problem into something maintainable, testable, and reusable across other forms with similar branching logic.
+
+The commit on July 28th—'added event date & wedding date validation'—was small in lines changed but big in impact. It closed a gap in our data integrity and set a precedent for how we handle conditional logic moving forward: extract, abstract, test.
+
+Form validation isn’t just about preventing bad input—it’s about modeling real-world rules clearly and reliably. And when those rules change? You’ll be glad you didn’t bake them into your JSX.

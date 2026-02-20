@@ -1,0 +1,71 @@
+---
+title: "From Chaos to Clarity: How We Unified Our Worker Architecture with ARQ in the Vultr Scraper"
+date: "2026-01-24"
+excerpt: "We replaced a tangled mess of Python workers with ARQ and Redis, cutting complexity and boosting reliability in our scraping pipeline."
+tags: ["python", "arq", "redis", "distributed-workers", "web-scraping", "architecture"]
+author: "Ryan Dashwood"
+---
+## The Worker Wild West Was Killing Our Velocity
+
+A few months ago, our Vultr scraper looked like a patchwork quilt of scripts that somehow held together—until it didn’t. We had `worker.py`, `crawler_worker.py`, and even a rogue `monitor_worker.py` lurking in a corner. Each had its own entry point, logging style, retry logic (or lack thereof), and deployment quirks.
+
+Running them meant juggling multiple systemd services, inconsistent error handling, and a debugging experience that felt like forensic archaeology. One worker used threading, another asyncio, and none shared a common interface. When a job failed, we’d often have to SSH into the box, tail logs manually, and guess what went wrong. It wasn’t scalable. It wasn’t maintainable. And honestly, it was kind of embarrassing.
+
+The worst part? Adding a new scraping task meant copying and pasting boilerplate, tweaking a few lines, and hoping it didn’t break the fragile balance. We needed a system that was predictable, testable, and—above all—simple to reason about.
+
+## Enter ARQ: One Queue to Rule Them All
+
+We’d been eyeing ARQ for a while. It’s a lightweight, Redis-backed async task queue for Python that plays beautifully with asyncio and doesn’t come with the overhead of Celery. When we finally committed to the migration—kicking off with the `chore: add ruff linting config and update worker architecture to arq-only` commit—we weren’t just switching libraries. We were redesigning our entire execution model.
+
+The first step was defining a clean job interface. Instead of scattered scripts, we created a single `tasks.py` where every scraping job became an async function:
+
+```python
+from arq import cron
+
+async def scrape_vultr_pricing(ctx):
+    async with aiohttp.ClientSession() as session:
+        # ... scraping logic
+        return {'status': 'success', 'updated': 42}
+
+async def check_endpoint_health(ctx):
+    # ... health check
+    return {'status': 'ok'}
+```
+
+Then, we set up a centralized worker using ARQ’s `WorkerSettings`:
+
+```python
+from arq import WorkerSettings
+
+class WorkerSettings(WorkerSettings):
+    functions = [scrape_vultr_pricing, check_endpoint_health]
+    cron_jobs = [cron(scrape_vultr_pricing, minute={0, 15, 30, 45})]
+    redis_settings = RedisSettings(host='localhost', port=6379)
+```
+
+With this, we replaced five separate worker processes with one. One process. One log stream. One deployment target.
+
+We also gained ARQ’s built-in retry mechanics. Jobs that failed due to transient network issues now retried with exponential backoff—no more manual restarts. We configured `max_tries=3` and `retry_delay=5`, and suddenly, flaky endpoints stopped taking down our entire pipeline.
+
+And because ARQ uses Redis, we got visibility for free. A quick `redis-cli` query showed pending, in-progress, and failed jobs. No more black boxes.
+
+## What Changed? Everything (For the Better)
+
+Since flipping the switch, our operational load has dropped dramatically. Deployments are simpler: one Docker container, one systemd unit, one entry point. No more syncing config files across N workers. No more wondering which one is actually running.
+
+Testing improved too. Because each job is a standalone async function, we can unit test them without spinning up workers or mocking complex entry points. We write simple pytest cases that `await` the function directly—no queues, no Redis, just pure logic.
+
+```python
+@pytest.mark.asyncio
+async def test_scrape_vultr_pricing_returns_data(mock_aiohttp_get):
+    result = await scrape_vultr_pricing({})
+    assert result['updated'] > 0
+```
+
+Observability got a massive upgrade. We plugged ARQ into our existing logging pipeline, and now every job logs its start, result, and exceptions with consistent structure. When something fails, we see the full traceback in our monitoring tool—no SSH required.
+
+Even code reviews got better. Instead of debating "where should this new function live?", we now ask "which existing task can we extend?" The architecture guides the conversation. The `arq-only` migration didn’t just clean up technical debt—it made us faster, more confident, and less reactive.
+
+If you’re running a scraping system (or any job-heavy backend) with multiple disjointed workers, I’d strongly recommend taking a hard look at ARQ. It’s not magic, but it *does* force you into a clean, async-first pattern that scales way better than duct-taped scripts. For us, it was the difference between managing chaos and building deliberately.
+
+And hey—if you’re stuck on a similar migration, hit me up. I’ve got scars (and working code) to prove it’s worth it.

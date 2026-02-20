@@ -1,0 +1,57 @@
+---
+title: "How We Built a Resilient File Serving Layer with Fallback and Caching in a Legacy PHP App"
+date: "2025-12-19"
+excerpt: "How we kept assets online during a legacy system migration using smart fallbacks and local caching in PHP."
+tags: ["PHP", "Legacy Systems", "Caching", "File Serving", "Modernization"]
+author: "Ryan Dashwood"
+---
+## The Problem: Broken Assets in a Fading Legacy System
+
+On December 19, 2025, we were deep in the trenches of decommissioning AustinsElite (Legacy)—a long-running PHP monolith built on a custom framework with selective Laravel components. As we migrated functionality to newer systems, one issue became impossible to ignore: broken image and file links all over the site.
+
+Users were seeing missing profile pictures, event banners, and downloadable resources. Why? Because we’d moved or restructured assets in the new system, but the old URLs were still embedded everywhere—from database entries to cached HTML. Redirecting every single path wasn’t feasible. We needed a solution that could serve files *now*, without downtime, while we worked on the long-term migration.
+
+The old site was still running, so the files technically existed—but we couldn’t rely on it forever. We needed a bridge. Not just a redirect, but a smart, resilient layer that could fetch, cache, and serve files with zero user impact.
+
+## Building the FileBridgeHelper: Fallback + Cache-First Strategy
+
+Enter `FileBridgeHelper`—a new class designed to serve files with automatic fallback and local caching. The goal was simple: when a file request comes in, try to serve it from our *current* system first. If it’s not there, pull it from the legacy domain, cache it locally, and serve it from now on.
+
+Here’s how it works:
+
+1. **Check local storage first** — We use Laravel’s `Storage::disk('public')` to see if the file already exists in our modern asset folder.
+2. **If missing, proxy from legacy site** — Using Guzzle, we make a silent request to the old domain’s URL (e.g., `https://old.austinselite.com/uploads/events/123.jpg`).
+3. **Cache on success** — If the file exists there, we save it to our local public disk so future requests hit local storage.
+4. **Serve with correct headers** — We stream the file back with proper MIME type, cache control, and disposition headers to avoid client-side issues.
+
+The implementation was wrapped in a controller method that accepts a hashed or sanitized path:
+
+```php
+public function serveFile($path)
+{
+    $helper = new FileBridgeHelper();
+    return $helper->getFile($path);
+}
+```
+
+We added aggressive error handling: timeouts, 404s from the old site, corrupted downloads, and disk write failures. Every failure logs gracefully and returns a 404 *without* breaking the user experience.
+
+We also baked in a cache-busting option using file hashes in URLs (via signed routes) so we could invalidate on demand. No more stale assets lingering after updates.
+
+This wasn’t just a quick fix—it was a deliberate pattern to decouple our availability from the legacy system’s uptime. Within hours of deployment, missing images vanished. The site felt faster, too, because repeated asset requests were served locally after the first hit.
+
+## Lessons Learned: Resilience Over Perfection
+
+Building `FileBridgeHelper` taught us a few hard lessons about maintaining legacy systems during transition.
+
+**Error handling is everything.** At first, we didn’t time out the Guzzle request fast enough. When the old server was slow, our site crawled. We reduced the timeout to 3 seconds and added retries with exponential backoff. Fail fast, fail quietly.
+
+**Caching has hidden costs.** Disk space usage spiked initially because we weren’t pruning old files. We added a weekly `artisan` command to clean files not accessed in 90 days. Now it’s sustainable.
+
+**Cache invalidation is still a hard problem.** We thought we could rely on file paths alone, but some legacy content changed without URL updates. We now allow admins to purge specific asset paths via a dashboard button, which deletes the local copy and forces a fresh fetch next time.
+
+Most importantly, we realized that *resilience doesn’t require rewriting*. You can make a legacy system behave like a modern one with thoughtful abstractions. `FileBridgeHelper` wasn’t glamorous, but it bought us months of stability during a risky transition.
+
+And it’s not just for files—we’re already adapting the pattern for API data fallbacks.
+
+If you’re maintaining a legacy PHP app while building the next version, don’t underestimate the power of a small, well-designed bridge. Sometimes the best modernization strategy isn’t a rewrite—it’s a smart wrapper that keeps things running while you plan the next move.

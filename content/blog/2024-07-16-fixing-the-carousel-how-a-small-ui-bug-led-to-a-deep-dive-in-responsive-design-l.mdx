@@ -1,0 +1,47 @@
+---
+title: "Fixing the Carousel: How a Small UI Bug Led to a Deep Dive in Responsive Design Logic"
+date: "2024-07-16"
+excerpt: "A seemingly simple carousel bug revealed complex responsive design challenges in the AustinsElite Laravel 12 app."
+tags: ["Laravel", "Responsive Design", "UI/UX", "Frontend Engineering", "Carousel", "Mobile UX"]
+author: "Ryan Dashwood"
+---
+## The Bug That Wasn’t Just About Slides
+
+Last week, while reviewing the mobile experience in AustinsElite—a Laravel 12 application I’ve been refining for better UX—I noticed something off: the homepage carousel was showing three items on tablet-sized screens instead of the intended two. At first glance, it seemed like a minor visual inconsistency. But as anyone who’s wrestled with responsive UIs knows, these small quirks often point to deeper logic gaps.
+
+The original implementation used a mix of Tailwind CSS classes and inline JavaScript to determine how many items to display and how far to scroll on navigation. It worked fine on desktop and mobile extremes, but fell apart in the middle—specifically between 768px and 1024px. That’s where our users spend a lot of time, especially on iPads and smaller laptops. The commit message—'fixed carousel a bit, should display two at a time and everything'—might sound casual, but the fix required rethinking how we handle conditional rendering and scroll behavior across breakpoints.
+
+## Cracking the Logic: From CSS Hacks to Intentional State
+
+Initially, visibility was controlled purely through CSS: `hidden` and `flex` classes toggled based on screen size. The problem? CSS alone couldn’t influence the JavaScript scroll offset. When users clicked "next," the carousel scrolled by one full item, but because the DOM still contained all items (just hidden), the alignment was thrown off. On some viewports, this meant the third item would peek into view, breaking the clean two-item layout we wanted.
+
+The solution had to be bidirectional: CSS *and* JavaScript needed to agree on what "two items at a time" actually meant.
+
+I refactored the carousel logic to calculate visible items based on window width using a simple function:
+
+```javascript
+function getVisibleItems() {
+  const width = window.innerWidth;
+  if (width < 640) return 1;
+  if (width < 1024) return 2;
+  return 3;
+}
+```
+
+This value now drives both the styling (via dynamic class assignment) and the scroll behavior (by setting `scrollBy({ left: itemWidth * getVisibleItems(), behavior: 'smooth' })`). Instead of assuming scroll distance, we compute it based on what’s actually visible.
+
+I also replaced fragile margin-based spacing with `scroll-snap` and `gap` utilities in Flexbox, ensuring consistent item alignment regardless of container width. This reduced reliance on magic numbers and made the layout more predictable.
+
+The result? A carousel that consistently shows exactly two items on tablets, scrolls cleanly, and maintains visual rhythm across interactions.
+
+## Responsive Design Isn’t Just Media Queries
+
+This fix reminded me that responsive design isn’t just about stacking columns on small screens. It’s about creating *adaptive logic*—systems that respond cohesively across layout, interaction, and state.
+
+In the past, I might’ve patched this with a CSS-only override. But this time, I treated the carousel as a state-driven component, even though it’s part of a Laravel 12 app without a frontend framework. We’re not using React or Next.js here—this is vanilla JS enhancing server-rendered Blade templates. That makes consistency even more critical, because there’s no virtual DOM to keep things in sync.
+
+By aligning JavaScript behavior with CSS visibility rules, we ensured that what the user sees is exactly what the controls act upon. No more phantom scrolls. No more half-visible items.
+
+This change was part of a broader month-long push to tighten up mobile UX in AustinsElite: fixing margin inconsistencies, improving touch targets, and auditing component visibility across breakpoints. The carousel was just one piece, but it highlighted a pattern: small UI bugs often stem from mismatched assumptions between styling and behavior.
+
+Going forward, I’m applying this same principle—"render and behavior must agree"—to other interactive elements like dropdowns and tabs. Because in responsive design, the real challenge isn’t making things fit. It’s making them *behave*.

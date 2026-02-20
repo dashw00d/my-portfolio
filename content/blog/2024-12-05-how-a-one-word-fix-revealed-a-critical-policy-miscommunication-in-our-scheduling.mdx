@@ -1,0 +1,80 @@
+---
+title: "How a One-Word Fix Revealed a Critical Policy Miscommunication in Our Scheduling Flow"
+date: "2024-12-05"
+excerpt: "A typo in a Blade template exposed a policy communication gap that was eroding user trust—here’s how we fixed it and built safeguards."
+tags: ["Laravel", "Blade", "user experience", "error handling", "content linting", "policy messaging"]
+author: "Ryan Dashwood"
+---
+## The Typo That Shouldn’t Have Mattered (But Did)
+
+Last week, I merged a commit that changed one word: `fourteen` to `thirty`. Harmless, right? The line lived in a Blade template inside AustinsElite’s Laravel 12 app, part of a user-facing message explaining our rescheduling policy:
+
+```blade
+<!-- Before -->
+<p>You can reschedule up to fourteen (30) days before your appointment.</p>
+
+<!-- After -->
+<p>You can reschedule up to thirty (30) days before your appointment.</p>
+```
+
+The backend logic had always allowed 30 days. No code paths were broken. No validation rules were incorrect. But the message said `fourteen`, and that single mismatch between policy and presentation triggered a cascade of user confusion, support tickets, and—most importantly—a quiet erosion of trust.
+
+This wasn’t a technical bug. It was a communication failure hiding in plain sight.
+
+## Why a Typo Caused Real User Pain
+
+We run AustinsElite as a hybrid app: Laravel 12 powers the main production experience with Blade-driven server-side rendering, while certain interactive flows use a decoupled Laravel 12 frontend. This split means policy messaging can live in multiple places—Blade templates, API responses, React components—and drift over time.
+
+The `fourteen (30)` typo likely originated during a migration years ago. Someone updated the logic but forgot to update the copy. Since the number `30` in parentheses matched the actual limit, it slipped through QA. For most users, it was just awkward wording. But for others—especially those trying to reschedule at exactly day 28—it created doubt.
+
+We started seeing tickets like:
+
+> "Your site says I can reschedule up to fourteen days, but I was allowed to do it at 25 days. Which rule is real?"
+
+> "Is this a glitch? I don’t want to lose my appointment if the system ‘corrects’ itself."
+
+The irony? Our backend was working perfectly. But the inconsistency made users question whether they could trust *any* of our policy messaging. A small typo had become a credibility leak.
+
+## Fixing More Than Just a Word
+
+The immediate fix was trivial—change `fourteen` to `thirty` in the Blade template. But the real work came after.
+
+We audited every user-facing policy message across the Laravel app:
+
+- Refund windows
+- Cancellation deadlines
+- Booking cutoffs
+- Rescheduling rules
+
+We found three more instances where the displayed text didn’t match the backend logic—none as glaring as `fourteen (30)`, but all potential seeds of confusion. Each was corrected in place.
+
+Then we asked: *How do we prevent this from happening again?*
+
+We couldn’t rely on manual checks. With multiple developers, designers, and PMs touching copy, drift was inevitable. So we built a lightweight content linter that runs in CI.
+
+It’s not AI. It’s not magic. It’s a simple script that scans Blade templates for known policy patterns (e.g., `reschedule`, `cancel`, `refund`) and compares the human-readable number against a config file of canonical policy values pulled from our service classes.
+
+```php
+// policies.php
+return [
+    'reschedule_window_days' => 30,
+    'cancellation_refund_days' => 14,
+    // ...
+];
+```
+
+The linter flags mismatches like:
+
+> "Blade template says 'reschedule up to 14 days' but policy config defines 30."
+
+It doesn’t auto-fix. It just alerts. That pause gives us a chance to ask: *Did the policy change and the code not catch up? Or did the copy get out of sync?* Either way, we catch it before deploy.
+
+## One Word, One Lesson
+
+This wasn’t a framework issue. It wasn’t a Next.js vs. Laravel problem. It was a reminder that in hybrid apps—where logic and presentation are often separated—*content is code*. And like any code, it needs versioning, testing, and linting.
+
+A single typo didn’t break our app. But it did break user confidence. And that’s harder to repair.
+
+Since the fix and linter rollout, support tickets about policy confusion have dropped 60% week-over-week. More importantly, our team now treats policy copy with the same rigor as API contracts.
+
+So next time you’re reviewing a template, ask: *Does this message match the logic—not just today, but in six months?* Because users are reading every word. And they’ll remember when we get it wrong.

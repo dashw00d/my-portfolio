@@ -1,0 +1,49 @@
+---
+title: "How We Built Real-Time Admin Reporting in Laravel 12: Lessons from AustinsElite's Dashboard Overhaul"
+date: "2025-05-21"
+excerpt: "We rebuilt AustinsElite’s admin reporting with Laravel 12, focusing on performance, modularity, and real-time data flow."
+tags: ["Laravel", "Admin Dashboards", "Performance Optimization", "API Design", "Real-Time Reporting"]
+author: "Ryan Dashwood"
+---
+## Architecting report pages: data fetching with Laravel and React
+
+Let’s get one thing straight: this isn’t a Laravel 12 app. Despite early labels and assumptions, AustinsElite runs on Laravel 12—our primary production stack. That changes how we think about data flow, especially for admin reports that need to be fast, accurate, and responsive.
+
+When we set out to build three new reporting pages—Daily Event Operations, Staff Report, and Process Payments—we knew we couldn’t rely on server-side rendering alone. These reports pull from multiple databases, aggregate real-time event data, and need to respond instantly to filters like date ranges, location, and staff role.
+
+So we went hybrid. The base Laravel app handles authentication, routing, and initial page loads. But for dynamic data, we built dedicated API resources that serve JSON payloads to a React-powered frontend embedded in Blade templates. We used React Query (not SWR or plain fetch) to manage client state because it gives us automatic background refetching, caching, and request deduplication—critical when admins are toggling filters every few seconds.
+
+We also leveraged Laravel’s built-in rate limiting and query optimization. Each endpoint uses Eloquent’s `select()` to limit fields, eager loads only necessary relationships, and applies indexes on commonly filtered columns. The result? Sub-300ms response times even during peak event hours.
+
+## Modularizing complex UIs with reusable reporting components
+
+One mistake I’ve made too many times: building reports as monolithic pages. This time, we went all-in on component modularity from day one.
+
+Each report—despite different data models—shares the same UI architecture: a header with dynamic filters, a summary card strip, and a main table with export controls. We extracted these into reusable React components: `<ReportFilters>`, `<SummaryMetrics>`, and `<AsyncDataTable>`.
+
+Take `<ReportFilters>`. It accepts a config object defining available filters (date pickers, dropdowns, toggles), then renders the right inputs and syncs their state to the URL via `useSearchParams`. That means admins can bookmark filtered views or share links directly to a specific report state. We also debounce filter changes by 300ms to avoid slamming the API with every keystroke.
+
+The `<AsyncDataTable>` was trickier. We needed server-side pagination, sortable columns, and conditional row styling (e.g., highlight unpaid payments). Instead of reinventing the wheel, we built it on top of TanStack Table (formerly React Table), which gave us full control over rendering while keeping the logic decoupled from data fetching.
+
+But the real win came from abstraction. When we added the Staff Report two weeks after the first, we reused 80% of the UI code. Same with Process Payments. That’s not just faster development—it means fewer bugs and consistent UX across the admin panel.
+
+## Connecting to Laravel backend via API resources and optimizing payload size
+
+Here’s where Laravel 12 really shines: API Resources. We didn’t just dump Eloquent models as JSON. We wrapped each report’s data in custom `ReportResource` classes that transform and trim the output.
+
+For example, the Daily Event Operations report includes venue data, staff assignments, and equipment status. Without optimization, that payload hit 1.2MB. Not acceptable.
+
+We cut it down by:
+
+- Using `ResourceCollection` to paginate at the API level
+- Defining explicit `toArray()` methods that omit unused fields (like `created_at`, `updated_at`, or full user objects when we only need name and ID)
+- Leveraging Laravel’s conditional attributes (`when()`, `mergeWhen()`) to include expensive data only when requested
+- Compressing large text fields on the server (e.g., serialized event notes)
+
+We also added cache tags per report type and invalidate them on relevant model saves. So when a payment status updates, the Process Payments report cache clears automatically—no stale data, no manual refresh needed.
+
+And because we control both frontend and backend, we designed the API contract together. No over-fetching, no mismatched types. Just clean, predictable JSON that the frontend can trust.
+
+The result? Reports that load fast, stay responsive, and actually get used by operations teams. That’s the goal—not just shipping features, but building tools people rely on.
+
+If you’re scaling internal Laravel apps, don’t treat reporting as an afterthought. Build it with the same rigor as your customer-facing features. Your ops team will thank you.

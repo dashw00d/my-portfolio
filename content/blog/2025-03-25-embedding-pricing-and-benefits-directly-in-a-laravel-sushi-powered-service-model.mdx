@@ -1,0 +1,91 @@
+---
+title: "Embedding Pricing and Benefits Directly in a Laravel Sushi-Powered Service Model"
+date: "2025-03-25"
+excerpt: "How we used Laravel Sushi to streamline service data with embedded pricing and benefits, cutting queries and boosting performance."
+tags: ["Laravel", "Sushi", "Static Data", "Performance", "Service Models"]
+author: "Ryan Dashwood"
+---
+## Why We Needed a Smarter Way to Handle Service Data
+
+At AustinsElite, our service offerings are central to the user experience — from premium rentals to specialized packages. As we expanded the number of services and enriched their details (pricing tiers, key benefits, availability), managing them through traditional Eloquent models started feeling heavy. We weren’t dealing with dynamic, user-generated content — these were curated, code-level assets that changed only with deploys.
+
+Enter Laravel Sushi. It’s a gem (literally — `laravel-sushi` by Joseph Silber) that lets you treat plain PHP arrays as database-backed models, using SQLite under the hood. No migrations, no seeders, no extra queries — just fast, version-controlled data baked right into the app.
+
+We realized this was perfect for our use case: structured, relatively static service definitions that needed to be performant and always consistent across environments.
+
+## Building a Service Model That Carries Its Own Data
+
+Instead of hitting the database every time we needed to display a service’s pricing or benefits, we refactored our `Service` model to use Sushi and embed everything directly:
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Laravel\Sushi\Sushi;
+
+class Service extends Model
+{
+    use Sushi;
+
+    protected $rows = [
+        [
+            'id' => 1,
+            'name' => 'Premium Car Rental',
+            'slug' => 'premium-rental',
+            'description' => 'Luxury vehicles with full coverage.',
+            'pricing' => [
+                'daily' => 199,
+                'weekly' => 1199,
+                'monthly' => 4500
+            ],
+            'benefits' => [
+                '24/7 roadside assistance',
+                'Full insurance included',
+                'Free delivery within Austin',
+                'Unlimited mileage'
+            ],
+            'category' => 'rental'
+        ],
+        // ... more services
+    ];
+}
+```
+
+This wasn’t just about convenience — it was about control. By defining `pricing` and `benefits` as structured arrays within the model, we ensured that every environment served identical data. No more "but it works in staging" issues due to mismatched seeders or forgotten migrations.
+
+And because Sushi uses SQLite, the data is still queryable just like any Eloquent model:
+
+```php
+Service::where('category', 'rental')->get();
+```
+
+We even added accessors to format pricing on the fly:
+
+```php
+public function getFormattedDailyPriceAttribute()
+{
+    return '$' . number_format($this->pricing['daily'] / 100, 2);
+}
+```
+
+Which made frontend rendering in our Laravel-powered views (and API responses for potential frontend integrations) clean and predictable.
+
+## Trade-Offs? Yes — But Worth It
+
+Laravel Sushi isn’t magic, and it’s not for everything. The biggest trade-off is runtime flexibility: if you need admins to edit service pricing in a dashboard, this approach won’t work. You’d need a real database.
+
+But for us, that wasn’t the goal. Our services are part of the product roadmap — they change with code, not in isolation. Having pricing and benefits version-controlled alongside the features that depend on them actually improved coordination across the team.
+
+Another win: performance. No more N+1 queries loading service details. No extra round trips to Redis or the DB. Just instant, deterministic access to structured data.
+
+We also reduced complexity in our deployment pipeline. No need to worry about database seeding order or environment-specific content drift. If it’s in the code, it’s live.
+
+## The Result? Faster, Cleaner, and Fully in Sync
+
+Since switching to this pattern, we’ve seen a noticeable drop in service-related queries — especially on high-traffic landing pages. More importantly, our team spends less time debugging content mismatches and more time building.
+
+This change was part of a broader shift toward configuration-driven content at AustinsElite, where appropriate. It’s not about avoiding databases — it’s about choosing the right tool for the job. And when your data is static, versioned, and tied to code, SQLite-backed Sushi models are a seriously compelling option.
+
+If you’re using Laravel and finding yourself writing repetitive seeders for content that barely changes, give Sushi a look. Sometimes the best database is the one you don’t have to manage.

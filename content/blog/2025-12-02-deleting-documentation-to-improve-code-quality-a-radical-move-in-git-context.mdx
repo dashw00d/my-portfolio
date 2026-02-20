@@ -1,0 +1,84 @@
+---
+title: "Deleting Documentation to Improve Code Quality: A Radical Move in Git Context"
+date: "2025-12-02"
+excerpt: "Sometimes the best way to improve code quality is to delete outdated comments and trust the code itself."
+tags: ["technical-debt", "code-quality", "javascript", "typescript", "clean-code"]
+author: "Ryan Dashwood"
+---
+## The Lies We Keep in Comments
+
+Two commits on December 2, 2025, stand out in the Git Context project—not because they added features or fixed bugs, but because they removed *everything* non-essential: every inline comment, every docblock, every line of documentation embedded directly in the code. The commit messages were blunt: “remove all inline comments and docblocks (all lies)”.
+
+And yeah, they were lying.
+
+Not maliciously—no one set out to deceive. But over time, as the code evolved, the comments didn’t. What started as helpful explanations became misleading relics. A function annotated as returning a `Promise<string>` was actually returning `Promise<GitResult | null>`. A block comment describing a retry mechanism? Long gone, but the comment remained, ghosting the logic like a scar.
+
+We’d reached the point where reading the comments did more harm than good. They weren’t aids—they were landmines.
+
+## Removing the Safety Net (On Purpose)
+
+Deleting documentation feels like removing guardrails. It’s terrifying. But here’s the truth: outdated docs aren’t guardrails. They’re fake ones—painted lines on a crumbling bridge.
+
+So we ripped them out. All of them. No warnings, no phased rollouts. Just `git grep -l '\/\*' | xargs sed -i '/\/\*/,\/\//d'` and a whole lot of faith in our test suite.
+
+The safeguards were already there:
+
+- **TypeScript** ensured return types and signatures stayed accurate.
+- **Comprehensive unit and integration tests** validated behavior across edge cases.
+- **Lint rules** enforced naming and structure discipline.
+
+With those in place, the comments weren’t carrying their weight. They weren’t clarifying ambiguity—they were *creating* it.
+
+The removal process wasn’t random. We audited each file, verified test coverage, and ran type checks before and after. We didn’t just delete; we *curated*. If a comment explained *why*—not what—the code was doing, it stayed. One-liners justifying a non-obvious workaround? Kept. Block after block describing control flow? Gone.
+
+The result? A codebase that no longer lies to its maintainers.
+
+## Code Should Speak for Itself
+
+This wasn’t just a cleanup. It was a cultural reset.
+
+We stopped treating comments as a crutch for unclear code. Instead, we committed to writing code that doesn’t need explaining. Functions got shorter. Variable names got more precise. Complex logic got extracted and tested in isolation.
+
+Take this snippet from Git Context’s `gitRunner.ts`:
+
+```ts
+// Before
+/**
+ * Executes a git command
+ * @param {string} cmd - the command to run
+ * @returns {Promise<string>} stdout output
+ */
+async function runGit(cmd) {
+  // spawn git process
+  const proc = spawn('git', cmd.split(' '));
+  let output = '';
+  proc.stdout.on('data', data => output += data);
+  // wait for close
+  await once(proc, 'close');
+  return output; // actually might include stderr!
+}
+```
+
+That docblock is wrong. It doesn’t mention error handling, stream merging, or rejection cases. It promises a string but doesn’t clarify encoding, truncation, or failure modes.
+
+Now, the same logic:
+
+```ts
+// After
+async function runGit(args: string[]): Promise<GitExecutionResult> {
+  const proc = spawn('git', args);
+  const { stdout, stderr, exitCode } = await collectStreams(proc);
+  
+  return { stdout, stderr, success: exitCode === 0 };
+}
+```
+
+No comments. But the function is smaller, the types are explicit, and the return value is well-defined. The *code* tells the story now.
+
+We’re not anti-documentation. We still have READMEs, architecture decision records, and inline `// TODO:` or `// HACK:` notes where context matters. But we no longer trust comments to stay in sync with implementation. Types and tests do that job better.
+
+This shift has changed how we review PRs. Instead of “add more comments,” we ask, “can this be clearer without them?” The pressure is on the code—not the annotations.
+
+In the end, we deleted hundreds of lines of comments. What we gained was far more valuable: a codebase we can trust—because it *shows* what it does, instead of *telling* us.
+
+Sometimes, the most powerful refactor isn’t adding something new. It’s removing the lies we’ve been living with.

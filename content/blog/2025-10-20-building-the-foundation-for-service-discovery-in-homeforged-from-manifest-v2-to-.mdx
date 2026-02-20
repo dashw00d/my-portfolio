@@ -1,0 +1,55 @@
+---
+title: "Building the Foundation for Service Discovery in HomeForged: From Manifest V2 to Registry Blocks"
+date: "2025-10-20"
+excerpt: "How we evolved HomeForged’s service registry from static config to dynamic, schema-driven discovery using v2 manifests."
+tags: ["HomeForged", "service discovery", "infrastructure automation", "schema design", "DevOps"]
+author: "Ryan Dashwood"
+---
+## The Problem with Static Service Configs
+
+When you're running a dozen self-hosted services in your homelab, keeping track of what depends on what gets messy—fast. In the early days of HomeForged, we treated each service as a standalone playbook. Need Ghost for blogging? Deploy it. Want Vaultwarden for passwords? Another playbook. But as the number of kits grew, so did the friction: ports clashed, dependencies were assumed not enforced, and configuration drift became inevitable.
+
+The core issue? We were managing service topology through static, ad-hoc variables in Ansible playbooks. There was no single source of truth for *what* services existed, *where* they were exposed, or *how* they should be routed. That worked for a prototype, but not for a system meant to scale across arbitrary homelab setups.
+
+We needed a way to make services *announce* themselves—not just deploy. That meant moving from implicit configuration to explicit, structured registration.
+
+## Designing the v2 Manifest: A Schema for Predictable Services
+
+The breakthrough came when we shifted our thinking: instead of treating each kit as a deployment script, we started treating it as a *service package* with metadata. That’s where the v2 manifest was born.
+
+We standardized every HomeForged kit—from Immich to Paperless-ngx—with a `manifest.v2.yml` file that defines:
+
+- `service_name`: A unique, stable identifier
+- `exposed_ports`: List of external ports and protocols
+- `dependencies`: Other services this one requires (by service_name)
+- `ingress_hints`: Subdomain, path, or TLS preferences
+- `config_schema`: JSONSchema for validating user inputs
+
+This wasn’t just documentation—it became the contract between kit authors and the platform. By enforcing this schema across all kits, we ensured that every service could be introspected programmatically. No more guessing if a service expects HTTP or HTTPS, or whether it binds to :80 or :8080.
+
+But the real win was in automation. With a consistent manifest, we could start building tooling that *understands* services, not just deploys them. The v2 manifest became the foundation for dependency resolution, config validation, and—most importantly—service registration.
+
+## Building the Registry: From Static Lists to Dynamic Discovery
+
+With manifests in place, we turned to the registry—the central component that tracks running services and their metadata. Previously, routing rules were hardcoded or manually configured. Now, we wanted them to be *discovered*.
+
+We introduced a lightweight registry block in HomeForged’s core runtime that:
+
+1. Scans for active kits during deployment
+2. Parses their v2 manifest
+3. Registers the service in a shared state store with its ingress hints and ports
+4. Emits events for downstream consumers (like the reverse proxy)
+
+This registry isn’t just a list—it’s a dynamic map of the homelab’s surface area. When you deploy a new kit, it doesn’t just run; it *announces* itself. The reverse proxy watches the registry and automatically configures Caddy rules. Health checks, TLS settings, and subdomain routing are all derived from the manifest.
+
+We also built in validation: if two services try to claim the same subdomain, the registry flags a conflict *before* deployment. If a service declares a dependency on PostgreSQL but none is running, the playbook halts early with a clear error.
+
+This might sound like basic service discovery—but in the homelab world, it’s rare. Most DIY setups rely on manual nginx configs or brittle docker-compose files. We’re building something more resilient: a system where services are first-class citizens with discoverable, composable interfaces.
+
+## What’s Next: From Registry to Visual Builder
+
+Right now, the registry operates behind the scenes during Ansible runs. But it’s designed to scale beyond that. The next step? A real-time registry API that external tools can query—imagine a dashboard showing all active services, their status, and ingress points.
+
+And yes, the visual builder is coming. When it arrives, it won’t just be a GUI for editing YAML—it’ll be a topology editor that lets you drag-and-drop services, with live feedback from the registry on conflicts, dependencies, and routing.
+
+But none of that would be possible without the quiet work of standardizing manifests and building the registry blocks. Sometimes the most impactful code isn’t the flashiest—it’s the foundation that lets everything else stand.

@@ -1,0 +1,67 @@
+---
+title: "How We Extended a Laravel 12 Memorial Platform to Support Dual Event Types Without Breaking Changes"
+date: "2025-07-04"
+excerpt: "Extending a form-heavy Laravel 12 app to support two event types—memorial services and celebrations of life—without breaking existing flows."
+tags: ["Laravel", "Form Design", "Backward Compatibility", "State Management", "UI Evolution"]
+author: "Ryan Dashwood"
+---
+## Introducing Dual Event Types: Memorials vs. Celebrations
+
+At AustinsElite, our platform has long supported memorial services—structured, reverent events centered around remembrance. But as families began asking to honor lives with more uplifting, personalized gatherings, we realized we needed to support a second flavor: celebrations of life. These aren’t just renamed memorials; they come with different expectations, flows, and content.
+
+The challenge? Introduce this new event type into our existing Laravel 12 application—historically mislabeled as Next.js in some internal docs—without disrupting thousands of active memorial service workflows. Our form schemas, validation logic, and asset handling were all built around a single event concept. We needed to evolve, not rewrite.
+
+The goal was clear: allow users to select between 'Memorial Service' and 'Celebration of Life' at form initiation, then dynamically adapt the experience—fields, validation, media—without introducing bugs or data inconsistencies.
+
+## Extending Form State and Validation Without Breaking Changes
+
+Our first instinct was to fork the form component. But that would’ve duplicated logic, increased maintenance, and risked drift between versions. Instead, we chose evolution over duplication.
+
+We started by abstracting the core form state into a unified schema that could branch based on `event_type`. In Laravel, this meant expanding our request validation to accept a new `event_type` field with a strict rule:
+
+```php
+'event_type' => ['required', 'string', 'in:memorial,celebration'],
+```
+
+This ensured backward compatibility—existing memorial-only submissions still passed—and future-proofed us for new types. Then, in our frontend (a Blade-driven interface with Alpine.js for interactivity), we used the `event_type` to conditionally render sections:
+
+```html
+<div x-show="eventType === 'celebration'">
+  <input name="tone" placeholder="e.g., Joyful, Uplifting, Casual">
+</div>
+```
+
+But we didn’t stop at visibility. Validation rules had to adapt too. Celebrations allowed optional music playlists and guest activities—fields that didn’t make sense for memorials. We mapped these in our backend using conditional validation in the FormRequest:
+
+```php
+public function rules()
+{
+    return [
+        'event_type' => 'required|in:memorial,celebration',
+        'music_playlist' => 'nullable|required_if:event_type,celebration|url',
+        'guest_activity' => 'nullable|required_if:event_type,celebration|string',
+    ];
+}
+```
+
+This approach kept our data integrity tight while letting the UI flex. No breaking changes, no schema migrations—just smart use of Laravel’s built-in validation features.
+
+We also preserved all existing memorial data exactly as-is. The `event_type` field defaulted to 'memorial' on legacy records, so reports, exports, and admin tools continued working without a single tweak.
+
+## Handling Assets and Visual Identity for New Event Types
+
+The UI wasn’t just about fields—it was about feel. A celebration of life should *look* different from a memorial. We needed visual cues that reinforced the tone without requiring custom design per event.
+
+We added dedicated WebP images to the public asset pipeline: `celebration-hero.webp` and `memorial-hero.webp`. Then, in our Blade template, we dynamically set the hero background:
+
+```blade
+<div class="hero" style="background-image: url('/images/{{ $event->type === 'celebration' ? 'celebration-hero' : 'memorial-hero' }}.webp')">
+```
+
+This kept the markup clean and the experience cohesive. No extra HTTP requests, no JavaScript needed—just server-side branching with immediate visual feedback.
+
+We extended this pattern to icons and color classes. A celebration used `text-warm-yellow-500` and a sunburst icon; memorials kept `text-slate-700` with a dove. All driven by the same underlying `event_type` value.
+
+The result? Two distinct experiences, one codebase, zero divergence.
+
+This wasn’t just a feature drop—it was a lesson in sustainable evolution. In real-world apps, you rarely get to start over. At AustinsElite, we proved you don’t have to. With thoughtful schema design, Laravel’s robust validation, and a few smart asset choices, we extended a mature platform gracefully—no rewrites, no regressions, just progress.

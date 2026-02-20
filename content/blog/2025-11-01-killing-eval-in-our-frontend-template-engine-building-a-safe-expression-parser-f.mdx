@@ -1,0 +1,65 @@
+---
+title: "Killing eval() in Our Frontend Template Engine: Building a Safe Expression Parser for HomeForged"
+date: "2025-11-01"
+excerpt: "We replaced eval() in HomeForged's TemplateEngine with a secure custom parser to stop code injection without losing dynamic power."
+tags: ["JavaScript", "Security", "Template Engine", "Parsing", "Frontend"]
+author: "Ryan Dashwood"
+---
+## The eval() Time Bomb in Our Templates
+
+A few weeks ago, I was reviewing a PR in HomeForged’s visual automation builder when something jumped out at me: we were using `eval()` to resolve dynamic expressions in our frontend template engine. It was buried in the `TemplateEngine` class, quietly executing user-provided strings like `{{ user.name.toUpperCase() }}` or `{{ items.length > 5 ? 'full' : 'open' }}`. Innocent-looking, right? But in an AI-driven tool where users can define logic flows and dynamic content, that single function call was a live grenade.
+
+HomeForged lets users build intelligent workflows using a mix of AI agents and configurable templates. That means expressions in templates aren’t just static placeholders—they’re live, dynamic logic written (sometimes) by non-developers, parsed and rendered client-side. With `eval()`, any malicious payload slipped into a template could execute arbitrary code. XSS, data exfiltration, the whole nightmare. We needed out—fast.
+
+Rewriting the entire templating system wasn’t an option. We needed a drop-in replacement that preserved the existing syntax and behavior, but without the security hole. So we built a safe expression parser from the ground up.
+
+## Building a Parser That Doesn’t Trust Anyone
+
+Our goal was simple: parse JavaScript-like expressions inside `{{ }}` tags, evaluate them in a sandboxed context, and support the same subset of operations devs and users already relied on—property access, ternary logic, comparisons, arithmetic, and basic method calls like `.toUpperCase()` or `.includes()`.
+
+We started by defining a minimal grammar. We didn’t need full JS—just expressions. No loops, no function declarations, no `new`, no `delete`. Just values, operators, and property chains.
+
+The implementation followed a classic three-stage pipeline:
+
+1. **Tokenization**: A lexer split the input string into tokens—identifiers, dots, parentheses, operators, literals. Nothing fancy, but strict. Invalid characters? Syntax error. No backdoor escapes.
+
+2. **AST Construction**: Using a recursive descent parser, we turned tokens into a clean Abstract Syntax Tree. This let us validate structure before execution. Want to call `constructor` or `__proto__`? Blocked at parse time.
+
+3. **Sandboxed Evaluation**: We traverse the AST with a custom evaluator that only allows access to a predefined context object (like `user`, `items`, etc.). Property access is checked at each level. No access to global objects like `window`, `process`, or `Function`. Even if someone writes `{}.constructor.constructor('alert(1)')()`, our parser won’t evaluate constructor chains.
+
+Here’s a simplified version of how we evaluate a member expression:
+
+```js
+function evaluateMember(node, context) {
+  let obj = evaluate(node.object, context);
+  if (obj == null) return undefined;
+  
+  const prop = node.property.name;
+  
+  // Block dangerous prototypes
+  if (prop === 'constructor' || prop === '__proto__') {
+    throw new Error('Access denied');
+  }
+  
+  // Only allow own properties or safe built-in methods
+  if (typeof obj === 'object' || typeof obj === 'string') {
+    return typeof obj[prop] === 'function' ? obj[prop].bind(obj) : obj[prop];
+  }
+  
+  return undefined;
+}
+```
+
+We also pre-validated common attack patterns during parsing—things like `toString`, `valueOf`, or attempts to access `__defineGetter__`. If it smelled funny, it failed fast.
+
+## No eval(), No Problem: Performance and DX Wins
+
+I’ll admit, I was worried. Would this be slower? Would it break existing templates?
+
+Turns out, the opposite. Our parser is faster than `eval()` for valid expressions—no JIT overhead, no global scope scanning. And because we control the grammar, error messages are way better. Instead of `Uncaught SyntaxError: Unexpected token`, users now get `Parse error: Expected identifier at position 12`, which is actually useful.
+
+We preserved all existing functionality. Templates kept working. Devs didn’t need to change a line. But now, when a user pastes a sketchy payload from the internet, nothing happens. Silent failure? Nope—we log a warning in dev mode and return `undefined`, so it’s clear something was blocked.
+
+The best part? This wasn’t just a security win. It made our template engine more predictable, debuggable, and portable. We’re already reusing the parser in other parts of HomeForged’s agent configuration system, where AI-generated logic needs to be validated before execution.
+
+Killing `eval()` wasn’t glamorous, but it was necessary. In a world where AI agents compose logic and users inject dynamic content, trust is a liability. Now, our templates are powerful, safe, and built to last.

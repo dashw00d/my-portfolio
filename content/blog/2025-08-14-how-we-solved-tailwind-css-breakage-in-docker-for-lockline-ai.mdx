@@ -1,0 +1,75 @@
+---
+title: "How We Solved Tailwind CSS Breakage in Docker for Lockline AI"
+date: "2025-08-14"
+excerpt: "Tailwind stopped generating classes in our Docker dev environment—here’s how we fixed the JIT mode and file-watching issues."
+tags: ["Tailwind CSS", "Docker", "Frontend Development", "JIT Engine", "Debugging", "Local Development"]
+author: "Ryan Dashwood"
+---
+Today was one of those days where a tiny UI tweak spiraled into a full-on debugging saga. I made a simple change to a button’s padding in Lockline AI, rebuilt the dev container, and… nothing. No new Tailwind classes. No visual updates. Just a stale interface staring back at me. After seven commits and a few rounds of coffee, we cracked it: Tailwind’s JIT engine wasn’t picking up file changes in Docker. Here’s how we fixed it—so you don’t have to spend your afternoon chasing ghosts.
+
+## The Symptom: Tailwind Classes Vanished in Dev
+
+Everything worked fine in production. Locally? Not so much. We use Docker for our frontend development environment to keep dependencies consistent across machines. But after a recent refactor that added Docker-based style deployment, we noticed a pattern: changes to `.tsx` or `.jsx` files weren’t triggering Tailwind class generation.
+
+We’d save a file, the Vite dev server would hot reload, but the new `bg-green-500` or `rounded-lg` would just… not exist. Inspecting the element showed the class was in the JSX, but the styles weren’t in the CSS. The build didn’t fail—Tailwind just acted like the classes weren’t being used.
+
+At first, we thought it was a purge config issue. Then a Vite plugin conflict. But no—this was deeper. The real clue? Running `npx tailwindcss -i ./src/input.css -o ./dist/output.css --watch` manually inside the container *did* work. So why wasn’t it working through our dev process?
+
+## The Root Cause: JIT Mode vs. Docker Volumes
+
+Tailwind’s Just-In-Time (JIT) engine watches your source files and generates styles on-demand. It’s fast, but it relies heavily on the filesystem’s ability to emit change events. And here’s where Docker threw a wrench in the gears.
+
+Our `docker-compose.yml` was mounting the source directory like this:
+
+```yaml
+volumes:
+  - ./src:/app/src
+```
+
+Seems fine, right? But on macOS (and Windows, thanks to Docker Desktop’s VM layer), file event propagation across volume mounts is notoriously flaky. The JIT engine wasn’t receiving `inotify` events when files changed—so it never knew to regenerate styles.
+
+We confirmed this by adding a debug log to Tailwind’s watcher. Local edits weren’t triggering any file change logs inside the container. The host knew the file changed. The container saw the updated content on disk. But the *event*? Lost in translation.
+
+This mismatch breaks Tailwind’s core assumption: that it can watch files in real time. Without those events, the JIT engine thinks no files changed—so no classes are generated, even if the content is fresh.
+
+## The Fix: Smarter Volumes and Config Tweaks
+
+We tried a few approaches:
+
+1. **Forcing rebuilds with touch**: Manually `touch`-ing files inside the container to trigger events. Hacky, and didn’t scale.
+2. **Polling mode in Tailwind**: Setting `TAILWIND_MODE=watch` and enabling polling in PostCSS. Better, but slow and CPU-heavy.
+3. **Adjusting Docker volume mounts**: The real fix.
+
+We switched from fine-grained mounts to a full project mount:
+
+```yaml
+volumes:
+  - .:/app
+```
+
+And updated `.dockerignore` to exclude `node_modules` and other junk. This improved file event reliability significantly—especially when combined with Docker Desktop’s new `osxfs` tuning.
+
+But we didn’t stop there. We also updated `tailwind.config.js` to be explicit about content paths:
+
+```js
+module.exports = {
+  content: [
+    './src/**/*.{js,jsx,ts,tsx}'
+  ],
+  // ...
+}
+```
+
+No relative paths, no ambiguity. And we ensured the Docker container ran with `--init` to properly handle process signals.
+
+Finally, we added a small script to verify the watcher was active:
+
+```bash
+ls /app/src/**/*.tsx | entr -d echo "File change detected"
+```
+
+When that started firing reliably inside the container, we knew we were back in business.
+
+Now, when I tweak that button padding, the styles appear instantly. No rebuilds, no manual triggers—just smooth, responsive dev flow.
+
+This fix closed a major friction point in our local workflow. It’s live, tested, and already helping teammates move faster. Sometimes the smallest bugs hide the deepest lessons: even the smartest tools depend on the plumbing underneath.

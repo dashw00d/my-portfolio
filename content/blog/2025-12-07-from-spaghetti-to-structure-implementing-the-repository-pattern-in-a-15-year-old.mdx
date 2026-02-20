@@ -1,0 +1,60 @@
+---
+title: "From Spaghetti to Structure: Implementing the Repository Pattern in a 15-Year-Old PHP Monolith"
+date: "2025-12-07"
+excerpt: "How introducing repositories and enums brought sanity to a decade-and-a-half-old PHP codebase."
+tags: ["php", "legacy-code", "repository-pattern", "refactoring", "enums", "architecture"]
+author: "Ryan Dashwood"
+---
+## The Mess We Inherited
+
+AustinsElite (Legacy) has been running in production for 15 years. It’s a custom PHP MVC framework—long before Laravel was a thing—with a few Laravel components bolted on over time. When I started working on it, the data access logic was everywhere: controllers with raw SQL queries, cron scripts duplicating business rules, and magic strings scattered like confetti in conditionals.
+
+Take event status handling. We had `'active'`, `'inactive'`, `'pending'`, `'cancelled'`—all hardcoded across 10+ files. A typo? Welcome to silent failures. Want to add `'archived'`? Good luck grepping your way through Blade templates, controllers, and artisan commands. And don’t get me started on the 300-line `EventController` that handled everything from rendering to database inserts.
+
+This wasn’t just ugly—it was dangerous. Every change carried the risk of breaking something three layers down in a cron job no one remembered writing.
+
+## Enter Repositories (And a Little Dose of Sanity)
+
+We didn’t rewrite the app. We couldn’t. But we could start carving out islands of clarity. The first move? Introduce the repository pattern to abstract data access and centralize business logic.
+
+I started by creating `EventRepository` and `UserRepository` classes—plain PHP at first, no fancy interfaces (yet). These wrapped all database interactions for their respective domains. Instead of `$db->select('events', ['status = ?', 'active'])` in a controller, we now had `$eventRepository->findActive()`.
+
+Simple? Yes. Transformative? Absolutely.
+
+Suddenly, the question "Where is active event logic defined?" had a one-line answer. No more grepping. No more guessing. And because these were dedicated classes, we could inject them—first manually, then via Laravel’s container where available—making testing and reuse trivial.
+
+But the real win came with **enums**. We replaced every magic string for status fields with backed PHP enums:
+
+```php
+enum EventStatus: string {
+    case ACTIVE = 'active';
+    case INACTIVE = 'inactive';
+    case PENDING = 'pending';
+    case CANCELLED = 'cancelled';
+    case ARCHIVED = 'archived';
+}
+```
+
+Now, instead of fragile strings, we had type-safe, IDE-autocompleted status checks. `$status === 'actve'` (typo intended) became `$status === EventStatus::ACTIVE`, caught at compile time. We even added helper methods:
+
+```php
+public function isLive(): bool {
+    return in_array($this, [self::ACTIVE, self::PENDING]);
+}
+```
+
+This made business rules *explicit*—no more decoding intent from scattered conditionals.
+
+## Refactoring With Confidence
+
+The real test came a week later: we needed to change how user roles were stored in the database. Pre-refactor, this would’ve been a 3-hour grep-and-pray session. Post-refactor? We updated the `UserRepository`’s persistence logic, adjusted the enum, ran tests, and deployed.
+
+Because all data access flowed through a single abstraction, we could change the underlying schema without touching controllers or views. The boundaries were clear. The risk was low.
+
+This wasn’t just about cleaner code—it was about *sustainable* code. New developers could now understand the flow of data without memorizing the entire app. Business logic lived where it belonged: in domain-specific services, not in HTTP handlers.
+
+And yes, we kept it pragmatic. No hexagonal architecture diagrams. No service buses. Just repositories, enums, and a commitment to leaving the codebase better than we found it.
+
+If you’re neck-deep in a legacy PHP monolith, here’s my advice: don’t wait for a rewrite. Start small. Pick one domain. Extract one repository. Replace one set of magic strings with an enum. You’ll gain clarity—and confidence—one commit at a time.
+
+The refactor on December 7th wasn’t flashy, but it was foundational. And for a 15-year-old codebase, that’s exactly what we needed.

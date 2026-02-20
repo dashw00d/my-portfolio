@@ -1,0 +1,81 @@
+---
+title: "From Spaghetti to Structure: Refactoring Legacy Blade & CSS for Mobile-First Responsiveness"
+date: "2025-12-20"
+excerpt: "How I modernized a legacy Laravel/PHP app’s frontend with TailwindCSS and component-driven Blade for true mobile-first responsiveness."
+tags: ["Laravel", "TailwindCSS", "Legacy Refactoring", "Blade Components", "Responsive Design", "PHP"]
+author: "Ryan Dashwood"
+---
+## Diagnosing the Layout Chaos
+
+AustinsElite (Legacy) was a PHP monolith built on a custom framework with a handful of Laravel packages—no Laravel 12, no modern frontend stack. Its Blade templates had been patched for years, resulting in a tangle of hardcoded styles, inconsistent grid systems, and zero mobile-first thinking. Buttons overflowed containers on mobile, tables became unreadable, and forms broke at arbitrary breakpoints. The CSS was a mix of inline styles, old Bootstrap classes, and custom overrides that fought each other.
+
+My first move? Audit the most critical user paths: the dashboard, data tables, and form-heavy admin pages. Using Chrome DevTools, I mapped where layouts collapsed. The root issue wasn’t just broken CSS—it was structural. Templates were duplicating markup across pages, with no component reuse. A single table header might be copy-pasted five times, each with slight variations. Any fix had to start with abstraction, not just style tweaks.
+
+## Restructuring with Tailwind’s Responsive Toolkit
+
+We already had TailwindCSS in the stack, but it was underutilized—mostly used for quick utility patches instead of a full design system. I updated `tailwind.config.js` to enforce mobile-first breakpoints and standardized grid behavior:
+
+```js
+module.exports = {
+  content: ["./resources/views/**/*.blade.php"],
+  theme: {
+    extend: {
+      screens: {
+        sm: '640px',
+        md: '768px',
+        lg: '1024px',
+        xl: '1280px',
+      },
+      gridTemplateColumns: {
+        'form': 'repeat(auto-fit, minmax(300px, 1fr))',
+      }
+    },
+  },
+}
+```
+
+This let me rebuild forms and data grids using `grid` and `flex` utilities with responsive prefixes. For example, a broken two-column form became:
+
+```blade
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  @include('partials.form-field', ['label' => 'Name', 'type' => 'text'])
+  @include('partials.form-field', ['label' => 'Email', 'type' => 'email'])
+</div>
+```
+
+No more floats or `width: 300px` hacks. The layout now adapts cleanly from mobile up. Tables were trickier—instead of hiding columns on small screens (a common cop-out), I used Tailwind’s `hidden` and `block` classes with `sm:table-cell` to selectively show critical data, preserving usability.
+
+## Building Reusable, Scoped Blade Components
+
+The real win came from replacing `@include` spaghetti with true Blade components. Laravel’s component system was already available, but never adopted. I started small: a `<x-button>` and `<x-input>` that encapsulated consistent styling and responsive behavior.
+
+```blade
+<!-- resources/views/components/button.blade.php -->
+@props(['type' => 'button', 'variant' => 'primary'])
+
+<button
+  type="{{ $type }}"
+  {{ $attributes->merge(['class' => "
+    px-4 py-2 rounded font-medium text-sm
+    " . match($variant) {
+        'primary' => 'bg-indigo-600 hover:bg-indigo-700 text-white',
+        'secondary' => 'bg-gray-200 hover:bg-gray-300 text-gray-800',
+        default => 'bg-gray-600 text-white'
+    }
+  "]) }}
+>
+  {{ $slot }}
+</button>
+```
+
+Suddenly, every button followed the same visual language and responded predictably across devices. I applied the same pattern to tables (`<x-table>`, `<x-table.header>`), icons (wrapping SVGs with consistent sizing), and form groups. By using `@props` and the `$attributes->merge()` pattern, I preserved flexibility without sacrificing consistency.
+
+For CSS isolation, I embraced Tailwind’s functional approach—no component-scoped CSS files needed. Instead, I enforced consistency through utility patterns and documented conventions in the team’s README. If a component needed unique styles, I used `@apply` sparingly in dedicated CSS files, keeping the footprint minimal.
+
+## Validating Gains Across Devices and Developers
+
+After refactoring key templates, I tested across real devices and browser emulators. The dashboard, once a horizontal scroll trap on mobile, now flowed cleanly at every breakpoint. Forms reflowed into single columns, tables became scrollable containers with sticky headers, and buttons stayed tappable.
+
+But the bigger win was maintainability. What used to take 20 minutes to debug and patch—like aligning a new form field—now took seconds. New developers could drop in a `<x-input>` and trust it just worked. Technical debt didn’t vanish, but it stopped spreading.
+
+This wasn’t a full rewrite. It was targeted, pragmatic modernization—using Tailwind and Blade components to bring order to legacy chaos. If you’re stuck in a similar PHP/Laravel frontend swamp, start small: pick one broken template, rebuild it with mobile-first Tailwind, then extract a component. Repeat. The spaghetti won’t untangle overnight, but you’ll feel the difference by day two.

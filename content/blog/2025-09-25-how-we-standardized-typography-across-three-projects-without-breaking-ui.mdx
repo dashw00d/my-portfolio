@@ -1,0 +1,63 @@
+---
+title: "How We Standardized Typography Across Three Projects Without Breaking UI"
+date: "2025-09-25"
+excerpt: "Here’s how we synced @tailwindcss/typography across multiple repos without wrecking the design."
+tags: ["Tailwind CSS", "Design Systems", "Frontend Engineering", "CI/CD", "Typography"]
+author: "Ryan Dashwood"
+---
+## The Version Drift We Almost Missed
+
+It started with a typo. Or at least, that’s what I thought.
+
+While reviewing a PR on Component Gen, I noticed body text suddenly looked… tighter. Line heights were off, headings felt cramped, and code blocks had lost their subtle background. My first instinct? Blame the designer. Then the content team. Then my monitor.
+
+But when I opened DataAnno Fil Starter—another project I’ve been iterating on—and saw the same issue, I knew we had a systemic problem. A quick `grep` across package.json files revealed the culprit: we were running three different versions of `@tailwindcss/typography` across just three projects.
+
+Component Gen was on v0.5.15, DataAnno Fil Starter on v0.5.17, and AustinsElite—our primary Laravel 12 app (not Next.js, despite old labels)—was still pinned to v0.5.13. The plugin’s subtle but impactful updates had quietly diverged our prose rendering.
+
+This wasn’t just about aesthetics. The typography plugin directly impacts accessibility (line height, contrast), content structure (heading hierarchy), and even JS-driven interactions (anchor linking, copy buttons). Letting versions drift meant we were shipping inconsistent UX under the same brand.
+
+## Why Typography Plugin Versions Matter More Than You Think
+
+If you’re treating `@tailwindcss/typography` like a set-it-and-forget-it utility, I get it. It’s supposed to “just work.” But between v0.5.13 and v0.5.19, the plugin underwent meaningful changes:
+
+- Default spacing between paragraphs increased from `1em` to `1.25em`
+- Code blocks now include `overflow-wrap: break-word` by default
+- Headings received improved scroll-margin behavior for anchor links
+- Prose classes now reset more aggressively, affecting nested components
+
+These aren’t breaking changes in the semantic versioning sense—but they *are* breaking in practice. A blog post that looked perfect in AustinsElite suddenly had clipped code samples in Component Gen. A documentation page in DataAnno Fil Starter rendered with inconsistent heading weights because of cascading class resets.
+
+The worst part? No one noticed at first. Design QA caught it only after a content deploy, and by then, the drift had already eroded trust in our components’ reliability.
+
+We needed alignment—fast.
+
+## How We Synced Versions Without Breaking Everything
+
+Our goal wasn’t just to update; it was to *standardize*. We wanted all three projects on the same version, with safeguards to prevent future drift.
+
+Step one was choosing the target: v0.5.19. It had the best balance of stability, features, and community adoption. No bleeding edge, no legacy quirks.
+
+But updating wasn’t as simple as `npm install @tailwindcss/typography@0.5.19`. Each project had different Tailwind configs, custom prose overrides, and varying levels of content density. A blind upgrade could’ve introduced visual regressions we wouldn’t catch until production.
+
+So we did this:
+
+1. **Local lockfile pinning**: We updated each project’s `package.json` *and* verified the exact version was locked in `package-lock.json`. No `^` or `~`—just a hard pin to `0.5.19`.
+
+2. **Visual regression testing**: Before and after screenshots of key content pages (docs, blogs, forms) were captured using Playwright. We compared line heights, spacing, and code block rendering side-by-side.
+
+3. **Cross-project style audit**: We spun up all three apps locally, loaded identical Markdown payloads, and validated that `.prose` output was pixel-perfect across the board.
+
+4. **CI enforcement**: We added a new check to our CI pipeline that fails any PR modifying `package.json` if `@tailwindcss/typography` isn’t at `0.5.19`. No exceptions.
+
+The commits on 2025-09-25—nearly identical across all three repos—weren’t coincidental. They were the result of a coordinated push to lock in consistency. No fanfare, no big refactor. Just three clean dependency updates, each with a targeted message: `chore(deps): pin @tailwindcss/typography to v0.5.19 for cross-project consistency`.
+
+## The Quiet Wins of Boring Standardization
+
+This wasn’t a flashy refactor. No new features shipped. No design overhaul announced. But standardizing typography across our ecosystem removed a silent source of friction.
+
+Now, when a content author copies a Markdown snippet from AustinsElite’s docs into a Component Gen template, it looks right. When QA tests a new feature, they’re not chasing phantom bugs caused by inconsistent prose styles. And when we onboard new devs, we can point to one source of truth for how text *should* behave.
+
+Sometimes the most impactful engineering work isn’t building something new—it’s making sure what already exists behaves the same everywhere.
+
+And yeah, maybe that makes me a little too excited about line height. But if your typography’s broken, nothing else matters.

@@ -1,0 +1,74 @@
+---
+title: "Fixing Livewire Pagination CSRF Errors After a Laravel 11 Upgrade"
+date: "2024-05-16"
+excerpt: "After upgrading to Laravel 11, I hit a CSRF token mismatch during Livewire pagination—here’s how I diagnosed and fixed it."
+tags: ["Laravel", "Livewire", "CSRF", "Pagination", "Upgrade"]
+author: "Ryan Dashwood"
+---
+## The Unexpected CSRF Wall
+
+I just upgraded AustinsElite—a Laravel-based marketplace for local vendors and services—from Laravel 10 to 11, and everything seemed fine until users started reporting errors when paginating through service listings. The browser console lit up with 419 errors: *CSRF token mismatch*. Not on form submits. Not on button clicks. On *Livewire pagination links*. That’s not where I expected to see CSRF failures.
+
+Laravel 11 prides itself on tighter security defaults, and Livewire handles its own AJAX magic under the hood, so this felt like a landmine buried in the upgrade path. The fact that it only triggered during pagination—on components rendering dozens of vendor cards—meant something had changed in how session state or CSRF tokens were being validated on non-form requests.
+
+## Tracing the Token Trail
+
+First, I checked the obvious: was the CSRF token even present in the request? Livewire automatically includes it in its `X-CSRF-TOKEN` header, so I opened DevTools and inspected a failed pagination click. The header was there—correct value, properly set. That ruled out frontend injection issues.
+
+Next stop: middleware. Laravel 11 tweaked the default middleware stack, especially around session handling and CSRF protection. I dug into `app/Http/Kernel.php` and compared it to the Laravel 11 upgrade guide. The `VerifyCsrfToken` middleware was still in place, but I noticed something: our app uses a custom session domain setting (`SESSION_DOMAIN=.austinselite.test`) for local development across subdomains. After the upgrade, Laravel 11’s stricter session configuration was rejecting session writes when the domain didn’t match *exactly*—including subtle mismatches like missing leading dots or HTTPS mismatches in secure cookies.
+
+But here’s where it got weird: the session wasn’t expiring. Users could navigate, submit forms, even trigger other Livewire actions—just not paginate. That pointed to a specific interaction between Livewire’s pagination component and Laravel’s token regeneration logic.
+
+I added some debug logging in the `VerifyCsrfToken` middleware’s `handle` method:
+
+```php
+Log::debug('Incoming CSRF check', [
+    'url' => $request->url(),
+    'token' => $request->header('X-CSRF-TOKEN'),
+    'session_token' => $request->session()->token(),
+    'method' => $request->method(),
+]);
+```
+
+What I saw shocked me: on pagination requests, the session token was regenerating *before* the CSRF check. That meant the token Livewire sent was no longer the current one. Laravel 11’s updated `StartSession` middleware was writing the session too early for certain AJAX patterns, and Livewire’s pagination—being a full component render—was triggering a session write that invalidated the CSRF token mid-request.
+
+## The Fix: Align Middleware and Session Settings
+
+The solution had two parts.
+
+**First**, I adjusted the middleware order in `app/Http/Kernel.php`. Laravel 11 moved some session handling earlier by default, but for Livewire-heavy apps, you need to ensure the CSRF check happens *before* any session writes that could regenerate the token. I wrapped Livewire routes with a custom middleware group that enforced order:
+
+```php
+'livewire' => [
+    \App\Http\Middleware\VerifyCsrfToken::class,
+    \Illuminate\Session\Middleware\StartSession::class,
+    \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+],
+```
+
+Then, in `routes/web.php`, I wrapped the Livewire component routes:
+
+```php
+Route::middleware('livewire')->group(function () {
+    Route::get('/vendors', \App\Http\Livewire\VendorList::class);
+    Route::get('/services', \App\Http\Livewire\ServiceList::class);
+});
+```
+
+**Second**, I double-checked `config/session.php` to ensure alignment with Laravel 11’s defaults. The `same_site` policy was set to `lax`, but for local dev with subdomains, I needed `none` (with secure cookies disabled locally):
+
+```php
+'same_site' => env('SESSION_SECURE_COOKIE') ? 'none' : 'lax',
+```
+
+And critically, I ensured the session domain had the leading dot:
+
+```env
+SESSION_DOMAIN=.austinselite.test
+```
+
+After clearing the cache and restarting the dev server, pagination worked. No more 419s. The CSRF token stayed consistent, and Livewire’s AJAX requests stopped getting caught in the middleware crossfire.
+
+## Lessons Learned
+
+Upgrading Laravel versions is never just a composer command. Laravel 11’s improved security exposed a latent race condition between session writes and CSRF validation—especially under Livewire’s AJAX-driven components. If you’re upgrading and using Livewire pagination, audit your middleware order and session config. That 419 error might not be a broken form—it could be your session silently turning against you.

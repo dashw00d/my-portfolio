@@ -1,0 +1,58 @@
+---
+title: "How We Restructured HomeForged's Service Architecture for Modularity and Scalability"
+date: "2025-10-28"
+excerpt: "We reorganized HomeForged's Laravel backend into a modular service architecture to untangle dependencies and enable dynamic feature scaling."
+tags: ["Laravel", "modular architecture", "service design", "refactoring", "scalability", "PHP"]
+author: "Ryan Dashwood"
+---
+## The Mess We Inherited
+
+Before last week, HomeForged’s backend was a classic case of organic growth gone slightly off the rails. What started as a clean Laravel monolith had evolved into a tangle of services where `UserService` secretly depended on `BillingService`, and the `NotificationServiceProvider` was booting up half the app just to send an email. New features bled into each other, testing was a game of whack-a-mock, and deploying anything beyond CRUD endpoints felt like defusing a bomb wired by your past self.
+
+The breaking point? Trying to launch the dynamic client portal. We wanted clients to see real-time project updates, document approvals, and team activity—all personalized and reactive. But the existing service boundaries were so blurred that pulling client-specific data meant traversing three service layers and triggering side effects we didn’t anticipate. It wasn’t just slow; it was fragile.
+
+We’d already tackled database normalization and tightened auth with JWT, but the service layer remained the last monolithic holdout. So on October 28th, we pulled the trigger: a full service restructure aimed at modularity, clarity, and future-proofing for what we’re calling the ForgeKit ecosystem.
+
+## Designing for Separation (and Sanity)
+
+The goal wasn’t microservices—yet. We’re still in the sweet spot of a well-organized modular monolith. The new structure follows a strict domain-driven layout:
+
+```
+app/
+├── Services/
+│   ├── Auth/
+│   │   ├── AuthServiceProvider.php
+│   │   ├── AuthManager.php
+│   │   └── Contracts/
+│   ├── Billing/
+│   │   ├── BillingService.php
+│   │   ├── Invoices/
+│   │   └── Contracts/
+│   ├── ClientPortal/
+│   │   ├── PortalService.php
+│   │   ├── Widgets/
+│   │   └── Contracts/
+│   └── Notifications/
+│       ├── NotificationService.php
+│       └── Contracts/
+```
+
+Each service now lives in its own namespace with a clear contract interface, a dedicated service provider, and zero cross-dependencies unless explicitly allowed through domain events. We leveraged Laravel’s package auto-discovery and service provider boot sequencing to ensure that `App\Services\*` are registered in dependency order, and we introduced a `ServiceRegistry` facade to prevent direct instantiation.
+
+One of the trickier decisions was how to handle shared models. We didn’t want each service copying `Project.php`, but we also didn’t want a central `Core` service that everything depends on. Our compromise: domain-specific DTOs. When the `ClientPortal` service needs project data, it receives a `ProjectSummaryDTO` from the `ProjectService`, not the Eloquent model itself. This keeps data contracts explicit and prevents accidental coupling.
+
+We also aligned the restructure with our Nginx routing strategy. New service boundaries map directly to subdomain routes (`portal.homeforged.app`, `api.homeforged.app`), and we’re using Laravel’s `Route::domain()` groups to isolate service-specific endpoints. This makes it trivial to split services into separate deployments later—each already behaves like its own mini-app.
+
+## From Refactor to Real Features
+
+The best validation of an architecture change? Shipping something fast because of it.
+
+On the same day we merged the restructure, we opened a PR for the dynamic client portal—something that would’ve taken a week to prototype before. Now, because the `ClientPortal` service had clear access points and isolated state, we could build the dashboard widget system on top without touching billing, auth, or project management logic directly.
+
+One widget, for example, shows recent document approvals. It calls `ClientPortalService::getRecentApprovalsForClient($clientId)`—a method that aggregates data from the `DocumentService` via event listeners, not direct queries. The service emits a `DocumentApproved` event, and the portal service listens and caches the result. Decoupled, testable, and scalable.
+
+We’re already seeing side benefits: test suites run 30% faster because we can mock entire services at the contract level, and onboarding new devs is easier with a predictable layout. More importantly, we’ve set the foundation for ForgeKit—the idea that HomeForged’s backend modules can be extracted and reused in other products. The `Auth` and `Notifications` services are already being documented for potential open-sourcing.
+
+This wasn’t a flawless process. We initially tried a more aggressive event-driven model using Laravel Echo Server, but backed off when we realized the ops overhead wasn’t justified yet. And yes, I still worry about that one circular reference we *think* we’ve eliminated. But the trade-offs were worth it: we traded short-term friction for long-term flexibility.
+
+If you’re working in a Laravel app that’s outgrown its roots, consider this: modularity isn’t about microservices or hexagonal architectures. It’s about making your codebase *forgiving*—to change, to scale, and to the team that inherits it. We’re not done, but we’re finally building on solid ground.

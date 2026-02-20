@@ -1,0 +1,65 @@
+---
+title: "How We Fixed Form Validation and Data Binding in a Multi-Step Laravel Rental Quote Form"
+date: "2024-06-11"
+excerpt: "We untangled a broken multi-step rental form by fixing field mappings, syncing state, and ensuring reliable data flow to email handlers."
+tags: ["Laravel", "Livewire", "Alpine.js", "form validation", "state management", "email integration"]
+author: "Ryan Dashwood"
+---
+## The Form Was Broken — And Users Were Dropping Off
+
+We had a critical rental quote form on AustinsElite that just wouldn’t behave. It was a multi-step flow built with Laravel 12, Livewire, and Alpine.js — not Next.js, despite what some old labels said. Users would start the quote process, but somewhere between Step 1 and Step 3, the form would either fail validation silently or submit incomplete data. The result? Lost leads and frustrated customers.
+
+The symptoms were messy: fields weren’t validating when they should, required rules were being ignored, and even when data made it through, the email handler wasn’t receiving the full payload. We’d patched it before, but the root cause kept resurfacing. So in June, we decided to fix it for good.
+
+## Syncing State Across Steps Was the Real Challenge
+
+The form used Livewire to manage backend state and Alpine.js for frontend interactivity — a powerful combo when it works. But in our case, the two weren’t talking clearly. Each step was a Livewire component, and we were relying on Alpine’s `x-data` to handle local UI state like visibility and step progression. The problem? The field names in the frontend didn’t always match what Livewire expected.
+
+Take the `rental_period` field. In the HTML, it was `rental-period` (kebab-case), but Livewire was looking for `rental_period` (snake_case). That mismatch meant the value never bound correctly, so validation rules like `required|in:weekly,monthly` never fired. Worse, because the field was technically "missing," Livewire marked the whole request as invalid — but didn’t show an error. Silent failure. Nightmare fuel.
+
+We also had conditional fields that depended on user choices. For example, if someone selected "Commercial Rental," we’d show additional inputs. But because we were toggling those with Alpine without syncing back to Livewire, the server had no idea those fields existed when the final submit hit. So even if the user filled them out, they’d vanish.
+
+The fix started with standardization. We enforced consistent naming: all form fields used snake_case, matching Livewire’s expectations. Then, we made sure every Alpine-driven toggle also updated a corresponding Livewire property using `wire:model`. That way, the server always had an accurate picture of what the user saw and entered.
+
+Here’s a simplified example of the corrected pattern:
+
+```blade
+<div x-data="{ rentalType: 'residential' }">
+  <select wire:model="rental_type" @change="rentalType = $event.target.value">
+    <option value="residential">Residential</option>
+    <option value="commercial">Commercial</option>
+  </select>
+
+  <div x-show="rentalType === 'commercial'">
+    <input type="text" wire:model="business_name" placeholder="Business Name" />
+    <input type="number" wire:model="employee_count" placeholder="# of Employees" />
+  </div>
+</div>
+```
+
+Now, when the user switches to "Commercial," both Alpine and Livewire are in sync. The fields appear *and* their values are captured server-side.
+
+## Validation and Email Flow: From Broken to Bulletproof
+
+With state synchronized, we turned to validation. We reviewed every `rules()` method in the Livewire components and aligned them with actual business logic. Some fields were marked `required` even when they were conditional — that caused false failures. We replaced static rules with dynamic ones:
+
+```php
+public function rules()
+{
+    return array_merge([
+        'rental_type' => 'required|in:residential,commercial',
+        'start_date' => 'required|date|after_or_equal:today',
+    ], $this->rental_type === 'commercial' ? [
+        'business_name' => 'required|string|max:255',
+        'employee_count' => 'required|integer|min:1',
+    ] : [
+        'occupants' => 'required|integer|min:1',
+    ]);
+}
+```
+
+This ensured only relevant fields were validated — no more red herrings.
+
+Finally, we verified the data made it all the way to email. The original code was passing only a subset of the form data to the Mailable class. After the fix in the commit "Forms to email and signature working," we confirmed the full payload was serialized and delivered reliably. We added logging to catch any future drops, and now every quote submission generates a complete, formatted email with all user inputs — including signatures captured via canvas.
+
+This wasn’t a flashy refactor. No new frameworks, no rewrites. Just careful attention to naming, state, and data flow. But the impact? Form completion rates jumped, and support tickets about "lost" quotes dried up. Sometimes, the most valuable code you write is the code that makes the existing system stop lying to you.

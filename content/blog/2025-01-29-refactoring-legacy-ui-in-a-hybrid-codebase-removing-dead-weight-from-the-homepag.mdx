@@ -1,0 +1,72 @@
+---
+title: "Refactoring Legacy UI in a Hybrid Codebase: Removing Dead Weight from the Homepage"
+date: "2025-01-29"
+excerpt: "How we cleaned up the AustinsElite homepage by removing a redundant section during our Laravel 12 frontend modernization."
+tags: ["refactoring", "Laravel", "frontend", "technical debt", "UI cleanup"]
+author: "Ryan Dashwood"
+---
+## The Problem with Parallel Frontends
+
+We’re in the middle of modernizing AustinsElite—a long-running application originally built on a custom PHP stack with Laravel components. The new frontend runs on Laravel 12 with a refreshed Blade-driven UI (not Next.js, despite earlier labels). Both versions are live: the legacy app still handles core operations, while the Laravel 12 frontend is being incrementally rolled out.
+
+This hybrid state creates a unique challenge: content and layout drift between versions. One glaring example? The 'Services We Provide' section on the homepage. It existed in both frontends, but with different messaging, styling, and even service lists. Worse, analytics showed almost no engagement—users weren’t clicking, scrolling to it, or converting from it.
+
+Instead of syncing two broken implementations, we asked: should this section exist at all?
+
+## Why We Decided to Remove, Not Refactor
+
+Our first instinct was to update and align the section across both codebases. But after reviewing heatmaps and GA data, we realized we were polishing something nobody used. The content was redundant—services were already highlighted in the hero and navigation. Maintaining it meant ongoing effort for zero ROI.
+
+So we made a call: delete it.
+
+This wasn’t just a design decision—it was a technical one. Every component we carry forward into the new frontend becomes tech debt if it doesn’t pull its weight. With the Laravel 12 upgrade already introducing new patterns and tooling, we didn’t want to inherit legacy bloat.
+
+We also considered SEO impact. But the section had no unique keywords, thin content, and wasn’t linked externally. A 301 redirect wasn’t needed; the core services page already ranked well. We added a brief meta description update to compensate, but otherwise, search signals stayed stable.
+
+## How We Cleaned It Up (and Made the Hero Shine)
+
+The removal spanned three commits, but the core work was straightforward:
+
+1. **Delete the Blade partial**: `_services-section.blade.php` was pulled out of the homepage template.
+2. **Purge dead CSS**: Tailwind classes tied to the section were removed using `purgecss` and manual cleanup.
+3. **Update routing and controllers**: No route changes were needed (it was a static section), but we removed a dead controller method that had been used for a dynamic variant in the legacy app.
+4. **Enhance the hero**: With extra vertical space, we expanded the headline and added a clearer CTA—"Book Your Clean"—which improved above-the-fold clarity.
+
+Here’s a snippet from the key commit:
+
+```blade
+{{-- Removed: --}}
+{{-- @include('partials.services-section') --}}
+```
+
+And the Tailwind cleanup:
+
+```html
+<!-- Before -->
+<div class="py-16 bg-gray-50">
+  <div class="max-w-7xl mx-auto px-4">
+    <!-- Services grid -->
+  </div>
+</div>
+
+<!-- After -->
+<!-- Nothing. It's gone. And the page breathes easier. -->
+```
+
+We also reviewed internal links and CMS references to ensure no dangling expectations. Since the legacy app still runs, we documented the change so support staff wouldn’t expect parity.
+
+## Lessons from Cutting the Cord
+
+Removing code feels risky—especially in a visible spot like the homepage. But sometimes, the best refactor is no refactor.
+
+This small change had outsized benefits:
+
+- **Faster page load**: ~8KB saved in HTML/CSS (measured via Lighthouse)
+- **Cleaner maintenance**: one less component to update during future redesigns
+- **Stronger UX**: more focus on the hero, which drives conversions
+
+It also set a precedent: as we continue modernizing, we’re not just porting old UI—we’re auditing it. If a component doesn’t earn its place, it doesn’t come along for the ride.
+
+In a hybrid migration, technical debt isn’t just outdated syntax—it’s outdated thinking. Letting go of "but we’ve always had it" is half the battle.
+
+The result? A leaner, clearer homepage that serves users better—not because we added something flashy, but because we had the guts to remove what wasn’t working.

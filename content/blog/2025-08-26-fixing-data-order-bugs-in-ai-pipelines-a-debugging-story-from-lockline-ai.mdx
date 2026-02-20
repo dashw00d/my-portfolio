@@ -1,0 +1,96 @@
+---
+title: "Fixing Data Order Bugs in AI Pipelines: A Debugging Story from Lockline AI"
+date: "2025-08-26"
+excerpt: "How a subtle data ordering bug in Lockline AI's pipeline threatened lead prioritization—and how I tracked it down."
+tags: ["debugging", "AI pipelines", "data consistency", "backend engineering", "TypeScript"]
+author: "Ryan Dashwood"
+---
+## The Lead That Wasn’t Last
+
+It started with a Slack message from our product lead: “The new leads aren’t showing up at the top anymore.” Simple enough. Except the logs said otherwise. Our AI model was scoring and returning fresh leads as expected. The API response looked correct. And yet—on the frontend, they were buried.
+
+This wasn’t a UI rendering bug. No missing re-renders. No stale state. The data arriving in the browser was already out of order. That meant the problem wasn’t in the frontend, or even in the API formatting. It was upstream—somewhere between the database and the response payload. And since Lockline AI relies on timely lead prioritization (we’re combining AI-generated insights with real-time weather triggers), this wasn’t just a cosmetic issue. It was eroding trust in the system.
+
+I knew we were pulling leads from a Postgres-backed service, enriched with AI scores from multiple providers and layered with external weather data. The sorting logic *should* have been straightforward: latest leads first, weighted by AI confidence. But somewhere, that order was getting scrambled.
+
+## Tracing the Data Flow (And the Missing Sort)
+
+My first move? Reproduce it locally with a debug log at each layer. I mocked the incoming webhook that triggers lead creation, then watched the flow:
+
+1. Lead created in DB ✅
+2. AI enrichment pipeline triggered ✅
+3. Weather context appended ✅
+4. Final record stored with timestamp and score ✅
+5. GET /leads returns list... ❌
+
+The records were all there. All up to date. But no, they weren’t sorted. Not by creation date. Not by score. Just… arbitrary.
+
+I dug into the query. Here’s the original:
+
+```ts
+const leads = await db.lead.findMany({
+  where: { userId: currentUserId },
+  include: { aiInsights: true, weatherContext: true }
+});
+```
+
+No `orderBy`. At all.
+
+Now, here’s the sneaky part: in development, due to the small dataset and sequential inserts, the results *often* came back in the right order. PostgreSQL’s default behavior on indexed primary keys can make it *look* like you’re getting chronological order—until you’re not. And in production, with parallel writes and connection pooling, that illusion vanished.
+
+The frontend had been assuming the API would return leads in descending order by creation date. The API assumed the database would handle it. The database shrugged.
+
+This is the kind of bug that slips through code review because everyone *thinks* someone else is handling it. And in an AI-integrated system like Lockline, where data freshness directly impacts decision quality, this kind of silent inconsistency can quietly degrade performance without throwing errors.
+
+## The Fix: Own the Order, End to End
+
+The solution was simple, but the lesson was bigger: never assume order. If your system depends on it, enforce it explicitly.
+
+I updated the query:
+
+```ts
+const leads = await db.lead.findMany({
+  where: { userId: currentUserId },
+  include: { aiInsights: true, weatherContext: true },
+  orderBy: [
+    { createdAt: 'desc' },
+    { aiConfidenceScore: 'desc' }
+  ]
+});
+```
+
+Now, we’re sorting by creation time first, then by AI confidence. This ensures the newest leads bubble up, but within that, the highest-priority ones (based on model output) are surfaced first.
+
+But I didn’t stop there. I added a schema-level comment:
+
+```ts
+/**
+ * WARNING: This query MUST preserve chronological + confidence ordering.
+ * Frontend and AI routing logic depend on this.
+ */
+```
+
+And I added a runtime assertion in the API route during development mode:
+
+```ts
+if (process.env.NODE_ENV === 'development') {
+  const isOrdered = leads.every((lead, i, arr) =>
+    i === 0 || new Date(lead.createdAt) <= new Date(arr[i - 1].createdAt)
+  );
+  if (!isOrdered) {
+    console.warn('Lead order mismatch detected in /leads');
+  }
+}
+```
+
+It’s overkill for production, but in dev, it’s a safety net.
+
+The commit was small—just a few lines—but the impact was immediate. Leads started appearing in the right order. The product team stopped getting Slack pings. And more importantly, we preserved the integrity of the AI-driven workflow.
+
+## Lessons from the Trenches
+
+Data ordering bugs are silent killers in AI systems. They don’t crash your app. They don’t log errors. But they *do* make your AI look broken—even when it’s working perfectly.
+
+At Lockline AI, we’re stitching together dynamic data from multiple sources. When the presentation layer depends on temporal or priority-based ordering, you can’t leave it to chance. You have to own it—at the query, validate it in tests, and document it for the next engineer.
+
+So next time your AI output feels ‘off’ but the model metrics look good? Check the data pipeline. The bug might not be in the model. It might just be that your leads aren’t where you think they are.

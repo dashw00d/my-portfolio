@@ -1,0 +1,46 @@
+---
+title: "Building a Modular Automation Engine: Why We Replaced n8n in HomeForged"
+date: "2025-10-11"
+excerpt: "We replaced n8n with a custom modular workflow engine tightly integrated into HomeForged’s Laravel architecture for better security, control, and scalability."
+tags: ["Laravel", "workflow-automation", "modular-architecture", "system-design", "HomeForged"]
+author: "Ryan Dashwood"
+---
+## Why We Outgrew n8n
+
+When we first added automation to HomeForged, n8n was a logical choice. It’s open-source, visually intuitive, and supports a wide range of integrations out of the box. For early prototypes and MVP workflows, it worked well. But as our platform matured, the cracks started showing.
+
+The first issue was **security**. We were passing sensitive user data through a third-party tool running in a separate container. Even though n8n is self-hostable, it introduced an untrusted boundary within our own system. Secrets were creeping into config files, and we had to jump through hoops to isolate execution contexts. One commit on this very day finally removed hardcoded credentials from n8n workflows and ensured they were gitignored—but that was a band-aid, not a fix.
+
+Next came **tight coupling**. Our Laravel app needed to trigger workflows, read their status, and react to outcomes—all of which meant building brittle APIs between two separate systems. Every new integration required coordination across containers, deployment pipelines, and error-handling strategies. It felt like we were building an integration platform *on top of* our integration platform.
+
+Finally, **scalability** became a bottleneck. n8n’s architecture assumes centralized execution. As our user base grew, we couldn’t easily shard or distribute workflows. Long-running jobs would bottleneck the entire instance, and debugging execution paths across service boundaries was a nightmare.
+
+We realized we didn’t just need a better config—we needed a fundamentally different approach.
+
+## Designing a Modular Workflow Engine Inside Laravel
+
+Instead of orchestrating automation from the outside, we decided to build it from the inside out—directly into HomeForged’s Laravel-based modular monolith.
+
+The new engine treats workflows as first-class citizens within the application. Each workflow is defined as a PHP class implementing a `Workflow` interface, with clearly defined triggers, steps, and error handlers. These classes live in dedicated modules—like `BillingModule`, `UserOnboardingModule`, etc.—allowing teams to own their automation logic without stepping on each other’s toes.
+
+At the core is a lightweight **event-driven bus** that decouples triggers from execution. When a user signs up, for example, Laravel fires a `UserRegistered` event. The workflow engine listens for it and checks if any active workflows are bound to that event. If so, it instantiates the workflow and begins execution in the same process—no HTTP calls, no message queues (unless needed).
+
+Each step in a workflow is a self-contained action class—like `SendWelcomeEmail`, `CreateStripeCustomer`, or `LogActivity`. These actions are stateless, injectable via Laravel’s service container, and can be reused across different workflows. Want to send a Slack message in five different automations? Just import `SendSlackNotification` and go.
+
+Routing is dynamic. We parse workflow definitions from JSON or database records, validate them against a schema, and compile them into executable graphs. This lets us support both code-defined workflows (for developers) and UI-built ones (for power users) using the same engine.
+
+And because everything runs within Laravel, we get all the benefits of the ecosystem: queued jobs with Horizon, retry logic, logging with Telescope, and seamless database transactions. Need to rollback an entire workflow if one step fails? Wrap it in a DB transaction. Want to pause execution and resume later? Serialize the state and dispatch it to Redis.
+
+## Lessons from the Trenches
+
+Replacing n8n wasn’t just a technical lift—it was a shift in mindset. We went from treating automation as a sidecar tool to embedding it as a core capability.
+
+One lesson: **modularity beats flexibility**. n8n promised unlimited connectors, but most of what we actually used were 10 common patterns: HTTP calls, email, database ops, and notifications. By building those in-house, we reduced complexity and increased reliability.
+
+Another: **integration depth matters more than surface area**. With n8n, we were always one webhook away from a broken flow. Now, our workflows can directly call domain services, access Eloquent models, and participate in business transactions. That tight integration makes automations feel like natural extensions of the app, not bolted-on scripts.
+
+We also learned that **observability starts with ownership**. When something breaks in n8n, you’re debugging someone else’s code. Now, when a workflow fails, we can trace it from the event bus down to the line number—using tools we already know and trust.
+
+The final push—the full modular refactor and removal of n8n—landed today. It’s not just cleaner code; it’s a more cohesive system. Workflows are faster, safer, and easier to reason about.
+
+Was it worth it? Absolutely. We didn’t just replace a tool—we built a foundation for smarter, more autonomous systems inside HomeForged. And that’s something no off-the-shelf automation platform could ever deliver.

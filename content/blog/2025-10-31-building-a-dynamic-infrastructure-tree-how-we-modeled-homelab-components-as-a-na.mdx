@@ -1,0 +1,41 @@
+---
+title: "Building a Dynamic Infrastructure Tree: How We Modeled Homelab Components as a Navigable Hierarchy"
+date: "2025-10-31"
+excerpt: "We rebuilt HomeForged's core component model using an AST-inspired tree to enable real-time orchestration and visual editing."
+tags: ["infrastructure-as-code", "AST", "homelab", "component-tree", "real-time-ui"]
+author: "Ryan Dashwood"
+---
+## The Problem With Flat Homelab Views
+
+If you’ve ever tried to map out a homelab setup, you know how quickly it gets messy. Containers, networks, volumes, proxies—each service can spawn multiple resources, and changes in one place ripple across others. Our early version of HomeForged treated components as flat, isolated entities. That worked for simple setups, but as users stacked services like WordPress behind Traefik with Redis and a database, the UI became a disorganized list of YAML fragments. We needed structure.
+
+The real challenge wasn’t just displaying components—it was modeling them as a live, navigable hierarchy that could reflect dependencies, nesting, and state in real time. We wanted users to drag a service into a group, see its network automatically linked, and instantly understand what would break if they removed a parent node. That meant moving beyond static configs to a dynamic, in-memory representation of the entire infrastructure.
+
+## Enter the AST-Style Component Tree
+
+We took inspiration from compilers—specifically, Abstract Syntax Trees (ASTs). In code parsing, an AST turns flat text into a structured, traversable hierarchy. We realized our infrastructure definitions were essentially code: declarative, composable, and full of relationships. So we built a component tree that parses each service definition and constructs a tree where every node is a first-class citizen—whether it’s a container, a network, or a logical group.
+
+Each node carries metadata: type, dependencies, lifecycle hooks, and runtime state. The root isn’t just a container—it’s a scope. Groups act as namespaces. Child nodes inherit context (like network defaults), but can override. This isn’t just UI sugar; it’s a runtime model that powers orchestration. When you start a group, the tree traverses children in dependency order. When you delete a node, it calculates impact by walking upward and downstream references.
+
+The tree is built on a recursive schema with typed nodes:
+
+```php
+interface ComponentNode {
+    public function getType(): string;
+    public function getChildren(): array;
+    public function getParent(): ?ComponentNode;
+    public function accept(ComponentVisitor $visitor);
+}
+```
+
+We use a visitor pattern to decouple operations—rendering, validation, export—from the tree structure itself. This made it easy to plug in features later, like the drag-and-drop reordering or the upcoming impact analysis panel.
+
+## Real-Time Orchestration, Powered by the Tree
+
+The tree isn’t just for display. It’s the source of truth for the entire preview environment. When you toggle a service on in the UI, the change flows into the tree, which then notifies connected systems—Docker Compose generator, state manager, WebSocket broadcaster. The preview updates instantly because the tree knows exactly which services are affected.
+
+One of the most satisfying wins was getting drag-and-drop working smoothly. Before, reordering meant manually editing config indices. Now, you drag a service into a group, and the tree re-parents the node, auto-assigns a network, and updates dependency links. The UI reflects it immediately because the component tree emits fine-grained events—`nodeMoved`, `hierarchyUpdated`—that the frontend reacts to.
+
+We also fixed a nasty transient state bug along the way. Turns out, a singleton-bound service in Laravel’s container was holding stale tree state across requests. Switching to a scoped binding ensured each user session got a fresh, isolated instance. That was the last puzzle piece—now, your preview actions actually affect the UI, no reloads needed (well, almost—still chasing a few minor bugs).
+
+This merge—`feat/advanced-component-tree-builder`—is more than a refactor. It’s the foundation for what’s next: dependency visualization, automated conflict resolution, and eventually, AI-assisted config generation. The tree gives us a live model we can interrogate, mutate, and optimize. For the first time, your homelab isn’t just defined—it’s *understood*.

@@ -1,0 +1,88 @@
+---
+title: "Building a Hybrid Time Tracking System in Next.js: Supporting Legacy and Modern Schemas Side-by-Side"
+date: "2025-07-17"
+excerpt: "How we evolved AustinsElite's time tracking system to support both legacy and modern schemas without breaking existing workflows."
+tags: ["Next.js", "TypeScript", "Legacy Migration", "State Management", "Full-Stack"]
+author: "Ryan Dashwood"
+---
+## The Problem: Two Time Tracking Models, One Interface
+
+At AustinsElite, our time tracking system has been mission-critical for years. Originally built on Laravel 12 (where the bulk of our business logic still lives), the frontend recently moved to a Laravel 12-based interface to improve UX and developer velocity. But here’s the catch: we couldn’t just flip a switch and migrate everyone to a new data model.
+
+Our legacy schema stored a single time-in and time-out per shift. Simple. Predictable. Brittle. As user needs evolved, we needed to support multiple clock-in/clock-out entries per day — think lunch breaks, split shifts, or remote workers hopping on and off.
+
+Instead of forcing a disruptive migration, we chose evolution over revolution: support both models side-by-side in the same interface, powered by conditional logic in Next.js, while maintaining backward compatibility on the Laravel backend.
+
+This wasn’t just a data model change — it was a UX, state, and API coordination challenge.
+
+## Frontend Architecture: Conditional Rendering with Unified State
+
+The biggest risk in supporting dual schemas? User confusion. We didn’t want employees toggling between two different time tracking apps — or worse, two modes that felt like separate systems.
+
+So in our Next.js frontend, we built a single `TimeTracker` component that adapts based on the employee’s account settings and feature flag state. Here’s how it works:
+
+```tsx
+const TimeTracker = () => {
+  const { data: employee } = useEmployee();
+  const isModernMode = employee?.features?.includes('multi-entry-time-tracking');
+
+  return (
+    <div className="time-tracker">
+      {isModernMode ? <MultiEntryForm /> : <LegacySingleEntryForm />}
+      <TimeSummary entries={employee.timeEntries} mode={isModernMode} />
+    </div>
+  );
+};
+```
+
+Both forms write to the same overarching state shape, normalized to an array of time entries — even the legacy form. When a user in legacy mode clocks in, we store it as a single-element array. This lets us unify downstream logic: summaries, validations, and submissions all work the same way.
+
+The submission handler? One function to rule them all:
+
+```ts
+const handleSubmit = (entries: TimeEntry[]) => {
+  // Normalize legacy format if needed
+  const payload = isLegacyUser 
+    ? { time_in: entries[0]?.start, time_out: entries[0]?.end }
+    : { entries: entries.map(formatEntry) };
+
+  return fetch('/api/time-entries', { method: 'POST', body: JSON.stringify(payload) });
+};
+```
+
+This abstraction meant we could iterate on the modern form without touching the core workflow logic. And when the time comes to sunset the legacy mode? We delete a flag, tweak the default, and we’re done.
+
+## Backend Compatibility: Normalization Over Disruption
+
+The Laravel backend didn’t need a rewrite — it just needed to speak both languages.
+
+We introduced a thin normalization layer in our `TimeEntryController` that detects incoming payload structure:
+
+```php
+public function store(Request $request)
+{
+    if ($request->has('time_in')) {
+        // Legacy path
+        $entry = $this->handleLegacyEntry($request);
+    } else {
+        // Modern path
+        $entry = $this->handleMultiEntry($request);
+    }
+
+    return response()->json($entry);
+}
+```
+
+Both paths write to the same modern database schema (an `employee_time_entries` table with `start_time`, `end_time`, and `shift_id`), but the legacy path wraps the single record in a synthetic session. This keeps reporting consistent and future-proofs analytics.
+
+We also added automated data migration scripts that backfill legacy records into the new schema during off-peak hours — quietly, safely, and reversibly.
+
+The result? Zero downtime. Zero user retraining. And a path to full modernization when we’re ready.
+
+## Why This Approach Wins
+
+You don’t always get to rebuild from scratch. In real-world apps, evolution beats revolution. By embracing conditional logic, unified state, and smart backend routing, we extended the life of a critical system while paving the way for the future.
+
+If you’re staring down a legacy data migration in your Laravel 12 app, consider this: don’t migrate users — migrate capabilities. Use feature flags. Normalize early. And keep the UX consistent, even when the data underneath is in flux.
+
+At AustinsElite, this hybrid approach let us innovate without incident. And when we finally flip the switch to full multi-entry support? It’ll be a deployment — not a disaster.

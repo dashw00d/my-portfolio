@@ -1,0 +1,77 @@
+---
+title: "How We Unified a Fragmented Calendar System in a Legacy PHP App"
+date: "2024-09-28"
+excerpt: "Refactored duplicated calendar logic into a single reusable component in a legacy PHP app, cutting bugs and boosting maintainability."
+tags: ["Laravel", "Legacy Code", "PHP", "Refactoring", "Frontend Architecture"]
+author: "Ryan Dashwood"
+---
+## The Problem: Two Calendars, Twice the Trouble
+
+Last month, while diving into AustinsElite (Legacy), I stumbled on a classic symptom of organic code growth: two nearly identical calendar views—one in the admin dashboard, another in the availability manager. Both rendered monthly schedules using similar PHP logic and Blade templates, but with slight differences in context and behavior. One used carbon for date handling, the other raw strtotime. One had hardcoded CSS classes, the other used dynamic bindings. They looked almost the same, but behaved differently under edge cases—like leap-year handling or timezone shifts.
+
+Worse, when a client reported a bug in how unavailable dates were highlighted, we had to patch it in two places. Then we discovered a third instance hidden in a rarely-used booking preview. That was the wake-up call: we weren’t just fixing bugs, we were feeding technical debt.
+
+This wasn’t just about duplication—it was about fragility. Every change carried risk. We needed a single source of truth for calendar rendering.
+
+## The Fix: One Calendar to Rule Them All
+
+The goal was clear: extract a universal calendar partial that could handle multiple contexts—admin, user availability, booking preview—without branching logic or visual drift.
+
+I started by identifying the common core: a 7x6 grid of days, with metadata like availability, booking status, and navigational controls. The differences? Contextual actions (e.g., 'Edit' in admin vs. 'Book' in availability) and data sources (some pulled from Eloquent, others from cached arrays).
+
+The solution? A reusable Blade component with dynamic slots and context-aware props:
+
+```blade
+<!-- resources/views/components/universal-calendar.blade.php -->
+<div class="calendar">
+    <header>
+        <button wire:click="previousMonth">←</button>
+        <h3>{{ $monthName }} {{ $year }}</h3>
+        <button wire:click="nextMonth">→</button>
+    </header>
+    <grid>
+        @foreach($days as $day)
+            <day
+                :date="$day['date']"
+                :available="$day['available']"
+                :booked="$day['booked']"
+            >
+                <!-- Slot for context-specific actions -->
+                {{ $slot($day) }}
+            </day>
+        @endforeach
+    </grid>
+</div>
+```
+
+Then, in each parent view, we included the component with a scoped slot:
+
+```blade
+<x-universal-calendar :days="$adminDays" :monthName="$month" :year="$year">
+    @scope('day', $day)
+        @if(auth()->user()->isAdmin())
+            <edit-button :date="$day['date']" />
+        @else
+            <book-button :date="$day['date']" :available="$day['available']" />
+        @endif
+    @endscope
+</x-universal-calendar>
+```
+
+This kept the structure consistent while allowing behavior to shift based on context. The component accepted a standardized `$days` array, abstracting data fetching behind a shared service class—`CalendarRenderer`—which normalized inputs from different controllers.
+
+The commit message was simple—'calendar file now universal'—but the impact wasn’t. We cut over 200 lines of duplicated code, eliminated three bug vectors, and made future enhancements (like adding holidays or time slots) a one-change proposition.
+
+## Lessons from the Trenches: Refactoring Legacy Code Without Breaking It
+
+Working in a legacy PHP app—especially one built on a custom framework with Laravel packages—means you can’t just drop in Livewire or Inertia and call it a day. You move carefully. You test in layers. And you accept that "clean" doesn’t mean "perfect"—it means "better than yesterday."
+
+Here’s what I learned:
+
+- **Start with observation, not deletion.** I spent two days just mapping how the calendars were used, not jumping to extract. That revealed edge cases I’d have missed.
+- **Backward compatibility is your ally.** Instead of rewriting all views at once, I introduced the new component alongside the old ones, routing traffic gradually. This let us test in production safely.
+- **Abstraction isn’t free.** At first, I tried to make the component "smart"—auto-detecting context, loading data itself. That got messy fast. Pulling back to a dumb, flexible renderer with clear inputs was the right call.
+
+This refactor was part of a broader September push to modernize AustinsElite (Legacy)—not by rewriting, but by stabilizing. We’re not turning it into Laravel 10 overnight, but we’re making it less afraid of change.
+
+And that’s the real win: the next dev who touches this code won’t have to fix the same bug twice.

@@ -1,0 +1,64 @@
+---
+title: "How We Solved a Janky Navigation Experience in Our Laravel 12 Rebuild"
+date: "2024-05-08"
+excerpt: "Fixed a jumping navigation in our Laravel 12 app by stabilizing CSS layout shifts and optimizing local assets."
+tags: ["Laravel", "Livewire", "CSS", "Performance", "Frontend"]
+author: "Ryan Dashwood"
+---
+## The Navigation Was Jumping — And It Was Driving Us Nuts
+
+We’ve been deep in the trenches rebuilding AustinsElite on Laravel 12, leveraging Livewire for dynamic, reactive components without leaving the comfort of our PHP stack. But after a recent refactor, something started feeling… off. Every time a user navigated between pages, the top navigation would visibly *jump* — a jarring layout shift that made the site feel unstable, even though nothing was technically broken.
+
+At first glance, it seemed like a hydration issue or maybe a Livewire re-render quirk. But this wasn’t a client-side framework like Next.js — we’re running pure Laravel with Livewire powering just the interactive bits. So why was the layout shifting on route changes?
+
+After recording a few screen captures and slowing them down (because nothing teaches you humility like watching your UI wiggle in slow motion), we spotted the culprit: inconsistent border rendering on the active navigation link.
+
+## The Real Culprit: A Missing Border Causing Layout Shifts
+
+Our navigation uses a simple but effective visual cue: the current page gets a bold `border-b-2 border-white` to highlight it. The rest of the links? No bottom border. Harmless, right?
+
+Wrong. Because the active state *added* a 2px border that wasn’t present in the inactive state, the entire nav bar was shifting downward by 2px whenever a new route loaded — and then snapping back when the active link re-rendered. Since Livewire re-renders components asynchronously after the page loads, there was a tiny but perceptible flash where the active link looked like any other… until the border popped in.
+
+That 2px gap was enough to disrupt the entire visual rhythm of the page. Users didn’t need to notice it consciously for it to feel *wrong*.
+
+The fix? Stabilize the layout by ensuring consistent box metrics across all states. We updated all navigation links to *always* have a `border-b-2` — but with a twist:
+
+```blade
+@php
+$isActive = request()->routeIs($route);
+@endphp
+
+<a href="{{ route($route) }}"
+   class="px-4 py-2 border-b-2 transition-colors duration-200 {{ $isActive ? 'border-white' : 'border-transparent' }}">
+  {{ $slot }}
+</a>
+```
+
+By applying `border-transparent` to inactive links, we reserved the same 2px of space regardless of state. No more layout shift. No more visual stutter. Just a smooth, stable experience.
+
+This is one of those CSS lessons you learn the hard way: *if something changes layout on state, you’re asking for trouble.* Reserve the space upfront. Use transparency, not absence.
+
+## Optimizing Hero Images: From External URLs to Local Assets
+
+While we were in the browser’s performance tab anyway, we noticed another subtle issue: the hero section on key landing pages would briefly render with a broken image icon before loading the intended photo. These images were pulled from external URLs — convenient during early development, but a liability in production.
+
+External assets mean external dependencies. CDNs go down. URLs break. And in our case, the images weren’t optimized — no WebP, no lazy loading, no `srcset`. Just raw, full-res JPEGs served over HTTPS with no fallbacks.
+
+We moved all critical hero images into `public/assets/images`, pre-converted them to WebP with fallbacks, and updated the Blade templates to use local paths:
+
+```blade
+<picture>
+  <source srcset="/assets/images/hero-home.webp" type="image/webp">
+  <img src="/assets/images/hero-home.jpg"
+       alt="Austin's Elite - Premium Training Experience"
+       class="w-full h-auto">
+</picture>
+```
+
+We also added `loading="lazy"` and proper `alt` text for accessibility. The result? Faster load times, no more broken image flashes, and better Lighthouse scores across the board.
+
+## Small Fixes, Big Impact
+
+This wasn’t a flashy new feature. No user requested a less-jumpy nav. But these tiny polish passes are what turn a functional app into a *pleasurable* one. By stabilizing layout with consistent borders and cutting dependency on external image hosts, we eliminated two sources of visual instability — all without touching the backend logic.
+
+If you’re working on a Laravel + Livewire app (even if you once called it a Next.js project in a moment of over-ambition), here’s the takeaway: pay attention to the pixels. The difference between “meh” and “wow” is often two pixels of border and a locally stored image.

@@ -1,0 +1,44 @@
+---
+title: "From Spaghetti to Structure: Refactoring a 15-Year-Old PHP Admin Panel into MVC"
+date: "2025-12-08"
+excerpt: "How I untangled a decade-old PHP monolith into a maintainable Laravel-inspired MVC architecture."
+tags: ["PHP", "Legacy Code", "Refactoring", "MVC", "Laravel"]
+author: "Ryan Dashwood"
+---
+## Diagnosing the Spaghetti: What Was Broken
+
+I recently inherited *authority.php* and *calendar_int.php*—two files that, between them, handled nearly every admin action in AustinsElite’s 15-year-old legacy PHP app. These weren’t just long files; they were full-on monoliths. One function called another deep in the middle of HTML output. Logic for event invoicing, calendar updates, and user privileges was all jammed together, with SQL queries sprinkled like confetti. No separation of concerns. No tests. Just raw, unfiltered PHP from an era when frameworks were optional.
+
+The pain wasn’t theoretical. Onboarding new devs took days just to trace how a simple status update flowed through the system. Bug fixes risked breaking unrelated features. And forget reusing logic—everything was copy-pasted with slight variations.
+
+It was clear: this needed more than patches. It needed structure.
+
+## Extracting Control: Building Controllers in a Legacy World
+
+My goal wasn’t to rewrite the app in Laravel (tempting as that was), but to bring Laravel-like clarity to the existing stack. The first step? Extract business logic from the monoliths into proper controllers.
+
+I started by identifying discrete domains: event management, calendar operations, and admin actions. Then I created a new `ViewerController`—yes, in the same old codebase, but with a modern intent. This controller didn’t live in a fancy `app/Http/Controllers` directory; it lived in `includes/controllers/`, because legacy constraints are real. But the pattern was intentional: methods for `viewEvent`, `generateInvoice`, `updateCalendarSlot`—each with clear inputs, outputs, and zero HTML mixed in.
+
+Next came the admin controllers. I pulled out logic for event invoicing and calendar management into dedicated classes. The old `authority.php` used global `$_POST` checks scattered across 800 lines. Now, those became clean method calls routed through a central entry point. I didn’t eliminate the old files immediately—I couldn’t—but I *did* redirect their logic to the new controllers, one action at a time.
+
+The win? I could now test a single invoice generation flow without rendering an entire admin page. And when a bug surfaced, I wasn’t grepping through 10 files—I was in one method, one class.
+
+## Routing and Templates: Making the Flow Feel Modern
+
+With controllers in place, the next hurdle was routing. The old system relied on direct file access: `calendar_int.php?action=update`. Not exactly RESTful. I introduced a simple routing layer—again, not Laravel, but Laravel-*inspired*—that mapped actions to controller methods. A new `admin_router.php` file became the single entry point for all admin requests, parsing the action and dispatching to the right controller.
+
+This also meant modernizing the templates. The original files mixed PHP loops, HTML, and JavaScript in ways that made my eyes water. I replaced those with a Blade-like pattern using clean `include` calls and structured template variables. No full Blade engine (the app isn’t Laravel), but I adopted its philosophy: logic in PHP, presentation in HTML.
+
+For example, the calendar interface now pulls data via the `CalendarController`, passes it to a clean `calendar_admin.view.php` template, and uses minimal inline PHP—just loops and echo statements. The result? A UI that’s easier to tweak, and a backend that doesn’t break when someone edits a table cell.
+
+## Lessons from the Trenches: Balance Over Purity
+
+Refactoring legacy code isn’t about achieving architectural perfection. It’s about making the next change easier than the last.
+
+I learned to balance backward compatibility with progress. I couldn’t drop `authority.php` overnight—too many external integrations depended on its endpoints. So I wrapped, deprecated, and redirected. I added logging to track old usage, then removed pieces once they were safe.
+
+I also removed dead weight: the old admin log, event log, and privilege files that hadn’t been used in years. Deleting code felt risky at first, but the tests (yes, I wrote some) confirmed nothing broke. That cleanup reduced technical debt and made the remaining code easier to navigate.
+
+The biggest win? Developer onboarding. New team members can now understand the admin flow in hours, not days. They read the `ViewerController`, see the method names, and get it. That’s the real measure of maintainability.
+
+This refactor didn’t turn AustinsElite into a Laravel app. But it turned a fear-driven codebase into one where we can move fast—without breaking things. And for a 15-year-old PHP monolith, that’s a win.

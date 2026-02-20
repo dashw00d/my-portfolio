@@ -1,0 +1,95 @@
+---
+title: "How We Secured Game Saves with Client-Side Encryption in Gear to Glory"
+date: "2025-02-20"
+excerpt: "We encrypted localStorage saves in our browser game using Web Crypto and AES-GCM—here's how we balanced security, performance, and simplicity."
+tags: ["javascript", "web-crypto", "game-development", "security", "localstorage"]
+author: "Ryan Dashwood"
+---
+## The Problem With Plain Text Saves (And Why Base64 Isn’t Encryption)
+
+A few months ago, I was reviewing save logic in Gear to Glory—a lightweight, browser-based RPG—and realized something uncomfortable: every player’s progress was stored in plaintext inside `localStorage`. No obfuscation, no encryption, just raw JSON strings anyone could read, edit, or copy with a single DevTools click.
+
+We’d initially justified this with, "It’s just a casual game—nobody cares." But that mindset ignores real risks. Malicious scripts on compromised sites can scrape and exfiltrate saved data. Savvy players can duplicate progress across accounts. And worst of all, if someone walks away from their machine, their entire game state is exposed.
+
+I also saw teams online using Base64 encoding or XOR "obfuscation" as a security measure. Let’s be clear: that’s not security. It’s like locking your front door but leaving the key under the mat. Real protection means encryption—actual cryptographic resistance to tampering and reading.
+
+So we set out to encrypt our saves. But with one hard constraint: no backend. Gear to Glory runs entirely client-side. That meant we had to do everything in-browser, with minimal performance cost and no user friction.
+
+## Encrypting JSON Saves Using Web Crypto and AES-GCM
+
+The Web Crypto API isn’t new, but it’s underused in frontend games. We decided to use AES-GCM—a secure, authenticated encryption mode—because it gives us both confidentiality *and* integrity. That means not only can’t someone read the save, they can’t modify it without detection.
+
+Here’s the core flow we implemented:
+
+1. Generate a deterministic key from a user session token (more on that below)
+2. Convert save state to JSON string, then to `Uint8Array`
+3. Encrypt with `crypto.subtle.encrypt()` using AES-GCM
+4. Encode the result (IV + ciphertext) with Base64 and store in `localStorage`
+
+The decryption process reverses this, with one critical check: if decryption fails (due to tampering or bad key), we don’t crash—we gracefully fall back to a fresh game state.
+
+Here’s a simplified version of our util function:
+
+```js
+async function encryptSave(data, keyMaterial) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(JSON.stringify(data));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    keyMaterial,
+    encoded
+  );
+  
+  const buffer = new Uint8Array(iv.length + ciphertext.byteLength);
+  buffer.set(iv, 0);
+  buffer.set(new Uint8Array(ciphertext), iv.length);
+  
+  return btoa(String.fromCharCode(...buffer));
+}
+```
+
+We wrapped this and its counterpart (`decryptSave`) into a lightweight module that plugs directly into our game loop. Now, every time the player levels up, equips gear, or completes a quest, the save is encrypted before hitting storage.
+
+## Key Management: Session vs. Storage (And Why We Avoided Passwords)
+
+One of the trickiest parts wasn’t the crypto—it was key management.
+
+Should we ask users to set a password? No. This is a casual game, not a password manager. Friction kills engagement.
+
+Should we store the key in `localStorage`? That defeats the purpose—any attacker who can read the save can now read the key.
+
+Our solution: derive the key from a session-bound identifier that persists across page reloads but resets when the user clears site data or switches devices.
+
+We generate a random `clientId` on first visit and store it in `localStorage`. Then we use the Web Crypto API’s `PBKDF2` to derive a key from that ID:
+
+```js
+const keyMaterial = await crypto.subtle.importKey(
+  'raw',
+  new TextEncoder().encode(clientId),
+  { name: 'PBKDF2' },
+  false,
+  ['deriveKey']
+);
+
+const aesKey = await crypto.subtle.deriveKey(
+  { name: 'PBKDF2', salt: new Uint8Array(16), iterations: 100000, hash: 'SHA-256' },
+  keyMaterial,
+  { name: 'AES-GCM', length: 256 },
+  false,
+  ['encrypt', 'decrypt']
+);
+```
+
+This way, the encryption key never appears in code or storage directly. It’s derived at runtime, tied to the device, and never leaves the client.
+
+## Performance: Is Encryption Too Slow for Frequent Saves?
+
+Games save *a lot*. Gear to Glory triggers saves on nearly every meaningful action. So I worried: would encrypting every time cause jank?
+
+I benchmarked it. On mid-tier mobile devices, a full encrypt+store cycle takes ~15–25ms—well under the 16ms threshold for smooth 60fps. Decryption on load is a one-time cost and barely noticeable.
+
+We also optimized by debouncing rapid-fire save events (like dragging gear between slots) and only persisting when the user pauses interaction. This reduced unnecessary crypto calls by 70% in testing.
+
+In the end, the trade-off is worth it. We get real data protection with negligible performance impact.
+
+Client-side games don’t get a pass on privacy. Even if it’s "just a game," players deserve control over their data. With Web Crypto, AES-GCM, and smart key handling, we’ve made Gear to Glory’s saves both secure and seamless—no backend required.

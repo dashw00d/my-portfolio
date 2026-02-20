@@ -1,0 +1,39 @@
+---
+title: "Upgrading to Laravel 12: Lessons from a Real-World Filament Starter Project"
+date: "2025-03-26"
+excerpt: "Here’s what I learned upgrading the DataAnno Fil Starter to Laravel 12—config tweaks, Filament quirks, and how to test through the noise."
+tags: ["Laravel", "Filament PHP", "Upgrade Guide", "PHP", "Developer Experience"]
+author: "Ryan Dashwood"
+---
+## Why This Upgrade Mattered
+
+The DataAnno Fil Starter isn’t just another boilerplate—it’s a lean, opinionated foundation for Laravel apps with Filament PHP powering the admin panel. When Laravel 12 dropped, I knew the jump from 11 wasn’t just about new features. It was about staying ahead of breaking changes before they hit users. With Filament deeply integrated, this wasn’t a simple `composer update`. It was a full-stack alignment: config, dependencies, assets, and testing. And since starter kits get cloned into production systems, getting this right matters.
+
+Laravel 12 shakes things up—new service provider handling, updated routing structure, and stricter boot order expectations. Plus, not all packages were ready day one. Upgrading early meant debugging in public, but it also meant catching issues before they snowballed. This wasn’t just maintenance; it was preventative engineering.
+
+## The Upgrade Walkthrough: Config, Composer, and Hidden Traps
+
+I started with the official Laravel upgrade guide, but real-world projects always have quirks. First step: bump the `laravel/framework` version in `composer.json`. But that’s where the simplicity ended.
+
+Multiple config files needed updates. The `app.php` config now expects different service provider registration patterns—specifically, the shift toward explicit boot ordering. I had to refactor how custom providers were registered, moving some from the `providers` array into the new `after` boot syntax where timing matters. One misordered service provider broke the entire Filament routing stack. Took me two hours to trace it back to a `ServiceProvider` loading too early.
+
+Environment files were next. I updated `.env.example` to reflect any new defaults, especially around queue and cache drivers, which Laravel 12 now references more aggressively during boot. Skipping this would’ve caused confusion for new users cloning the starter with outdated env templates.
+
+Then came the dependency avalanche. Filament PHP itself wasn’t immediately tagged for Laravel 12 compatibility, so I had to temporarily point to a dev branch. That meant running `composer require filament/filament:dev-master --dev` and locking it until a stable release. Not ideal, but necessary. I also rebuilt Vite assets after the upgrade—something that’s easy to forget. Old JS chunks were cached, and Filament’s UI broke until I ran `npm run build` and cleared Laravel’s view cache.
+
+## Testing the Upgrade: Debugging the Silent Failures
+
+Here’s what no upgrade guide warns you about: things fail silently. After the upgrade, Filament logged me in—but the dashboard was blank. No errors in the browser console. No exceptions in the log. Just… nothing.
+
+Turns out, a combination of Vite manifest mismatch and a changed route binding in Laravel 12 meant Filament’s core routes weren’t resolving. I had to:
+
+- Clear all caches (`config:clear`, `route:clear`, `view:clear`)
+- Rebuild assets with `npm run build`
+- Manually inspect `php artisan route:list` to confirm Filament routes were registered
+- Verify middleware groups in `app/Http/Kernel.php` hadn’t been overridden incorrectly during the config merge
+
+I also added a quick health check route in the starter (`/up`) that verifies key services—database, cache, and Filament’s presence. It’s a small thing, but it gives immediate feedback post-deploy.
+
+Unit tests helped, but not enough. Laravel 12’s stricter container resolution exposed a few service mocks that were too loose. I had to tighten up test bindings and add `RefreshDatabase` where migrations weren’t loading in time. Real lesson? Don’t trust green tests alone. Test the actual user journey—login, navigate, create a record.
+
+Upgrading a starter kit isn’t just about code. It’s about preserving trust. When someone clones your project, they’re betting on stability. This upgrade taught me to move fast—but verify harder. And if you’re sitting on a Laravel 11 app with Filament? Start testing the jump now. The config changes aren’t huge, but the timing bugs? Those will burn you if you’re not watching.

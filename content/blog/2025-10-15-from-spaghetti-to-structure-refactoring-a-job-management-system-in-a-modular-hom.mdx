@@ -1,0 +1,60 @@
+---
+title: "From Spaghetti to Structure: Refactoring a Job Management System in a Modular Homelab Framework"
+date: "2025-10-15"
+excerpt: "How I refactored HomeForged’s tangled job system into a reusable, conflict-aware portal while safely migrating live data."
+tags: ["Laravel", "refactoring", "modular architecture", "job management", "migration"]
+author: "Ryan Dashwood"
+---
+## The Mess We Inherited
+
+A few months ago, HomeForged’s job management logic was a classic case of organic sprawl. What started as a simple cron-driven script runner—dubbed JobFlow—had grown into a tangle of tightly coupled classes, hardcoded assumptions, and duplicated logic. It worked, sure—but only if you didn’t look too closely or try to reuse it outside its original context.
+
+The breaking point? We wanted to let users schedule overlapping jobs with awareness of resource conflicts. But the old system treated each job as an island. No shared state. No visibility into what else was running. And worst of all, the code was buried deep in a single module with zero abstraction—making it impossible to extend without breaking something else.
+
+We needed more than a patch. We needed a new foundation.
+
+## Building a Generic Job Portal
+
+The goal was clear: transform JobFlow from a homegrown script runner into a generic job-management portal—modular, observable, and conflict-aware. The new system had to support:
+
+- Jobs defined by any module
+- Real-time conflict detection (e.g., two jobs trying to access the same device)
+- A clean API for scheduling, querying, and reacting to job state
+- Zero downtime during migration
+
+We started by defining a `JobContract` interface and a central `JobService` facade. This let us decouple job registration from execution. Instead of each module manually wiring up jobs, they now just implement the contract and register through a service provider. The portal auto-discovers them.
+
+Conflict detection was trickier. We introduced a `ConflictResolver` class that evaluates jobs against a set of rules—defined per job type—before scheduling. For example, a "device backup" job might declare it’s incompatible with any other job using the same device ID. The resolver checks running and pending jobs via a shared `ResourceLock` table, which acts as a lightweight distributed mutex.
+
+```php
+// In a job class
+public function conflictsWith(Job $other): bool
+{
+    return $this->device_id === $other->device_id &&
+           in_array($other->type, ['backup', 'firmware_update']);
+}
+```
+
+This pattern keeps conflict logic encapsulated but enforceable at the system level. It’s not perfect—eventual consistency means edge cases exist—but for our homelab use case, it’s more than sufficient.
+
+## Migrating Without Meltdowns
+
+The real test was migration. We had dozens of live jobs in production, tied to customer data stored in ad-hoc columns and unversioned metadata. We couldn’t just flip a switch.
+
+Our strategy had three layers:
+
+1. **Dual writing**: During the transition, new jobs were written to the new system *and* mirrored to the old schema. This ensured no data loss if we had to roll back.
+2. **Metadata fallbacks**: The old `Job` model had customer info in a serialized `metadata` field. We preserved it during migration but added a fallback lookup: if the new `customer_id` relation was missing, the model would try to extract it from the old metadata. This gave us breathing room to clean up data later.
+3. **Schema shifts in phases**: We didn’t drop old columns immediately. Instead, we marked them deprecated and monitored access via logging. Only after confirming no reads were hitting them did we remove them in a follow-up release.
+
+One sneaky bug? A few jobs *did* still depend on the old metadata structure. The fix was simple—`[HomeForged] fix: include customer data in metadata during job migration`—but it reminded me how easily technical debt hides in plain sight.
+
+## Lessons in Modularity
+
+This refactor taught me that modularity isn’t just about folders and interfaces. It’s about designing for *unknown future use cases*. The old JobFlow worked fine until we asked it to do something new. The new portal isn’t just cleaner—it’s *adaptable*.
+
+But balance matters. We kept backward compatibility not out of nostalgia, but because real users depend on this system. The metadata fallbacks, dual writing, and phased schema changes weren’t overhead—they were guardrails.
+
+If you’re working on a Laravel monolith (modular or not), here’s my advice: treat every internal API like a public one. Assume someone, somewhere, is depending on it—even if that someone is future-you. Refactor boldly, but migrate like a paranoid.
+
+The new job portal isn’t the end. It’s a foundation. And for the first time, I’m excited to see what we build on top of it.

@@ -1,0 +1,74 @@
+---
+title: "How We Scaled SEO Infrastructure with Static Sitemap Generation in Next.js + Laravel"
+date: "2026-01-10"
+excerpt: "We built a hybrid static sitemap generator using Laravel Artisan to serve Next.js content, improving crawl efficiency and reducing server load."
+tags: ["Next.js", "Laravel", "SEO", "Sitemaps", "Performance", "Hybrid Architecture"]
+author: "Ryan Dashwood"
+---
+## The SEO Scalability Problem in a Hybrid App
+
+AustinsElite started as a Laravel monolith, but over time we migrated our frontend to Laravel 12 for better UX and SSR capabilities. What we ended up with was a hybrid: Laravel powering the API and admin tools, Laravel 12 handling the public-facing site. It worked well—until SEO started to suffer.
+
+We had thousands of dynamically generated venue pages, each a potential entry point for search engines. But our old sitemap strategy? A single, on-demand XML endpoint that queried the database and rendered the full sitemap every time. It was slow, inconsistent, and hammered the database during crawls. Google Search Console showed increasing crawl errors and timeouts. We knew we needed a new approach—one that respected our hybrid stack and scaled with our content.
+
+The goal was clear: generate fast, reliable, segmented sitemaps that search engines could crawl efficiently—without sacrificing developer control or runtime performance.
+
+## Building a Static Sitemap Generator with Laravel Artisan
+
+Instead of generating sitemaps on-the-fly in Next.js (which would require API roundtrips and hydration), we flipped the script: let Laravel build static sitemap files during scheduled jobs, and let Next.js simply serve them as static assets.
+
+We created a new Artisan command: `php artisan sitemap:generate`. This command runs nightly (via cron) and does three things:
+
+1. Fetches all active venues, pages, and tags from the database
+2. Splits them into logical sitemap segments (`venues.xml`, `pages.xml`, `tags.xml`)
+3. Writes each as a compressed `.xml.gz` file into the Next.js `public/sitemaps/` directory
+
+```php
+// SitemapGeneratorCommand.php
+$chunks = $venues->chunk(5000); // Max URLs per sitemap
+$chunks->each(function ($chunk, $index) {
+    $sitemap = Sitemap::create();
+    $chunk->each(fn($venue) => $sitemap->add(Url::create($venue->url)));
+    $sitemap->writeToFile(public_path("sitemaps/venues-{$index}.xml"));
+});
+```
+
+We used the spatie/laravel-sitemap package under the hood, but wrapped it in our own logic to handle segmentation and file naming. The key insight? Treat sitemaps like any other static asset—generate once, serve many.
+
+Next.js then exposes these files via its static file serving, so `https://austinselite.com/sitemaps/venues-0.xml.gz` just works. We also generate a `sitemap-index.xml` that points to all segments, which we submit directly to Google.
+
+This decoupled the sitemap logic from request flow entirely. No more database hits on crawl. No more timeouts. Just fast, static files.
+
+## Caching and Avoiding Redundant Work
+
+Even with static generation, we wanted safeguards. What if someone manually triggered the command twice? Or if the cron job overlapped?
+
+We added a simple but effective cache layer in the `SitemapController.php`—yes, we kept a lightweight controller for debugging and manual triggers. Before any generation runs, it checks:
+
+```php
+if (Cache::has('sitemap:generation_lock')) {
+    $this->error('Sitemap generation is already running.');
+    return 1;
+}
+
+Cache::put('sitemap:generation_lock', now()->addMinutes(30));
+```
+
+We also cache the last generation timestamp and compare it against recent database changes (using `updated_at` on key models). If no content has changed since the last run, the command exits early. This reduced unnecessary file writes and disk I/O by ~70%.
+
+We didn’t stop there. We added checksum validation to ensure generated files weren’t corrupted, and we log all runs to Papertrail for auditability. These small touches made the system resilient in production.
+
+## Results: Faster Crawls, Happier Search Engines
+
+Within two weeks of deploying this system, we saw measurable improvements:
+
+- Googlebot crawl rate increased by 40% (fewer 5xx errors)
+- Average sitemap fetch time dropped from 8s to under 200ms
+- Database load during peak crawl hours decreased significantly
+- Google Search Console showed 100% success rate on sitemap indexing
+
+More importantly, our venue pages started appearing in search results faster after publication. That’s real business impact.
+
+This solution wasn’t about chasing tech trends—it was about working *with* our hybrid architecture instead of against it. Laravel handles the heavy lifting of data aggregation and file generation. Next.js does what it does best: serve static assets at lightning speed.
+
+If you’re running a hybrid Laravel/Next.js app and struggling with SEO at scale, consider moving sitemap generation out of the request cycle. Static, segmented, and scheduled is the way to go. Your servers—and search engines—will thank you.

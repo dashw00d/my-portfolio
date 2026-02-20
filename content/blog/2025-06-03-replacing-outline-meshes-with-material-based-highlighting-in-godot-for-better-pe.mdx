@@ -1,0 +1,72 @@
+---
+title: "Replacing Outline Meshes with Material-Based Highlighting in Godot for Better Performance"
+date: "2025-06-03"
+excerpt: "How I upgraded Civ RTS's hex tile selection system by swapping outline meshes for dynamic materials—cutting draw calls and fixing deprecation warnings."
+tags: ["Godot", "Performance Optimization", "Shader Materials", "RTS Development", "3D Rendering"]
+author: "Ryan Dashwood"
+---
+## The Problem with Outline Meshes
+
+A few weeks ago, while diving into the rendering pipeline of Civ RTS, I noticed something gnawing at performance: every time a player hovered over or selected a hex tile, the engine spawned an additional mesh just to draw the outline. It worked—visually, you could tell which tile was active—but under the hood, it was messy.
+
+We were instantiating thin, slightly larger duplicate meshes around selected tiles, each with its own material and draw call. On a map with hundreds of hexes, this added up fast. Worse, Godot started throwing deprecation warnings: `MeshInstance3D usage from script is discouraged`. The writing was on the wall—this approach didn’t scale, and it wasn’t future-proof.
+
+Beyond performance, maintaining two mesh layers per tile (base + outline) made state management clunky. We had to track visibility, sync transforms, and handle cleanup manually. One missed `queue_free()` and you’d leak nodes. Not ideal.
+
+It was clear: we needed a cleaner, more efficient way to highlight tiles.
+
+## A Smarter Highlight: Enter Material Overrides
+
+Instead of adding geometry, I decided to modify what we already had. The core idea? Use material parameters to dynamically alter the appearance of the existing hex mesh—no extra nodes required.
+
+The solution leveraged Godot’s ability to override materials at runtime via code. Each hex tile’s `MeshInstance3D` kept its base material, but when selected or hovered, we swapped in a temporary material instance with adjusted emission and alpha values to create a glowing, slightly brighter outline effect.
+
+Here’s how it worked:
+
+1. I created a copy of the original spatial material as a `ShaderMaterial`.
+2. In that shader, I cranked up the `emission` color and reduced `alpha` near the edges using a vertex offset trick in the fragment shader.
+3. When a tile is interacted with, we assign this highlight material via `material_override`.
+4. On deselection, we clear the override—back to business.
+
+This eliminated the need for any secondary mesh. No instantiation. No transform syncing. Just a lightweight material swap.
+
+The shader snippet looked like this:
+
+```glsl
+shader_type spatial;
+render_mode blend_mix;
+
+uniform vec4 highlight_color : source_color = vec4(1.0, 0.6, 0.0, 1.0);
+uniform float edge_glow_strength = 0.8;
+
+void fragment() {
+	vec3 view_dir = normalize(-VERTEX);
+	float edge = 1.0 - abs(dot(view_dir, NORMAL));
+	EMISSION = highlight_color.rgb * pow(edge, 8.0) * edge_glow_strength;
+	ALPHA = edge < 0.3 ? 0.0 : 1.0;
+}
+```
+
+This creates a soft, screen-space-aware glow around the tile’s perimeter—especially effective on hexagons where the angles naturally accentuate the effect.
+
+## Performance Gains and Cleaner Code
+
+The impact was immediate. By removing the outline mesh system, we cut draw calls significantly—especially during multi-tile selection. On a 20x20 hex grid with 10 tiles selected, we reduced active `MeshInstance3D` nodes from ~410 to ~400, and more importantly, avoided 10 additional material bindings and transform updates.
+
+But the real win was stability. Those deprecation warnings? Gone. The codebase became simpler: no more `add_child()` calls for visual feedback, no risk of orphaned outline meshes. Just:
+
+```gdscript
+func set_highlight(active: bool):
+	if active:
+		mesh.material_override = highlight_material
+	else:
+		mesh.material_override = null
+```
+
+One function. No lifecycle tracking. And it’s reusable across any selectable 3D object in the game—from units to buildings.
+
+We also gained flexibility. Want a pulsing highlight? Animate the emission strength. Need team-colored outlines? Pass a uniform color into the shader. All without touching the scene tree.
+
+This change was part of a broader push to modernize Civ RTS’s rendering stack, and it’s already paying dividends in framerate consistency on lower-end devices.
+
+If you're using outline meshes in Godot for selection effects, I’d urge you to reconsider. Material-based highlighting isn’t just cheaper—it’s cleaner, safer, and more expressive. And in a genre like RTS, where clarity and performance go hand in hand, that’s a win on all fronts.

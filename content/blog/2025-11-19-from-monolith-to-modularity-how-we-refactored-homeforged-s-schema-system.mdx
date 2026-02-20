@@ -1,0 +1,36 @@
+---
+title: "From Monolith to Modularity: How We Refactored HomeForged's Schema System"
+date: "2025-11-19"
+excerpt: "We replaced a 1931-line schema validator with a modular, manifest-driven pipeline powered by domain-specific metadata and backend-first validation."
+tags: ["refactoring", "schema validation", "modular architecture", "backend-first", "testing"]
+author: "Ryan Dashwood"
+---
+## The Weight of a 1931-Line Validator
+
+A few months ago, HomeForged’s schema validation system was held together by sheer willpower. The `SchemaValidationFacade` class had ballooned to 1931 lines of tightly coupled logic, handling everything from field type checks to complex cross-domain dependencies. Every new feature or edge case meant another patch on top of an already fragile foundation. Pull requests took longer to review, bugs slipped through, and onboarding new team members felt like handing them a map to a minefield.
+
+The worst part? It wasn’t just big—it was *opaque*. Validation rules were buried in nested conditionals, with domain logic scattered across helper methods that no longer reflected the actual data model. When a schema failed, you couldn’t tell *why* without stepping through half the file. We needed a way out that didn’t mean rewriting the entire system overnight.
+
+So we set a goal: decompose the monolith into something maintainable, testable, and predictable. Not by rewriting, but by rearchitecting—using modularity and metadata to shift from a "god object" to a pipeline driven by intent.
+
+## Breaking the Monolith: Manifest-Driven Modularity
+
+Our first move was to stop treating the schema as one giant blob. Instead, we broke `schema-metadata.json` into 10 domain-specific modules—things like `character-attributes.json`, `equipment-validation.json`, and `campaign-rules.json`. Each file now owns its validation logic, lives close to its domain, and can evolve independently.
+
+But splitting files wasn’t enough. We needed orchestration. Enter the manifest-driven pipeline. We introduced a new `BuildAllCommand`—a console command that reads a manifest file listing all schema modules, resolves their dependencies (yes, some domains depend on others), and executes validators in the correct order. This wasn’t just about organization; it was about making the system *visible*. Now, when you run `php artisan schema:build --dry-run`, you see exactly which modules are loaded, in which order, and whether any fail validation—no guesswork.
+
+The old `SchemaValidationFacade`? Deleted. 1931 lines gone in one commit. Its responsibilities were redistributed into lightweight, single-purpose validators that accept structured input and return clear, actionable errors. These validators don’t care where the data comes from—they just enforce rules. That separation made it easier to plug in new sources later (like API imports or user uploads) without touching core logic.
+
+This shift also changed how we think about schema changes. Instead of modifying a central file, we now follow a pattern: define the schema in its domain module, write the validator, and register it in the manifest. It’s backend-first, intentional, and scales with the team.
+
+## Testing with Purpose: 11 Schemas, Zero Guesswork
+
+With modularity came a new challenge: how do you test a system where pieces depend on each other? You don’t wing it—you build a test suite that mirrors reality.
+
+We added 14 new test files, including 11 purpose-built test schemas designed to cover edge cases: circular dependencies, missing required fields, invalid type coercions, and cross-module references. Each test schema is small, focused, and runs in isolation—or as part of the full pipeline. This dual approach gives us confidence at both the unit and integration levels.
+
+One key win was implementing backend-first YAML validation. Instead of relying on frontend forms to catch errors, we parse and validate schema files on the server *before* they’re ever used. We wrote validators that check syntax, structure, and semantic rules (like "a damage modifier must reference an existing attribute"). If a schema fails, the pipeline stops and returns a clear error with file, line, and reason. No more silent failures or cryptic frontend crashes.
+
+We also automated this in CI. Every PR that touches a schema file now runs the full `analyze api` pipeline, which includes dependency resolution, validation, and dry-run execution. The fact that it’s passing cleanly today—after months of incremental work—is the real milestone. It means the system isn’t just working; it’s *reliable*.
+
+This refactor didn’t just reduce technical debt. It changed how we build. We’re faster, more confident, and finally building on a foundation that grows with us—not one that holds us back.

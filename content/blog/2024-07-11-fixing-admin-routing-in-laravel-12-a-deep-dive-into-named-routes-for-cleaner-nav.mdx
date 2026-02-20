@@ -1,0 +1,92 @@
+---
+title: "Fixing Admin Routing in Laravel 12: A Deep Dive into Named Routes for Cleaner Navigation"
+date: "2024-07-11"
+excerpt: "How adopting Laravel's named route pattern in AustinsElite's admin panel reduced bugs and simplified refactoring."
+tags: ["Laravel", "PHP", "Routing", "Maintainability", "Refactoring"]
+author: "Ryan Dashwood"
+---
+## The Problem: Brittle Strings Everywhere
+
+A few weeks ago, I was neck-deep in the AustinsElite admin panel—cleaning up vendor management routes—and I kept tripping over the same issue: hardcoded URLs scattered through the frontend like landmines. A simple link to the vendor list looked like this:
+
+```php
+<a href="/admin/vendors">Manage Vendors</a>
+```
+
+And that’s fine—until you need to change the route. Or realize you’ve duplicated that string in 12 different files. Or worse, someone updates the route in the RouteServiceProvider but forgets to grep through the Blade templates to update the links.
+
+That’s exactly what happened. We had inconsistent navigation, broken links in staging, and a growing fear around touching any admin route. It felt like we were one refactor away from chaos.
+
+This wasn’t just a one-off. As the July routing overhaul began across AustinsElite and the DataAnno Fil Starter, it became clear: we needed a better abstraction.
+
+## The Solution: Borrowing from Laravel’s Playbook
+
+Laravel has had named routes since forever—and for good reason. Instead of relying on the path string, you assign a name to a route:
+
+```php
+Route::get('/admin/vendors', [VendorController::class, 'index'])->name('vendors.index');
+```
+
+Then, anywhere in your app—Blade, controllers, JavaScript—you reference it by name:
+
+```blade
+<a href="{{ route('vendors.index') }}">Manage Vendors</a>
+```
+
+Change the actual URL? No problem. As long as the route name stays the same, every link stays intact.
+
+So I asked: *Why aren’t we doing this consistently in the admin panel?*
+
+The answer was inertia. We’d been mixing named routes with raw paths, especially in dynamic or JavaScript-driven navigation. But after the commit titled *"fixed admin panel vendors route"*, we made it a rule: **all admin navigation must go through `route()`**.
+
+Even more, we started auditing every Blade template and Livewire component, replacing loose strings with named route calls. For dynamic parameters, we leaned into Laravel’s built-in support:
+
+```blade
+<a href="{{ route('vendors.edit', $vendor->id) }}">Edit</a>
+```
+
+And for JavaScript-heavy pages, we exposed route names via inertia or view composers, so frontend logic could resolve URLs safely:
+
+```js
+// Instead of
+window.location.href = `/admin/vendors/${id}/edit`;
+
+// We now use
+window.location.href = route('vendors.edit', { id });
+```
+
+Yes, that requires a tiny JS helper—but it’s a small price for the safety and clarity we gained.
+
+## Why This Matters: Centralized Control, Fewer Surprises
+
+The immediate win? After the routing sweep, we eliminated a whole class of 404s in the admin panel. No more "Page Not Found" after a route rename. No more grepping through files to find where `/admin/vendors-list` was hardcoded (spoiler: it was in three places).
+
+But the bigger win is maintainability. With all routes named and referenced centrally, we can now:
+
+- Refactor URLs without fear
+- Audit navigation paths from a single mental model
+- Onboard new devs faster—"Just use `route('name')`"
+- Build tooling around route usage (we’re exploring a route linting pass)
+
+This isn’t rocket science. Named routes have been Laravel 101 for years. But in the heat of feature work, it’s easy to cut corners. The July routing push reminded us that *consistency is a feature*.
+
+It also highlighted how much cleaner Laravel 12’s routing layer has become—especially with first-class support for API and admin route groups, middleware stacks, and named route prefixes. We’re now using route prefixes like `admin.` across the board, so all admin routes are grouped:
+
+```php
+Route::prefix('admin')
+    ->as('admin.')
+    ->middleware('auth')
+    ->group(function () {
+        Route::get('/vendors', [VendorController::class, 'index'])->name('vendors.index');
+    });
+```
+
+Now, every admin route starts with `admin.`, making them instantly recognizable and easier to manage at scale.
+
+## Wrapping Up
+
+That one commit—fixing a single vendor route—ended up sparking a broader shift in how we think about navigation in AustinsElite. It wasn’t about the line change. It was about the pattern behind it.
+
+If you’re working on a Laravel app with an admin panel (especially one that’s grown organically), I’d argue: **enforce named routes now**. It’s a small habit that pays compound interest in stability and developer sanity.
+
+And if you're using Laravel 12, you’ve got the tools. Use them. Name your routes. Trust the pattern. Sleep better.

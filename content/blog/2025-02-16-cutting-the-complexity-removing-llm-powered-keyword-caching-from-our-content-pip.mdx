@@ -1,0 +1,62 @@
+---
+title: "Cutting the Complexity: Removing LLM-Powered Keyword Caching from Our Content Pipeline"
+date: "2025-02-16"
+excerpt: "We removed an LLM-powered keyword caching system from our Laravel blog pipeline after it added more tech debt than value."
+tags: ["Laravel", "technical-debt", "AI-integration", "performance", "engineering-decisions"]
+author: "Ryan Dashwood"
+---
+## The Smart Feature That Wasn’t So Smart
+
+A few months ago, I added what I thought was a clever enhancement to AustinsElite’s content generation pipeline: an LLM-powered keyword suggestion system baked into `PostGenerator.php`. The idea was simple—before publishing a blog post, the system would analyze the draft, suggest SEO-friendly keywords using a large language model, cache them, and inject them into meta tags and content headers. It felt like a win: smarter content, better discoverability, a touch of AI polish.
+
+Looking back, it was overengineering disguised as innovation.
+
+The goal was solid. We wanted to improve organic reach by making sure every post had relevant, high-intent keywords without relying solely on manual input. The implementation leaned on Laravel 12’s service container to orchestrate HTTP calls to an external LLM API, with Redis-backed caching to avoid redundant requests. On paper, it was clean. In practice? A maintenance trap.
+
+## How It Worked (And Where It Broke)
+
+Here’s how it played out:
+
+When a post was queued for generation, `PostGenerator.php` would first send the draft content through a prompt like:
+
+> "Suggest 5 primary SEO keywords for this blog post. Prioritize relevance, search volume, and low competition."
+
+The LLM response was parsed, validated, and stored in cache keyed by content hash. If the same draft was regenerated, we’d skip the API call and use the cached keywords. Seemed smart—until reality hit.
+
+First, latency. Even with caching, cold generations took 400–600ms longer. That doesn’t sound like much, but when you’re building a dynamic CMS where editors preview content in real time, it’s noticeable. Worse, cache invalidation was flaky. A minor punctuation change would bust the hash, triggering another LLM call. We tried normalizing input, but edge cases piled up.
+
+Then came consistency issues. The same prompt would return "Laravel performance" in one call and "PHP framework speed tips" the next—semantically similar, but enough to break automated tagging and analytics tracking. We ended up adding normalization logic that felt increasingly like duct tape on a leaky pipe.
+
+And for all that complexity? No measurable impact. We monitored bounce rate, time on page, and organic CTR for six weeks. No statistically significant change. The "smart" keywords weren’t moving the needle.
+
+The final straw was a refactor I did recently—simplifying the prompts in `PostGenerator.php` to reduce verbosity and improve response reliability. That commit (`'changed prompts to be less comp negative'`) made me realize: we were spending energy optimizing a feature that wasn’t earning its keep.
+
+## Cutting the Cord (And Breathing Easier)
+
+So I removed it.
+
+The PR was surprisingly small: delete the LLM service class, drop the cache logic, strip out the prompt orchestration, and revert to static keyword assignment via config or manual input. The commit message? `'Remove LLM keyword suggestions — no ROI, high overhead'`.
+
+I kept the earlier commit (`'Using LLM for keyword suggestions'`) as a reminder—not of failure, but of learning. It was a well-intentioned experiment that taught us more in removal than it did in operation.
+
+What changed after the cleanup?
+
+- Regeneration speed improved by ~50% on average.
+- `PostGenerator.php` went from 120 lines of tangled async logic to a lean, synchronous 60.
+- No one noticed the keywords were gone—except the analytics team, who confirmed zero impact on engagement.
+
+More importantly, we regained agility. We’re now iterating faster on actual user-facing features instead of babysitting AI consistency.
+
+## When to Say No to "Smart"
+
+This wasn’t a failure of AI—it was a failure of scope. LLMs are powerful, but they’re not free. Every integration adds latency, unpredictability, and operational weight. The real skill isn’t in adding AI—it’s in knowing when *not* to.
+
+Here’s what I’ve learned:
+
+- **Measure before you build.** If you can’t define success metrics upfront, you won’t know when you’ve failed.
+- **Caching doesn’t fix broken economics.** Just because you can cache an expensive call doesn’t mean you should make it in the first place.
+- **Tech debt hides in "clever" features.** The most dangerous code isn’t messy—it’s elegant, working, and unnecessary.
+
+AI can do amazing things. But sometimes, the best engineering decision is to do less.
+
+At AustinsElite, we’re doubling down on simplicity. And honestly? The codebase sleeps better at night.

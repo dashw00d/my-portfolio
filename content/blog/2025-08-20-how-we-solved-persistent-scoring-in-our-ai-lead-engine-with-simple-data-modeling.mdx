@@ -1,0 +1,53 @@
+---
+title: "How We Solved Persistent Scoring in Our AI Lead Engine with Simple Data Modeling"
+date: "2025-08-20"
+excerpt: "We fixed flaky AI lead scores by adding durable storage for score analysis—here's how a small schema change made a big impact."
+tags: ["AI engineering", "data modeling", "full-stack development", "PostgreSQL", "lead scoring"]
+author: "Ryan Dashwood"
+---
+## The Problem: Why Our AI Scores Wouldn’t Stick
+
+At Lockline AI, our core value proposition hinges on delivering accurate, real-time lead scoring powered by AI. But we hit a snag early in development: scores kept changing between requests—even when nothing in the input data had changed. At first glance, it looked like our model was unstable. But after digging into logs and tracing requests, we realized the issue wasn’t with the AI—it was with persistence.
+
+Every time a user fetched a lead, we were recalculating the score from scratch. No caching. No durable storage. Just raw inference on demand. That meant slight variations in prompt formatting, timing, or backend load could nudge the LLM’s output slightly differently each time. The result? Inconsistent scores, eroding trust with users who expected stable, auditable insights.
+
+This wasn’t just a UX problem—it was a traceability nightmare. If a sales rep saw a lead jump from "high" to "medium" priority without explanation, they’d lose confidence in the system. We needed consistency, not just intelligence.
+
+## The Fix: Modeling Score Analysis as a First-Class Citizen
+
+Our solution wasn’t to tweak the model or add complex caching layers. Instead, we went back to basics: data modeling.
+
+We introduced a dedicated `score_analysis` table in our PostgreSQL database, linked directly to the existing pillar system—the modular framework we use to evaluate leads across dimensions like engagement, intent, and fit. Here’s the simplified schema:
+
+```sql
+CREATE TABLE score_analysis (
+  id UUID PRIMARY KEY,
+  lead_id UUID NOT NULL REFERENCES leads(id),
+  pillar_type VARCHAR(50) NOT NULL,
+  raw_score JSONB NOT NULL,
+  explanation TEXT,
+  model_version VARCHAR(20),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(lead_id, pillar_type)
+);
+```
+
+The key insight? Treat the AI’s output not as ephemeral computation, but as durable application state. By storing the full analysis—including raw LLM output, parsed score, and generated explanation—we ensured that once a score was computed, it would persist exactly as generated.
+
+We updated our scoring service to first check for an existing analysis before triggering inference. If one existed, we returned it. If not, we ran the model, saved the result, and served it going forward. Simple. Predictable. Reliable.
+
+This also gave us free benefits: audit trails, version tracking (via `model_version`), and the ability to backfill or reprocess scores in bulk later. And because we enforced a unique constraint on `(lead_id, pillar_type)`, we avoided accidental duplicates across our multi-pillar scoring system.
+
+## Impact: Stability, Trust, and Faster Debugging
+
+The change was small in code, but massive in effect.
+
+First, score volatility dropped to zero. Users saw consistent results, which immediately improved perceived reliability. No more "why did this lead change?" Slack pings.
+
+Second, debugging became dramatically easier. When a score looked off, we could pull up the stored `raw_score` and `explanation` directly from the DB—no replaying prompts or guessing what the model saw. We even built a simple internal viewer for support teams to inspect analyses, turning opaque AI outputs into transparent decision records.
+
+Finally, this paved the way for future features: score expiration policies, re-scoring triggers based on new data, and A/B testing across model versions—all built on top of a foundation that *remembers*.
+
+Looking back, it’s clear that the hardest part wasn’t the implementation. It was shifting our mindset: AI outputs aren’t just responses—they’re data. And like any critical data, they deserve to be stored, versioned, and treated as first-class entities in the system.
+
+This fix was part of a broader push to harden Lockline AI’s pipeline, where AI isn’t just bolted on—it’s woven into the fabric of our data model. And honestly? That’s where the real magic happens: not in flashy prompts, but in thoughtful, durable design.

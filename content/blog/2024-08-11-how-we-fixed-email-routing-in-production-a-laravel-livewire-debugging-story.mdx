@@ -1,0 +1,92 @@
+---
+title: "How We Fixed Email Routing in Production: A Laravel + Livewire Debugging Story"
+date: "2024-08-11"
+excerpt: "A misrouted contact form sent user emails to a personal inbox—here’s how we caught the config drift and locked down environments with SMTP2Go."
+tags: ["Laravel", "Livewire", "Email Routing", "SMTP2Go", "Production Debugging", "Environment Configuration"]
+author: "Ryan Dashwood"
+---
+## The Bug: "Why Are User Messages Landing in My Personal Inbox?"
+
+It was a quiet Tuesday morning when I got a Slack message that made my coffee pause mid-sip: "Hey Ryan, did you get that contact form submission?"
+
+I hadn’t. But worse—yes, I *had*. 
+
+A user’s message intended for Austin’s Elite customer support had somehow landed in my personal Gmail. Not the shared inbox. Not a ticketing system. *My* inbox. The one I use for online shopping confirmations and spam.
+
+This wasn’t just awkward—it was a production incident. Our contact form, a critical touchpoint for leads, was misrouting emails. And if it was happening to one user, it might’ve been happening to more.
+
+We use Laravel 12 with Livewire for the core AustinsElite application (not Next.js—that label was outdated). The form itself was Livewire-powered, clean and reactive. But somewhere between form submission and SMTP handoff, something had gone sideways.
+
+## Root Cause: A Forgotten Test Config That Slipped Into Production
+
+My first instinct? Check the `.env` files across environments. Staging had `MAIL_TO_ADDRESS=testing@austinselite.dev`—fine. Production should’ve had `support@austinselite.com`. But logs showed submissions were still going to my personal address.
+
+That’s when I remembered: we’d recently added a debug override during local testing. A quick config patch in `config/mail.php` that forced all outgoing mail to my personal email for QA. It looked like this:
+
+```php
+// Temporary during testing — REMOVE BEFORE MERGE
+'from' => [
+    'address' => env('MAIL_FROM_ADDRESS', 'hello@austinselite.com'),
+    'name' => env('MAIL_FROM_NAME', 'Austin\'s Elite'),
+],
+'to' => [
+    'address' => 'ryan+test@dashwood.dev', // <-- THE CULPRIT
+    'name' => 'Test Receiver',
+],
+```
+
+The comment said *"REMOVE BEFORE MERGE"*. But guess what? It never got removed. And worse—it wasn’t in the `.env`. It was hardcoded in config, committed, and deployed.
+
+Because this was in the config file itself, not environment-driven, it bypassed all our staging/production isolation. Every environment ran the same override. And because it was subtle, it flew under the radar during review.
+
+Classic config drift. A tiny, silent betrayal hiding in plain sight.
+
+## Fix & Prevention: Locking Down Environments with SMTP2Go
+
+The fix was two-pronged: immediate rollback and long-term isolation.
+
+First, I reverted the config change with a hotfix commit: `fix: Restore production email recipient for contact form submissions`. The `to` override was removed, and Laravel fell back to using properly scoped environment variables. Within minutes, new submissions were hitting `support@austinselite.com`.
+
+But that wasn’t enough. We needed to prevent this class of error forever.
+
+Enter SMTP2Go.
+
+We’d been evaluating transactional email services for better deliverability, especially for form submissions that often trigger spam filters. SMTP2Go offered clean Laravel integration, detailed logs, and—critically—per-environment routing controls.
+
+I added the `smtp2go` driver via the `laravel-smtp2go` package and restructured our mail transport:
+
+```env
+# .env.staging
+MAIL_MAILER=smtp
+MAIL_HOST=mail.smtp2go.com
+MAIL_PORT=2525
+MAIL_USERNAME=staging_smtp2go_key
+MAIL_PASSWORD=***
+MAIL_TO_ADDRESS=testing@austinselite.dev
+
+# .env.production
+MAIL_MAILER=smtp
+MAIL_HOST=mail.smtp2go.com
+MAIL_PORT=2525
+MAIL_USERNAME=prod_smtp2go_key
+MAIL_PASSWORD=***
+MAIL_TO_ADDRESS=support@austinselite.com
+```
+
+Now, routing is driven entirely by environment. No hardcoded addresses. No config overrides. Just clean, auditable `.env` values.
+
+We also added a deployment check: any PR modifying `config/mail.php` now triggers a mandatory review from two team members. Plus, we use Laravel’s `config:clear` in deploy scripts to prevent cached config drift.
+
+## Lessons Learned: Trust the Environment, Not the Hack
+
+This wasn’t a framework flaw. It wasn’t a Livewire quirk. It was a process gap—relying on temporary hacks without safeguards.
+
+The takeaway?
+
+1. **Never hardcode routing logic**, even temporarily.
+2. **Treat config files like code**—review them, test them, and guard them.
+3. **Use environment-aware services** like SMTP2Go to enforce separation by design, not discipline.
+
+Email deliverability isn’t just about spam scores. It’s about trust, routing, and configuration hygiene. And sometimes, the smallest config override can turn your personal inbox into an accidental support portal.
+
+Now, if you’ll excuse me, I’m setting up an auto-responder on that test address—just in case.

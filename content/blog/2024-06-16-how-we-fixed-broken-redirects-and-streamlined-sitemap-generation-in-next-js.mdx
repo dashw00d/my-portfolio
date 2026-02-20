@@ -1,0 +1,77 @@
+---
+title: "How We Fixed Broken Redirects and Streamlined Sitemap Generation in Next.js"
+date: "2024-06-16"
+excerpt: "Fixing legacy redirects and cleaning up sitemap logic in our Next.js frontend while syncing with Laravel 12 backend routes."
+tags: ["Next.js", "Laravel", "SEO", "Routing", "Sitemaps"]
+author: "Ryan Dashwood"
+---
+## The Problem: Broken Legacy Redirects After Migration
+
+After wrapping up the core migration of AustinsElite’s frontend to Next.js, we thought we were in the clear. But analytics started showing a steady trickle of 404s—mostly from old marketing links and indexed pages pointing to routes like `/contact-us`, `/about-us`, and a few long-dead campaign pages.
+
+These weren’t just typos. They were real user paths, likely from old Google indexes, email campaigns, and third-party directories. And they were failing silently.
+
+We’d assumed the Laravel 12 backend—still the primary production app—was handling redirects correctly. But somewhere in the handoff between the legacy Laravel routing layer and the new Next.js frontend, the redirect logic had gotten flipped. Instead of forwarding `/contact-us` to `/contact`, it was doing the reverse—or worse, not at all.
+
+That’s a quick way to tank SEO and frustrate users. So we dug in.
+
+## The Fix: Reversing Flawed Redirect Logic and Validating Mappings
+
+The first clue was in a small but telling commit: `fixed redirects (low)`. Inside, we found a reversed route mapping that had been silently breaking traffic for weeks:
+
+```php
+// Before (wrong)
+Route::redirect('/contact', '/contact-us', 301);
+
+// After (correct)
+Route::redirect('/contact-us', '/contact', 301);
+```
+
+Yep. We’d accidentally redirected the new route to the old one—guaranteeing a 404 since `/contact-us` no longer existed in the Next.js app. Classic.
+
+We audited every legacy route mentioned in Google Search Console and our analytics UTM trails. That gave us a shortlist of 12 high-impact paths that needed 301s. We mapped them all in Laravel 12’s `web.php` using explicit `Route::redirect()` statements, ensuring they resolved before hitting the frontend.
+
+This wasn’t just about convenience. 301s preserve link equity, and with AustinsElite relying on local SEO for visibility, we couldn’t afford to leak ranking power. We also added logging to catch any unexpected 404s post-redirect, so we could iterate fast.
+
+The fix was simple, but the impact wasn’t. Within 48 hours, 404s from legacy paths dropped by 92%.
+
+## Code Cleanup: Sitemaps, Scripts, and Shedding Dead Weight
+
+With redirects stabilized, we turned to tech debt. The second commit—`ran pint, moved tag.js, added redirects (medium)`—was a housekeeping pass, but it uncovered some real issues.
+
+First, we ran Laravel Pint across shared tooling configs. Nothing breaking, but it standardized formatting in a few hybrid Laravel-Next.js utility files we use for environment syncing.
+
+More importantly, we moved our analytics script (`tag.js`) out of `_app.tsx` and into Next.js’s `Script` component with `afterInteractive` loading. This shaved ~80ms off initial page load and stopped it from blocking hydration. Small win, but every millisecond counts when you’re fighting Core Web Vitals.
+
+Then came the sitemap refactor.
+
+Our old sitemap generation was a mess—hardcoded URLs in a `.js` file, manually updated every time we launched a new page. Not sustainable.
+
+We replaced it with a dynamic `sitemap.ts` that pulls routes from a shared config used by both Laravel (for canonical tags) and Next.js (for routing). Now, when we add a page in the frontend, it auto-propagates to the sitemap and the backend knows its canonical path.
+
+```ts
+// sitemap.ts
+export default async function handler(req, res) {
+  const routes = getSharedRoutes(); // Synced with Laravel
+  const sitemap = routes.map(route => ({
+    url: `https://austinselite.com${route.path}`,
+    lastModified: route.updatedAt,
+  }));
+
+  res.setHeader('Content-Type', 'text/xml');
+  res.write(generateSitemapXml(sitemap));
+  res.end();
+}
+```
+
+We also moved `tag.js` into a dedicated `analytics/` directory—small organizational win, but it made the codebase clearer for new devs.
+
+## Wrapping Up: SEO Is Infrastructure
+
+This round wasn’t flashy. No new features, no UI overhauls. But it was necessary.
+
+Broken redirects and stale sitemaps aren’t just annoyances—they’re silent traffic leaks. And in a hybrid Laravel 12 + Next.js setup like AustinsElite’s, you’ve got to be intentional about where routing logic lives.
+
+Lesson? Always validate your 301s *after* a migration. Assume nothing. And treat SEO-critical paths like production infrastructure—because they are.
+
+With analytics stable and the sitemap auto-generating, we’re finally locked in for the next phase: performance tuning and conversion tracking. But for now, the redirects work, the sitemaps update, and the 404s are quiet.

@@ -1,0 +1,82 @@
+---
+title: "How We Refactored HomeForged’s Module Structure for Scalability (And What Broke)"
+date: "2025-10-14"
+excerpt: "We overhauled HomeForged's module architecture to support future modularity—here's what we learned when things broke in production."
+tags: ["Laravel", "modular-architecture", "refactoring", "HomeForged", "ForgeKit", "PHP"]
+author: "Ryan Dashwood"
+---
+## The Monolith That Grew Too Quiet
+
+HomeForged started as a clean Laravel app with a few service classes tucked into `app/Services`. Fast forward 18 months: we had over 30 domain-specific modules—`Billing`, `Inventory`, `Workshop`—all crammed into flat directories with inconsistent loading, global helpers, and service providers that were manually registered in `app.php`. It worked. Until it didn’t.
+
+The first warning sign? A junior dev spent half a day debugging why their `NotificationChannel` in the `Projects` module wasn’t resolving. The answer: someone had hardcoded a facade alias in `config/app.php` two releases ago and never documented it. That was our wake-up call. We were building a modular system inside a monolith without the architecture to back it up.
+
+We needed a real module system—something that could scale with HomeForged’s roadmap and lay the groundwork for ForgeKit, our upcoming toolkit for ultra-modular Laravel apps. So this week, we refactored the entire module structure. Here’s how it went (and what blew up).
+
+## Restructuring for Autoloaded Sanity
+
+The goal was simple: make modules self-contained, autoloaded, and independently testable. We moved from:
+
+```
+app/
+├── Services/
+│   ├── BillingProcessor.php
+│   ├── InventorySync.php
+│   └── WorkshopManager.php
+├── Notifications/
+│   └── ProjectAlert.php
+```
+
+to:
+
+```
+Modules/
+├── Billing/
+│   ├── Services/BillingProcessor.php
+│   ├── Notifications/BillingAlert.php
+│   ├── Providers/BillingServiceProvider.php
+│   └── config.php
+├── Inventory/
+│   └── ...
+├── Workshop/
+│   └── ...
+```
+
+Each module now has its own `Providers` directory with a dedicated service provider that bootstraps bindings, listeners, and config. We updated `composer.json` to register PSR-4 autoloading:
+
+```json
+"autoload": {
+    "psr-4": {
+        "App\\": "app/",
+        "Modules\\": "Modules/"
+    }
+}
+```
+
+Then, in `app.php`, we replaced 15+ manual service provider entries with a single loop:
+
+```php
+$modules = array_filter(scandir(base_path('Modules')), fn($dir) => !in_array($dir, ['.', '..']));
+foreach ($modules as $module) {
+    $class = "Modules\\{$module}\\Providers\\{$module}ServiceProvider";
+    if (class_exists($class)) {
+        $providers[] = $class;
+    }
+}
+```
+
+This cut boot time slightly and eliminated provider drift between environments. More importantly, it made onboarding new modules a zero-config process: drop in the folder, run `composer dump-autoload`, and you’re live.
+
+## What Broke (And How We Fixed It)
+
+Spoiler: service resolution failed in three critical places.
+
+First, queued jobs in `Modules/Billing/Jobs` were failing with `ClassNotFoundException`. Why? Because Horizon was caching the old autoloader map. Solution: add `composer dump-autoload` to the deploy hook and restart Horizon explicitly.
+
+Second, config overrides in modules weren’t merging properly. We’d assumed `config($module)` would fall back to a module’s `config.php`, but Laravel’s config loader doesn’t scan arbitrary files. We built a lightweight `ModuleConfig` facade that checks for `Modules/{Module}/config.php` and merges it at runtime. Not ideal, but pragmatic.
+
+Third—and this one hurt—our `Inventory` module depended on a helper function defined in `app/Helpers.php`, which wasn’t being loaded early enough. The fix? We moved shared helpers into a `Support` module with its own provider that loads first via priority ordering in `app.php`. It’s a small concession to coupling, but sometimes you trade purity for progress.
+
+Testing gaps also bit us. We had unit tests for individual classes but no integration suite validating module boot order or service resolution. We added a `ModuleBootTest` that instantiates each provider and verifies key bindings exist. It’s now part of our pre-merge pipeline.
+
+This refactoring wasn’t just about cleanliness—it was about velocity. With ForgeKit on the horizon, we need a foundation that supports plug-and-play modules across projects. This new structure gets us there. And yes, we broke production for 12 minutes. But now, when someone adds a new module, it just works. That’s the kind of debt worth paying off.

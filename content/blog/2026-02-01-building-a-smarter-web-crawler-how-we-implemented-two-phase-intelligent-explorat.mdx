@@ -1,0 +1,46 @@
+---
+title: "Building a Smarter Web Crawler: How We Implemented Two-Phase Intelligent Exploration in Vultr Crawler"
+date: "2026-02-01"
+excerpt: "We rebuilt our web crawler to move beyond brute-force scraping—now it learns patterns and adapts in real time."
+tags: ["web crawling", "Playwright", "Redis", "pattern recognition", "distributed systems"]
+author: "Ryan Dashwood"
+---
+## The Limits of Brute-Force Crawling
+
+For a long time, our crawler was a dumb beast: breadth-first, link-hungry, and blind to context. It treated every page the same—whether it was a 200-line HTML blog post or a JavaScript-heavy SPA that rendered nothing without client-side execution. We hit walls fast: timeouts, empty payloads, and endless pagination traps. Worse, we were wasting resources scraping pages that clearly weren’t useful—privacy policies, login forms, 404s—because the crawler had no way to tell the difference.
+
+Traditional breadth-first approaches work fine on static sites, but today’s web is dynamic, lazy-loaded, and full of traps for naive scrapers. We needed a smarter strategy—one that could *learn* as it crawled, not just follow every link like a rat in a maze.
+
+## Introducing Two-Phase Exploration
+
+We rebuilt Vultr Crawler around a two-phase model that separates discovery from extraction. The idea is simple: **don’t extract deeply until you know it’s worth it.**
+
+**Phase 1: Lightweight Probing + Pattern Detection**
+
+Every crawl starts with a fast, cheap pass. We fetch the initial page with a minimal HTTP request—no browser, no JavaScript—just raw HTML. We parse it, extract links, and run lightweight heuristics to classify page types: product pages, articles, category listings, etc. But here’s the twist: we also look for structural patterns. Does this site use `/product/` in URLs? Are titles wrapped in `.item-title`? Are there "Load More" buttons that inject content via AJAX?
+
+These signals get logged into a Redis-backed pattern cache, shared across all crawler jobs for that domain. As more sites are crawled, the system builds a live knowledge graph of site behaviors—no re-scraping needed.
+
+If a link looks promising (e.g., matches known product patterns), it gets promoted to Phase 2. The rest are deprioritized or dropped.
+
+**Phase 2: Targeted Deep Extraction with Playwright**
+
+Now we bring out the big guns. We spin up a Playwright instance, load the page in a real browser, and execute JavaScript. This is where we handle infinite scroll, click "Load More" buttons, wait for network idle, and extract rich data from dynamically rendered content.
+
+But crucially, we only do this for high-potential pages. This cuts down browser overhead by over 70% compared to our old approach, where every single page went through full browser rendering.
+
+And because we’ve already learned pagination patterns in Phase 1, we can auto-detect and follow next-page links—even when they’re hidden behind event listeners or lazy-loaded scripts.
+
+## Adaptive Learning with Redis and Cross-Job Intelligence
+
+The real win isn’t just speed—it’s adaptability. We’ve wired the crawler to share insights across jobs using Redis as a central pattern store. When one crawler instance discovers that `example-shop.com` uses `data-next-page="url"` for pagination, that knowledge is instantly available to all others.
+
+This cross-job learning means we’re not starting from scratch on every crawl. It also lets us handle large, multi-site campaigns more efficiently—say, scraping 50 e-commerce stores in parallel. Each contributes to a shared understanding of common patterns (e.g., "most Shopify stores use `.product-item` for listings"), which we can then generalize and apply.
+
+We’ve even started tagging sites by CMS or platform (Shopify, WordPress, custom) based on detected footprints, so future crawls can pre-load optimized extraction rules.
+
+This isn’t just a crawler anymore—it’s a learning system. And the feedback loop is tightening: the more we crawl, the smarter it gets.
+
+We’re already seeing results: 60% faster domain coverage, 40% fewer browser instances needed, and a massive drop in failed extractions. More importantly, the data we’re pulling is cleaner and more consistent, because we’re not drowning in noise.
+
+The web is messy. Our job isn’t to fight that—it’s to adapt to it. And with two-phase exploration, we’re finally building tools that do exactly that.

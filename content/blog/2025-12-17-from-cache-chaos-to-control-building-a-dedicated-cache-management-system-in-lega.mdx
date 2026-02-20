@@ -1,0 +1,49 @@
+---
+title: "From Cache Chaos to Control: Building a Dedicated Cache Management System in Legacy PHP"
+date: "2025-12-17"
+excerpt: "How introducing a dedicated CacheController brought order to erratic cache invalidation in a legacy PHP app."
+tags: ["PHP", "Laravel", "Caching", "Legacy Refactoring", "Performance Optimization"]
+author: "Ryan Dashwood"
+---
+## Diagnosing the Problem: When Cache Flushes Hurt More Than Helped
+
+We’ve all been there—performance degrades, pages slow down, and someone hits the nuclear option: clear the cache. In AustinsElite (Legacy), a custom PHP application built with bits of Laravel sprinkled in, that was *exactly* what was happening. But instead of being a one-off emergency move, full cache flushes had become routine—buried in controllers, triggered by cron jobs, even baked into API endpoints with zero granularity.
+
+The result? A whiplash cycle of temporary performance boosts followed by sudden database load spikes. Users noticed. So did our monitoring tools. We’d clear the cache to fix a stale data issue on one page, only to watch unrelated features—like calendar rendering or staff assignment displays—crawl for minutes after. Debugging was a nightmare. Was it slow queries? Bad indexes? Or just another silent flush wreaking havoc?
+
+The root issue wasn’t caching—it was *uncaching*. We had no centralized logic, no access control, and worst of all, no visibility into what was being invalidated and why. Cache invalidation, as they say, is one of the two hard problems in computer science. We were living that truth.
+
+## Designing CacheController: Separation of Concerns, One Route at a Time
+
+The fix wasn’t rewriting the app. It was carving out control.
+
+I introduced `CacheController`—a dedicated, admin-only endpoint for cache management. This wasn’t just about adding a new file; it was enforcing architectural discipline in a codebase that had grown organically (read: haphazardly) over years. The goal? Centralize all intentional cache operations behind a single, secure interface.
+
+Here’s what changed:
+
+- **Separation of concerns**: Cache clearing logic was ripped out of `CalendarController`, `InvoiceGenerator`, and half a dozen other places. No more `DataCache::flush()` calls hiding in methods that had nothing to do with caching.
+- **Route scoping**: A new `/admin/cache/clear` endpoint, scoped under the admin middleware group, ensured only authorized users could trigger invalidations.
+- **Access enforcement**: Leveraging Laravel’s gate system (yes, we *are* using Laravel packages in this legacy app), we tied access to a dedicated `manage_cache` permission. No more accidental clears by developers or curious staff.
+
+The commit message was simple—`Add CacheController for cache management`—but the impact was immediate. Suddenly, cache clearing wasn’t a side effect; it was an intentional, auditable action. We even added logging so we could track who cleared what and when. Operational clarity, restored.
+
+## Optimizing Cache Keys and Killing Redundant Invalidation
+
+With control in place, we turned to efficiency.
+
+We audited our cache key strategy and found chaos: inconsistent naming (`'events_'.date('Y-m-d')`, `'calendar_data_'.$userId`, `'cached_report_'.$id.'_v2'`), overlapping scopes, and—worst of all—unnecessary full flushes where targeted removal would’ve sufficed.
+
+Take the calendar: every time a user loaded their schedule, we were calling `DataCache::flush()` just to avoid stale entries. Overkill. Instead, we switched to precise key invalidation:
+
+```php
+Cache::forget("user_calendar_{$userId}");
+// Instead of Cache::flush();
+```
+
+We standardized key patterns across the app, prefixed them by context, and in several cases, moved to Laravel’s cache tags (where supported by the driver) for logical grouping. Now, updating a staff assignment? Invalidate only `staff_assignments` and `schedule_blocks`. Generating a new report? Bust the `report_cache` tag, not the entire store.
+
+The result? Faster operations, less database load, and no more collateral damage.
+
+This wasn’t a rewrite. It was surgical refactoring—using Laravel’s tooling to bring order to a legacy system without disrupting daily use. We didn’t need to migrate to a modern framework to fix this. We just needed to apply modern patterns *within* the one we already had.
+
+If you're maintaining a legacy PHP app with spotty caching, here’s my advice: stop flushing. Start scoping. Build a `CacheController`. Enforce access. Standardize keys. Small changes, big wins. Because control isn’t about doing more—it’s about doing less, deliberately.

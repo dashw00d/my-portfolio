@@ -1,0 +1,97 @@
+---
+title: "From Spaghetti to Structure: Refactoring a 15-Year-Old PHP Monolith with Laravel Patterns"
+date: "2025-12-06"
+excerpt: "How I brought order to a 15-year-old PHP monolith by introducing Laravel-inspired architecture and documentation."
+tags: ["PHP", "Legacy Code", "Refactoring", "Laravel", "Architecture", "MVC"]
+author: "Ryan Dashwood"
+---
+## Diagnosing the Mess: What Was Breaking Under the Hood
+
+Fifteen years ago, AustinsElite (Legacy) was built fast, deployed, and left to grow like a wild vine. No autoloading, no routing layer, and business logic sprinkled across templates and global functions. Opening a file felt like archaeology—every layer revealed something older and more fragile.
+
+The first step wasn’t coding—it was mapping. I spent days tracing requests manually: which script handled which URL, where data was pulled, and how much SQL lived in echo statements. The pain points were obvious:
+
+- **Routing was hardcoded** in index.php with fragile string comparisons.
+- **Zero separation of concerns**—HTML, SQL, and logic all lived in the same file.
+- **No reusable components**—the same database queries were copy-pasted across pages.
+- **Zero tests, zero docs**—nobody knew how it *really* worked, including me.
+
+This wasn’t just messy—it was dangerous. Every change risked breaking something three files over. We couldn’t scale, onboard, or sleep well.
+
+## Introducing Laravel-Inspired Structure (Without Rewriting Everything)
+
+I didn’t have the luxury of a full rewrite. The app had to keep running. So instead of tearing it down, I started building scaffolding—Laravel-inspired patterns that could live *alongside* the old code.
+
+### Step 1: Controllers and Routing
+
+I introduced a lightweight routing layer that mapped URLs to actual controller classes. No fancy framework—just a simple dispatcher that parsed the request and called a method. From there, I built real controllers: `CalendarController`, `RoleManagementController`, each handling a specific domain.
+
+```php
+// Before: index.php spaghetti
+if ($_GET['page'] == 'edit_role') {
+    $role = db_query("SELECT * FROM roles...");
+    include 'edit_role.php';
+}
+
+// After: clean routing + controller
+Route::get('/roles/edit/{id}', [RoleController::class, 'edit']);
+```
+
+These controllers didn’t extend Laravel—but they followed its philosophy: thin, focused, and test-ready. I used PSR-4 autoloading so classes could be found properly, and slowly migrated endpoints one by one.
+
+### Step 2: Repositories to Tame the Database Chaos
+
+Raw SQL queries were everywhere. I created repositories to encapsulate data access:
+
+```php
+class RoleRepository {
+    public function findById(int $id): ?Role {
+        $stmt = $this->db->prepare("SELECT * FROM roles WHERE id = ?");
+        $stmt->execute([$id]);
+        return $this->hydrate($stmt->fetch());
+    }
+}
+```
+
+Now, if the database schema changes, only the repository needs updating—not 12 different files. It also made mocking possible for future tests.
+
+### Step 3: Enums for Clarity and Safety
+
+Magic strings ruled the old code: `status = 'active'`, `role = 'admin'`, `type = 'event'`. I replaced them with PHP enums (available in 8.1+) to enforce correctness:
+
+```php
+enum RoleType: string {
+    case ADMIN = 'admin';
+    case MODERATOR = 'moderator';
+    case GUEST = 'guest';
+}
+```
+
+Now, typos like `'admn'` fail at compile time. Simple, but it’s already caught bugs in code reviews.
+
+## Documenting the Architecture: The Real Game-Changer
+
+The biggest win wasn’t code—it was the 867-line `ARCHITECTURE.md` I wrote to capture the new structure. It outlines:
+
+- How HTTP requests flow from router → controller → repository
+- Where templates live and how they’re rendered (Blade, now that we have structure)
+- Component responsibilities and boundaries
+- Migration strategy for legacy pages
+
+This doc isn’t for me—it’s for the next developer (or future me) who needs to understand *why* things are where they are. It turned tribal knowledge into shared truth.
+
+We’ve already used it to onboard a contractor who got up to speed in hours, not days. That’s the real ROI of architecture: velocity through clarity.
+
+## What Changed? Less Chaos, More Confidence
+
+The app still has legacy files. But now there’s a clear direction. New features go into controllers and Blade templates. Data access goes through repositories. And every decision is documented.
+
+The impact?
+
+- **Code clarity**: Pull requests are smaller, focused, and easier to review.
+- **Maintainability**: Fixing a bug in role logic means one place to look.
+- **Reduced bug surface**: Enums and repositories prevent entire classes of errors.
+
+We’re not done. Next up: automated tests and gradual deprecation of the old scripts. But for the first time in years, the codebase feels *alive*—not just surviving, but evolving.
+
+If you’re staring at a legacy PHP monolith, don’t reach for the rewrite button. Start with structure. Start with docs. And start today.

@@ -51,6 +51,7 @@ The `next.config.js` is configured for static export, so it works on any static 
 - Edit the components in `/components/` to change content
 - Update contact information in `components/Contact.tsx`
 - Modify services in `components/Services.tsx`
+- Analytics setup/tracking: see `ANALYTICS.md`
 
 ### Styling
 - Global styles are in `styles/globals.css`

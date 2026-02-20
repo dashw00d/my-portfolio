@@ -1,0 +1,81 @@
+---
+title: "Replacing ARQ with a Unified Redis Streams Worker: Why We Simplified Our Distributed Task System"
+date: "2026-01-28"
+excerpt: "We replaced ARQ with a lightweight Redis Streams polling worker—cutting 6k+ lines and improving reliability across our scraping fleet."
+tags: ["python", "redis", "distributed systems", "task queues", "architecture"]
+author: "Ryan Dashwood"
+---
+## The ARQ Experiment That Grew Too Big
+
+A year ago, we chose ARQ to power our distributed scraping and crawling workloads. It promised async task execution, retry logic, and clean separation between producers and workers—all things we needed as the Vultr Scraper and Crawler scaled. At first, it worked well: tasks got enqueued, workers picked them up, and we could scale horizontally by spinning up more containers.
+
+But over time, the complexity snowballed. We were running multiple ARQ worker processes, each tied to specific queue types (scraping, parsing, validation), with separate configs, logging setups, and Docker images. Debugging failed jobs became a forensic exercise—intermittent timeouts, silent disconnects, and unclear shutdown behavior made it hard to trust the system during deploys or spikes.
+
+Worst of all, ARQ’s reliance on async event loops introduced subtle issues under high load. Memory leaks crept in. Worker restarts didn’t always drain gracefully. And because ARQ abstracted away the Redis interface, we had limited visibility into what was actually happening on the wire. We traded simplicity for "smart" features—and started paying the price in uptime and developer sanity.
+
+## Rolling Our Own: A Bare-Metal Redis Streams Worker
+
+Enough was enough. We decided to strip it all back.
+
+Instead of leaning on ARQ’s abstraction, we built a unified Python worker that polls Redis Streams directly using `XREADGROUP`. No async frameworks. No extra dependencies. Just a tight loop, a connection pool, and a few hundred lines of readable code.
+
+The new worker is distro-agnostic, runs anywhere Python does, and targets specific queues via an environment variable: `TARGET_QUEUES=scraper,validator`. This lets us deploy the same binary across roles—just change the config. Need a scraper-only node? Set the env var. Want to run everything on a beefy box? Remove the filter.
+
+Here’s the core polling loop:
+
+```python
+while running:
+    response = redis_client.xreadgroup(
+        group_name=GROUP,
+        consumer_name=CONSUMER,
+        streams={queue: '>'},
+        count=1,
+        block=5000
+    )
+    if not response:
+        continue
+    
+    stream, messages = response[0]
+    for msg_id, fields in messages:
+        handle_message(stream, fields)
+        redis_client.xack(stream, GROUP, msg_id)
+```
+
+Simple. Predictable. Debuggable.
+
+We also added selective backoffs, SIGTERM handling, and a clean shutdown sequence that logs exactly how many in-flight messages were processed before exit. No more guessing if a deploy left tasks hanging.
+
+## Gains: Less Code, More Control
+
+The refactor wasn’t just about ideology—it had real operational impact.
+
+First, we deleted over 6,000 lines of code. Gone are the ARQ configs, custom serializers, async wrappers, and dependency-heavy Docker images. The new worker is lean, fast to build, and easy to audit.
+
+Second, observability shot up. We integrated `psutil` to report memory usage, CPU load, and event loop lag every few seconds. When a worker starts crawling, we see it immediately in the logs—not through a metrics dashboard, but right in the stdout stream alongside task traces.
+
+```python
+mem = psutil.virtual_memory()
+logger.info(f"Memory usage: {mem.percent}% | Available: {mem.available / 1024**3:.1f} GB")
+```
+
+This might seem trivial, but in a fleet of 50+ workers, spotting a memory creep early saves hours of firefighting.
+
+Third, shutdowns are now graceful and transparent. On SIGTERM, the worker stops polling, finishes current tasks, and logs a summary:
+
+```
+[SHUTDOWN] Signal received. Draining...
+[SHUTDOWN] Processed 3 in-flight messages.
+[SHUTDOWN] Unregistered from scheduler. Exiting.
+```
+
+No more orphaned jobs. No more "zombie" workers in Redis.
+
+## Simplicity as a Feature
+
+This wasn’t a rewrite for the sake of it. It was a deliberate move away from abstraction overload toward something we can understand, debug, and trust.
+
+Redis Streams already give us durability, ordering, and consumer groups. ARQ added value early on, but as our needs stabilized, it became more liability than leverage.
+
+By going bare-metal, we regained control. The system is easier to teach, faster to deploy, and more reliable under pressure. And when something breaks? We can fix it in minutes, not hours.
+
+Sometimes, the best upgrade isn’t a fancier tool—it’s removing one.

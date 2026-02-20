@@ -1,0 +1,40 @@
+---
+title: "Debugging the Invisible: Fixing Celery Task Failures and History Tracking in Lockline AI"
+date: "2025-08-06"
+excerpt: "How I tracked down intermittent Celery task failures and missing history logs in Lockline AI after migrating to SQLite and Docker."
+tags: ["Python", "Celery", "SQLite", "Docker", "Debugging", "AI"]
+author: "Ryan Dashwood"
+---
+## The Silent Break: When Tasks Vanish and History Disappears
+
+Last week, Lockline AI started acting up in the worst way—quietly. No loud crashes, no stack traces in the console. Just… missing behavior. Users reported that scheduled tasks weren’t running, and more alarmingly, the history of AI-generated outputs wasn’t being saved consistently. At first glance, everything looked fine: the Flask app responded, the models loaded, and the Docker containers were up. But under the hood, Celery tasks were failing silently, and SQLite writes to the history table were getting dropped. This wasn’t a flashy bug—it was the kind that erodes trust because you can’t prove it happened.
+
+The shift to SQLite and Docker was meant to simplify local development and improve portability. But it also introduced subtle edge cases, especially around file system access and transaction isolation. And with Celery orchestrating AI-heavy background jobs, any hiccup in task execution or result persistence could mean lost work, broken user flows, and no way to trace what went wrong. Time to go digging.
+
+## Peeling Back the Layers: Tracing Tasks and Transactions
+
+My first stop: Celery’s beat scheduler. I verified that the periodic tasks were registered and the beat service was running inside Docker. Logs showed tasks being sent to the queue—great. But the worker logs? Radio silence. No sign of execution. That pointed to a disconnect between the broker (Redis) and the worker, or a failure during task initialization.
+
+I scaled down to a minimal test: a simple `@celery.task` that wrote to a file. It ran. So the worker was alive. Next, I added a database write using SQLAlchemy, targeting the same SQLite file used by the main app. That’s when things got weird: sometimes it worked, sometimes it didn’t. No errors. Just… nothing.
+
+Then it hit me: file locking and transaction scope. SQLite doesn’t handle concurrent writes well, especially when multiple processes (like Flask and Celery workers) access the same database file. Docker’s volume mounts can compound this if the file isn’t consistently mapped or if permissions shift. Worse, our history logging was wrapped in a `try/finally` block that didn’t explicitly commit or rollback—meaning failed AI steps could leave transactions hanging, silently blocking subsequent writes.
+
+I confirmed this by attaching `sqlite3` directly to the DB and checking `PRAGMA locking_mode` and `journal_mode`. We were in `DELETE` mode with no WAL—fine for single writers, risky with multiple. And the Celery result backend was still set to `db+sqlite:///results.sqlite`, which created another access point. Two processes, one file, no coordination. No wonder things were falling through the cracks.
+
+## The Fixes: Configuration, Clarity, and Atomicity
+
+The solution wasn’t a single silver bullet, but a trio of targeted changes:
+
+First, **centralized database access**. Instead of having Flask, Celery workers, and the result backend each open their own SQLite connections, I enforced a single source of truth: the app’s existing DB session. I reconfigured the Celery result backend to use `rpc://` instead of a SQLite file, so task results are returned in-memory and don’t add another write layer. Simpler, faster, and less prone to file contention.
+
+Second, **explicit transaction handling**. I rewrote the history logging logic to use `session.begin()` and ensure every AI step either commits or rolls back—no more `finally` blocks assuming the session is clean. I wrapped critical sections with `with` statements and added debug logs to confirm transaction state. Now, even if an AI model raises an exception, we log the failure and close the transaction cleanly.
+
+Third, **Docker volume consistency**. I updated the `docker-compose.yml` to bind the SQLite file through a consistent named volume and set explicit file permissions. No more host-path quirks. I also added a health check that verifies DB writability before starting the worker.
+
+The final piece? Better observability. I added lightweight logging at the start and end of every Celery task, including the task ID and input hash. Not for production analytics—just enough to answer: "Did this run?" That, combined with atomic history updates, means we now have a clear audit trail.
+
+## What I Learned: Visibility Is a Feature, Not an Afterthought
+
+This wasn’t a framework bug or a Python quirk. It was a reminder that in asynchronous systems, especially AI pipelines with long-running tasks, *if you can’t see it, you can’t trust it*. The move to SQLite and Docker exposed assumptions we’d baked in: that file access is reliable, that transactions are self-cleaning, that "it works locally" means it works *consistently*.
+
+The fix wasn’t glamorous, but it was necessary. Now, when a task runs, we know it ran. When history is saved, it stays saved. And when something fails, we’ll hear about it—with enough context to fix it fast. That’s not just debugging. That’s building with intention.

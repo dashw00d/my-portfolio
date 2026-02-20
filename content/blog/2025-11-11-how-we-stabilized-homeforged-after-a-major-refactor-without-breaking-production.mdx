@@ -1,0 +1,49 @@
+---
+title: "How We Stabilized HomeForged After a Major Refactor Without Breaking Production"
+date: "2025-11-11"
+excerpt: "We overhauled HomeForged’s core architecture—here’s how we caught race conditions and state bugs before they broke the builder."
+tags: ["refactoring", "frontend architecture", "state management", "validation", "post-mortem"]
+author: "Ryan Dashwood"
+---
+## The Refactor: Why We Pulled the Trigger
+
+Last week, we landed a major structural overhaul in HomeForged—the kind that makes your stomach drop when you push the merge button. The goal? Break apart a monolithic core into modular, testable units and decouple our UI from the data flow layer. We’d been feeling the pain of tangled state updates and brittle form logic every time we added a new AI-assisted field type. It was time to stop patching and start rebuilding.
+
+The changes were sweeping: we extracted form schema logic into its own domain module, rewrote the state reconciliation engine to support optimistic updates, and introduced a strict unidirectional data flow between the Visual Builder and backend services. On paper, it was clean. In practice? We introduced subtle race conditions that only surfaced under real user workflows—like rapidly toggling component visibility or hot-swapping AI-generated content blocks.
+
+The refactor passed all unit tests and looked great in isolation. But within hours of staging deployment, we started seeing inconsistent form states and dropped schema mutations. The kind of thing that makes users lose work—and trust.
+
+## The Bugs: When State Gets Ahead of Itself
+
+The first clue was a spike in client-side errors around `schema.applyUpdate` failing with mismatched revision IDs. Then, QA reported a nasty edge case: if you duplicated a form section while an AI field was still loading, the new section would sometimes inherit placeholder values or, worse, parts of the wrong schema.
+
+We’d seen symptoms like this before—but never this widespread. Digging in, we realized the refactor had exposed a deeper issue: our state management assumed synchronous schema validation, but with the new async AI integrations, that assumption was toast. The UI was applying patches before the backend had confirmed the schema was valid, leading to divergent states across clients.
+
+Even worse, our YAML-to-JSON parser was being called multiple times across different modules, each with slightly different transformation rules. That meant two components could read the same schema source and end up with different runtime structures. Not a race condition—just plain inconsistency.
+
+We triaged by reproducing the issues in a controlled test environment using recorded user sessions. Once we could reliably trigger the bugs, we focused on two fixes: one for runtime state integrity, and one for schema trust.
+
+## The Fix: Validation as a Pipeline, Not an Afterthought
+
+Our breakthrough came when we stopped treating schema validation as a client-side checkpoint and started treating it as a first-class pipeline.
+
+We introduced a normalized validation layer that sits between the backend and any UI update. Now, every schema change—whether from user input, AI generation, or template import—flows through a single `validateAndCommit` function that:
+
+- Parses YAML to JSON in a dedicated backend service (eliminating client-side parser drift)
+- Applies a strict JSON schema contract
+- Returns a signed revision token before any state update is accepted
+- Broadcasts the confirmed update via a message queue for cross-client sync
+
+This meant the client could still render optimistic updates, but the source of truth was no longer local state—it was the validated backend event stream. If a race condition occurred, the client would reconcile on the next sync instead of propagating bad data.
+
+We also rewrote our state manager to treat the schema as immutable between revisions. Instead of patching objects in place, we now produce new snapshots and let the UI diff them. It’s a small change, but it eliminated half our race conditions overnight.
+
+The result? A stable, predictable builder experience—even when multiple async operations are in flight. We’ve since rolled this pattern into DataAnno Fil Starter, where consistent schema handling is even more critical for annotation accuracy.
+
+## Lessons Learned: Refactor Fearlessly, But Validate Relentlessly
+
+Big refactors are inevitable. But they don’t have to be terrifying. The key isn’t avoiding change—it’s building guardrails that let you move fast without losing integrity.
+
+Our takeaway: if you’re decoupling UI from data flow, make validation the coupling point—not an afterthought. Push it early, push it server-side, and make it the only path forward. It’s not just about correctness; it’s about confidence.
+
+We’re shipping the updated HomeForged core this week. No fanfare. No downtime. Just quiet stability—exactly how it should be.

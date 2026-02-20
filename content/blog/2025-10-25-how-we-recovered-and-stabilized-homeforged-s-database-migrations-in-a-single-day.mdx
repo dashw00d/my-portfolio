@@ -1,0 +1,74 @@
+---
+title: "How We Recovered and Stabilized HomeForged’s Database Migrations in a Single Day"
+date: "2025-10-25"
+excerpt: "After a critical migration loss, we restored database integrity in hours using Laravel Artisan, targeted seeding, and CI safeguards."
+tags: ["Laravel", "Database", "Migrations", "DevOps", "Recovery"]
+author: "Ryan Dashwood"
+---
+## The Day the Database Broke
+
+It started with a silent failure. A deployment to HomeForged—our self-hosted home automation platform—rolled out smoothly, but within minutes, users reported missing dashboards and broken integrations. Logs showed missing tables. Features that worked yesterday were now throwing 500s. Something was deeply wrong.
+
+We traced it back to the root: a corrupted `.git` history during a forced rebase had wiped out the last 12 migration files. Not just the schema—gone—but the entire migration history Laravel relied on to stay in sync. The production database was ahead of the codebase, and without those files, we couldn’t roll forward or back. We were stuck in migration limbo.
+
+This wasn’t just a broken deploy. It was a full-on state desync between code and database—one of the scariest scenarios in Laravel ops.
+
+## Recovery: Rebuilding the Migration Chain
+
+Our goal: restore full migration integrity without data loss. We couldn’t afford downtime, and we couldn’t risk corrupting existing device or automation records.
+
+First, we pulled a fresh dump of the production schema. Using `mysqldump`, we captured the exact state of the DB—tables, constraints, indexes, everything. Then, we spun up a local instance and ran `php artisan migrate:status` to confirm the mismatch: Laravel thought 15 migrations had run, but our codebase only had 3.
+
+We needed to rebuild the missing 12 migrations *without* altering the actual schema. The trick? Write migrations that are "noop" in structure but match the *intent* of the lost ones.
+
+We reverse-engineered each missing migration from the schema dump. For example, one table `device_tokens` had a `revoked_at` column with a nullable timestamp. We knew that likely came from a migration like:
+
+```php
+Schema::table('device_tokens', function (Blueprint $table) {
+    $table->timestamp('revoked_at')->nullable();
+});
+```
+
+We recreated each migration file by hand, matching column types, indexes, and foreign keys exactly. Then came the critical step: we used `php artisan migrate:install` to ensure the migrations table existed, and manually inserted records into `migrations` table to mark these rebuilt files as "already ran."
+
+```sql
+INSERT INTO migrations (migration, batch) VALUES
+('2025_03_10_000000_add_revoked_at_to_device_tokens', 1),
+('2025_03_12_000000_create_automations_table', 1);
+```
+
+This told Laravel: "You’ve seen these before." Now, `migrate:status` showed everything was in sync.
+
+Next, we re-ran seeders. Some configuration tables—like `default_roles` and `system_settings`—had been wiped during the incident. We restored them using:
+
+```bash
+php artisan db:seed --class=DefaultRolesSeeder
+php artisan db:seed --class=SystemSettingsSeeder
+```
+
+We verified each table matched expected values. No more missing permissions or broken UI due to empty config rows.
+
+Within four hours, we had a working, consistent state—locally and in staging.
+
+## Preventing the Next Disaster
+
+This wasn’t just a recovery. It was a wake-up call.
+
+We now treat migration files as first-class citizens—like compiled assets. They’re immutable once deployed. No more rebasing or rewriting history on branches that touch schema.
+
+We’ve added three new safeguards:
+
+1. **Pre-commit hook to block migration deletion**: Using `husky` and a simple script, we now prevent any git commit that deletes a `.php` file inside `database/migrations`.
+
+2. **CI migration linting**: On every PR, we run a job that:
+   - Checks for duplicate batch numbers
+   - Ensures no migration modifies more than two tables (enforces single responsibility)
+   - Verifies all foreign keys have corresponding indexes
+
+3. **Daily backup + schema export**: A cron job pulls the latest schema and uploads it to encrypted storage. If we lose migrations again, we won’t be reverse-engineering from memory—we’ll have a canonical reference.
+
+We also added a `migrate:verify` Artisan command to HomeForged’s custom command suite. It compares the current schema against a golden `schema.json` snapshot and reports drift. It runs nightly and alerts us before things break in production.
+
+Losing migration files is a nightmare, but it’s recoverable—if you act fast and respect the contract between code and state. Laravel gives us powerful tools, but they only work if the migration history stays intact.
+
+For homelab devs or self-hosted app maintainers: treat your migrations like your data. Because in many ways, they *are* your data.

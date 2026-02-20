@@ -1,0 +1,69 @@
+---
+title: "Building a Reusable, Responsive Data Table in a Legacy PHP App"
+date: "2025-12-21"
+excerpt: "How we built a future-proof responsive data table in a 15-year-old PHP app using Blade, Tailwind, and mobile-first design—without rewriting everything."
+tags: ["Laravel", "Blade", "Tailwind CSS", "Legacy Code", "Responsive Design", "PHP"]
+author: "Ryan Dashwood"
+---
+## The Problem: Tables That Broke More Than Data
+
+Fifteen years ago, AustinsElite was built on a custom PHP framework with early Laravel components sprinkled in. Fast forward to 2025, and while the business logic still holds, the frontend was creaking—especially our data tables. They were copy-pasted across views, inconsistently styled, and completely unresponsive. On mobile? Forget it. Horizontal scroll traps, clipped action buttons, and unreadable column widths made admin tasks painful.
+
+We didn’t have the bandwidth for a full rewrite. But with a major refactor wave kicking off in December 2025, we saw an opportunity: build one component that could modernize the experience across dozens of pages—without touching the backend.
+
+Our goal was clear: create a reusable, responsive data table using Blade and Tailwind that worked across existing views, supported mobile touch patterns, and preserved backward compatibility. And we needed it yesterday.
+
+## Designing a Blade Component That Fights for You
+
+We started by isolating the table structure into a Blade component: `responsive-table.blade.php`. The key was balancing flexibility with consistency. We needed dynamic columns, optional actions, and variable data sources—but also predictable behavior.
+
+We embraced mobile-first breakpoints in Tailwind, but went further. Instead of just hiding columns on small screens (a common cop-out), we implemented a priority-based visibility system using `data-priority` attributes and corresponding classes like `min-[640px]:table-cell` or `min-[768px]:table-cell`. This let us define *which* columns to show at each breakpoint directly in the data layer.
+
+```blade
+@props(['columns', 'rows', 'actions'])*
+
+<table class="w-full border-collapse">
+  <thead>
+    <tr class="bg-gray-50 dark:bg-gray-800">
+      @foreach ($columns as $key => $label)
+        <th class="px-4 py-2 text-left text-sm font-medium text-gray-500 {{ $columnPriorities[$key] }}">
+          {{ $label }}
+        </th>
+      @endforeach
+      @if ($actions)
+        <th class="px-4 py-2 text-right text-sm font-medium text-gray-500 sticky right-0 bg-white dark:bg-gray-900">
+          Actions
+        </th>
+      @endif
+    </tr>
+  </thead>
+  <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+    <!-- rows -->
+  </tbody>
+</table>
+```
+
+The sticky action column was non-negotiable. Admins were constantly losing access to edit/delete buttons after horizontal scrolling. We used `sticky right-0` combined with a fixed background to keep actions visible, even on wide tables. It worked—but only if we also set `table-layout: fixed` and controlled column widths.
+
+## Smarter Widths and Swipe Fallbacks
+
+Tailwind’s utility classes are great, but applying them consistently across dynamic tables is tricky. We needed a way to assign proportional widths without hardcoding classes.
+
+Our solution? A simple PHP helper that calculated relative column weights based on priority and content type (e.g., ID columns = narrow, description = wide). This returned Tailwind `w-1/6`, `w-1/4`, etc., classes dynamically.
+
+But mobile wasn’t just about shrinking. We added a swipe hint overlay for touch devices—subtle, non-intrusive—using a `pointer-events-none` pseudo-element with a "swipe →" animation. It disappeared after first scroll, thanks to a tiny inline script that set a session flag.
+
+For narrow screens, we also introduced a card-like fallback: when viewport width dropped below 480px, the table switched to a stacked layout using a mobile-only Blade include. Each row became a card with key-value pairs, preserving all data in a touch-friendly format. This wasn’t graceful degradation—it was progressive enhancement within server-rendered limits.
+
+## Lessons from the Trenches
+
+This wasn’t just about tables. It was about proving that modern UX is possible in legacy systems without greenfield rewrites. Here’s what stuck:
+
+- **Blade can do more than we thought.** With scoped props and dynamic rendering, we built something that felt like a React component—but without the JS overhead.
+- **Tailwind’s utility-first approach shines in legacy contexts.** We could incrementally modernize styles without disrupting existing CSS.
+- **Mobile-first doesn’t mean mobile-only.** We designed for the worst-case viewport, then enhanced upward—ensuring usability everywhere.
+- **Backward compatibility is a feature.** By keeping the same data contracts and view integrations, we rolled this out across 12+ pages in under a week.
+
+The result? A single component now powers reports, user lists, and audit logs. We even refactored the filter forms to use a shared `filter-form` component, reducing duplication and improving consistency.
+
+This table won’t win design awards. But it works. It scales. And it proves that with the right abstractions, even a 15-year-old Laravel-adjacent app can feel modern—without starting over.

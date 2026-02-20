@@ -1,0 +1,79 @@
+---
+title: "Modernizing Legacy Laravel Frontends: How We Integrated UnDraw SVGs and Component Libraries in a Next.js Migration"
+date: "2024-05-04"
+excerpt: "How we upgraded a Laravel 12 app’s frontend with Next.js, UnDraw SVGs, and clean component architecture for better UX and scalability."
+tags: ["Laravel", "Next.js", "Frontend Migration", "SVG", "Component Design", "React"]
+author: "Ryan Dashwood"
+---
+## From Monolith to Modern: Rethinking the Frontend During a Laravel 12 Rebuild
+
+Let’s be honest—working on legacy PHP apps often means inheriting a frontend that hasn’t evolved since the days of Blade templates and jQuery sprinkles. That was the reality with AustinsElite, a production Laravel 12 application (yes, Laravel—not Next.js, despite earlier mislabeling). The backend was solid, but the user experience? Felt like dial-up in a broadband world.
+
+Our goal wasn’t a full rewrite overnight. Instead, we opted for a phased migration: keep Laravel 12 powering the core logic and APIs, but layer on a modern Next.js frontend to handle dynamic user flows. This hybrid approach let us ship improvements fast without destabilizing the backend.
+
+One of the first wins? Ditching generic form screens and empty states for something that actually felt human. That’s where UnDraw SVGs came in.
+
+## Design With Intent: Adding Personality Through SVG Illustrations
+
+You don’t need a design team to make your app feel alive—sometimes, a single well-placed illustration does the trick. We pulled in themed UnDraw SVGs (chef, event, barbecue) to breathe life into key user moments: quote requests, service selection, and confirmation screens.
+
+These weren’t just decorative. We used them strategically:
+
+- Onboarding: A friendly chef illustration greeted users starting their quote journey, reducing perceived friction.
+- Empty states: Instead of a blank form, users saw a relevant visual that set context.
+- Error recovery: A lighthearted BBQ gone wrong SVG softened the blow when form validation failed.
+
+Because we were using Next.js for the frontend, we could import SVGs as React components—enabling dynamic coloring, responsive scaling, and zero HTTP requests. We created an `assets/illustrations` directory and built a simple `UnDraw` component that accepted a `name` prop and pulled the right SVG on demand.
+
+```jsx
+// components/UnDraw.jsx
+import Chef from '@/assets/illustrations/Chef.svg';
+
+export default function UnDraw({ name, className }) {
+  const Illustration = { Chef }[name];
+  return <Illustration className={className} />;
+}
+```
+
+Suddenly, our forms didn’t feel like data entry—they felt like conversations.
+
+## Building for Scale: Component Libraries and Clean Import Paths
+
+With visuals in place, we turned to structure. The old app had chaotic import paths: `../../../../../components` kind of chaos. Not sustainable.
+
+We reorganized the frontend with a clear directory structure:
+
+```
+/components
+  /forms
+  /layout
+  /ui
+/assets
+  /illustrations
+  /images
+/lib
+```
+
+Then we configured absolute imports in `jsconfig.json` so we could write `import Button from '@/components/ui/Button'` instead of playing path bingo.
+
+We also upgraded key dependencies—React, Tailwind, and Inertia.js—to ensure compatibility and leverage modern features like React Server Components (where applicable). This wasn’t just housekeeping; it was about making the codebase welcoming for future contributors.
+
+One of the most impactful upgrades? Standardizing reusable form components. We introduced a `CustomChoices` component to replace inconsistent radio groups and checkboxes, ensuring visual harmony across the quote wizard. It accepted options, labels, and validation states—making it trivial to drop into any step.
+
+```jsx
+<CustomChoices
+  label="Preferred Service"
+  options={[{ label: 'Catering', value: 'catering' }]}
+  model="serviceType"
+/>
+```
+
+This shift—from ad-hoc markup to intentional component design—was the real unlock. It meant we could iterate faster, test more reliably, and maintain visual consistency without constant design oversight.
+
+## Lessons from the Trenches
+
+Migrating a Laravel app’s frontend isn’t about chasing trends. It’s about meeting users where they are—with fast, friendly, and functional interfaces. By pairing Laravel 12’s backend strength with Next.js’s frontend power, we created a hybrid architecture that delivers modern UX without sacrificing stability.
+
+The UnDraw illustrations? They cost nothing but added immense perceived value. The component library? Paid for itself in developer velocity within weeks.
+
+If you’re sitting on a Laravel monolith with a tired frontend, don’t wait for perfection. Start small: add one illustration, refactor one import, build one reusable component. Momentum builds fast when you start shipping joy.

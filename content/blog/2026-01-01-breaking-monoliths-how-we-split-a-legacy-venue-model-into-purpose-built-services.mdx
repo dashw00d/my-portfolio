@@ -1,0 +1,62 @@
+---
+title: "Breaking Monoliths: How We Split a Legacy Venue Model into Purpose-Built Services in Next.js and Laravel"
+date: "2026-01-01"
+excerpt: "We broke a bloated VenueMetadata model into focused services using domain-driven design—here’s how we did it without breaking production."
+tags: ["Laravel", "Next.js", "Domain-Driven Design", "Refactoring", "Full-Stack Development"]
+author: "Ryan Dashwood"
+---
+## The Monster Called VenueMetadata
+
+A few months ago, our `VenueMetadata` model in the AustinsElite Laravel app had become a dumping ground. What started as a clean way to store venue details ballooned into a 1,200-line PHP file with methods for analytics, SEO tags, operational hours, social media links, and even caching logic. It wasn’t just ugly—it was dangerous. A change to marketing fields risked breaking reporting dashboards. Our tests were brittle. Deployments felt like defusing bombs.
+
+We weren’t alone. This is the classic monolith-in-disguise: a single model pretending to serve multiple domains. The pain showed up everywhere—slow queries, tangled migrations, and frontend components in our Laravel 12 app that had to parse inconsistent response shapes depending on context. We needed to act.
+
+## Domain-Driven Decomposition: From One Model to Three
+
+We stepped back and asked: *What are the real jobs this data is doing?* Using domain-driven design principles, we identified three distinct concerns:
+
+- **Operational**: Hours, capacity, staff assignments, booking rules
+- **Marketing**: SEO metadata, featured images, social links, promotional text
+- **Analytics**: Visit counts, engagement stats, conversion metrics
+
+This led to three new models: `VenueOps`, `VenueMarketing`, and `VenueStats`. Each owns its schema, logic, and lifecycle. No more cross-domain dependencies. We defined clear contracts between them using Laravel’s Eloquent relationships and API resources, then mapped them to dedicated endpoints consumed by our Next.js frontend.
+
+The refactor wasn’t just about splitting code—it was about aligning structure with business intent. Now, when the marketing team wants to A/B test meta descriptions, they don’t touch the same tables used by the ops dashboard.
+
+## Aligning Tools with Domains: Filament, Artisan, and API Contracts
+
+One win was rethinking our admin tooling. We use Filament for internal dashboards, and previously had one massive `VenueMetadataResource`. Now, we built purpose-specific Filament resources:
+
+- `VenueOpsResource` for staff and scheduling
+- `VenueMarketingResource` with rich text and image previews
+- `VenueStatsResource` with chart widgets and time filters
+
+Each resource exposes only what’s relevant. No more accidental edits to analytics counters while updating a venue’s Instagram handle.
+
+We also created targeted Artisan commands. Instead of a generic `php artisan venue:sync`, we now have:
+
+```bash
+php artisan venue:sync-ops
+php artisan venue:sync-marketing
+php artisan venue:sync-stats
+```
+
+This lets us run lightweight, focused jobs—critical for our cron-heavy environment.
+
+On the frontend, our Laravel 12 app benefited immediately. API responses became predictable. We replaced a giant `VenueData` interface with three clean, typed responses. Our React components stopped doing defensive checks like `if (data?.seo?.meta?.length)` and started receiving exactly what they needed.
+
+## Migrating Without Meltdowns: Data Integrity First
+
+The real test was migration. We couldn’t just drop and rebuild—we had live venues generating revenue. Our strategy:
+
+1. **Shadow writes**: For two weeks, we wrote to both `VenueMetadata` and the new tables, comparing outputs.
+2. **Incremental reads**: We flipped reading logic one domain at a time—first marketing, then ops, then stats—using feature flags in Next.js.
+3. **Data reconciliation script**: A one-off Artisan command verified row counts, checksums, and null states across old and new.
+
+We ran the script daily during transition. When diffs dropped to zero, we retired `VenueMetadata` with a final migration (and a moment of silence).
+
+Testing was key. We wrote feature tests that mirrored user flows: updating hours in Filament, checking if the change reflected in the Next.js venue page, then verifying no side effects in analytics. We used Laravel’s `RefreshDatabase` trait selectively and mocked external calls to keep tests fast.
+
+The result? A 60% reduction in average response time for venue data in Next.js, zero data loss incidents, and a codebase where new devs can actually find things.
+
+Breaking monoliths isn’t about big-bang rewrites. It’s about asking who owns what, drawing clean boundaries, and migrating with care. If your Laravel model is doing too much, it’s not broken—it’s just waiting to be decomposed.

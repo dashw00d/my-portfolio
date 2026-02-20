@@ -1,0 +1,42 @@
+---
+title: "Building a Scalable Sitemap Architecture in Next.js: From Monolith to Modular"
+date: "2026-01-05"
+excerpt: "How we broke a 38k+ URL sitemap into dynamic, domain-specific modules for better SEO and maintainability in Next.js."
+tags: ["Next.js", "SEO", "Sitemaps", "Scalability", "Jamstack", "Developer Experience"]
+author: "Ryan Dashwood"
+---
+## The Breaking Point: When Our Sitemap Got Too Big
+
+A few months ago, AustinsElite’s sitemap was a single, monolithic XML file generated at build time. It worked fine when we had a few hundred pages. But as we scaled—38,000+ events, 500+ venues, a growing blog, and an expanding product catalog—it started to creak. The sitemap ballooned to over 40,000 URLs, all crammed into one route. Regenerating it took minutes. Deployments stalled. And worst of all, search engines were missing updates.
+
+We were playing a dangerous game: if the sitemap generation failed during a deploy (and it did), Googlebot would crawl stale or incomplete data. Our SEO team started noticing indexing delays. Pages that went live Monday wouldn’t show up in search until Friday. That’s not just bad UX—it’s lost traffic.
+
+The root issue? We treated all content the same. A blog post from 2022 had the same weight as a venue updated yesterday. Events changed daily, but our sitemap didn’t reflect freshness. We needed dynamic prioritization, faster regeneration, and better crawl efficiency. The monolith had to go.
+
+## Refactoring for Scale: Domain-Specific, Dynamic Sitemaps
+
+Our solution: break the sitemap into domain-specific chunks—`/pages`, `/venues`, `/blog`, and `/products`—each with its own generation logic, update frequency, and priority rules. Instead of one giant file, we now serve multiple targeted sitemaps under a `sitemap-index.xml`, letting search engines focus on what matters.
+
+We leveraged Next.js’s dynamic routes and `getServerSideProps` (yes, for sitemaps!) to generate these on-demand during crawls. Each sitemap is cached aggressively but invalidated based on content updates. For example:
+
+- Venue sitemaps regenerate only when a venue’s details or events change.
+- Blog sitemaps prioritize posts from the last 90 days with higher `priority` and accurate `lastmod` timestamps.
+- Product sitemaps include stock status and pricing hints to signal relevance.
+
+The refactor wasn’t just structural—it was semantic. We stopped treating URLs as dumb links and started encoding intent. A venue page isn’t just a page; it’s a local business with events, hours, and reviews. That context now lives in the sitemap.
+
+One of the most impactful changes? Dynamically setting `lastmod` based on actual content updates, not build time. Before, every URL in the sitemap showed the same `lastmod`—the timestamp of the last deploy. After our fix (captured in the commit: *'fix: Update last modification dates in sitemap generation to ensure accurate timestamps'*), each entry reflects real editorial or operational activity. Google noticed. Fast.
+
+## Results: Faster, Smarter, and More Reliable
+
+The impact was immediate. Sitemap generation went from 3+ minutes to under 15 seconds per segment. Crawl efficiency improved—Googlebot spent less time on stale URLs and more on fresh content. Indexing latency dropped from days to hours.
+
+But the real win was maintainability. Adding a new content type? Just create a new sitemap module. Need to adjust priority logic for seasonal events? Tweak one function, not a 40k-line XML generator.
+
+We also gained observability. Each sitemap reports its size, average age of content, and error rate. When the venue sitemap spiked in size last week, we caught a duplicate slug issue before it affected SEO.
+
+This modular approach has become a pattern across AustinsElite. We’re now applying the same thinking to RSS feeds, JSON-LD generation, and even internal analytics routing.
+
+If you’re running a content-rich Next.js app and still using a single `sitemap.xml`, I get it. It’s comfortable. But at scale, that comfort comes at a cost—lost traffic, brittle builds, and frustrated SEO teams. Breaking it up wasn’t just an optimization. It was a necessity.
+
+And honestly? Once you go modular, you don’t go back.

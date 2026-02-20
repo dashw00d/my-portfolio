@@ -1,0 +1,47 @@
+---
+title: "From Spaghetti to Speed: How We Refactored an RTS Game to Data-Oriented Design in Godot"
+date: "2025-06-04"
+excerpt: "We slashed frame times in our hex-based RTS by restructuring unit logic around data-oriented design in Godot—here’s how."
+tags: ["Godot", "Data-Oriented Design", "Game Development", "Performance Optimization", "RTS", "Refactoring"]
+author: "Ryan Dashwood"
+---
+## The Problem: Objects Everywhere, Performance Nowhere
+
+A few weeks ago, our hex-based 3D RTS—think Civilization meets real-time chaos—was chugging. Units would stutter during large battles, pathfinding would stall, and frame times spiked unpredictably. The culprit? A classic object-oriented mess: every unit was a full Godot `Node3D` with components for movement, health, AI, and rendering. We were chasing pointers across memory, updating hundreds of individual objects frame-by-frame, and paying the price in cache misses and GC pressure.
+
+At peak load, we had over 500 units on screen. Each one had its own script instance, position variable, and pathfinding coroutine. The code was easy to reason about at first, but as the simulation grew, so did the overhead. We were writing game code the way tutorials taught us—but not the way modern CPUs want to run it.
+
+We needed a paradigm shift. Enter: Data-Oriented Design (DOD).
+
+## Embracing Data-Oriented Design in Godot
+
+DOD isn’t new, but applying it in Godot—a node-heavy, object-oriented engine—felt counterintuitive at first. The core idea? Organize data around how the CPU accesses it, not how we model the game world in our heads. Instead of `Unit` objects with `position`, `velocity`, and `target`, we broke everything into parallel arrays: `positions[]`, `velocities[]`, `targets[]`, all tightly packed.
+
+We created a central `UnitManager` singleton (yes, a node—but now just a thin wrapper) that owns these arrays. Each unit is represented by an index, not a node. Movement logic no longer lives on individual units; it’s batched. A single function loops through active units, updates positions, and applies movement deltas—all in one cache-friendly pass.
+
+```gdscript
+# Before: scattered, per-unit updates
+func _process(delta):
+    for unit in get_tree().get_nodes_in_group("unit"):
+        unit.move(delta)
+
+# After: batched, data-centric update
+func _process(delta):
+    for i in unit_count:
+        if not active[i]: continue
+        positions[i] += velocities[i] * delta
+```
+
+We also reworked pathfinding. Instead of each unit queuing its own A* request, we introduced a movement queue system that batches path queries and processes them in chunks. This reduced redundant grid lookups and let us integrate with Godot’s threading API more efficiently. Path results are written directly into the `paths[]` array, indexed by unit ID.
+
+Pointer chasing dropped to near zero. We went from hundreds of small, scattered memory allocations to a few large, predictable blocks. Even debugging got easier: instead of inspecting 500 node instances, we could dump the entire unit state as a structured table.
+
+## Results: Faster, Cleaner, and Ready for Scale
+
+The performance gains were immediate. Average frame time dropped by 60% in dense scenarios. Pathfinding latency halved. We went from 30 FPS with 500 units to a solid 60 FPS—on the same hardware. The game felt responsive again, even during large-scale maneuvers.
+
+But beyond raw speed, the codebase became more maintainable. Adding new unit behaviors now means writing batched functions that operate on arrays, not patching individual scripts. Want to add formation movement? Just write a function that adjusts velocities in bulk. Need to debug pathing issues? Print the entire `targets[]` array and spot outliers instantly.
+
+This refactor wasn’t just a performance win—it was a foundational shift. The Civ RTS now scales predictably, and we’ve set the stage for features like squad commands and large-scale AI waves. Data-Oriented Design in Godot isn’t magic, but it is necessary once you hit simulation density. It turns spaghetti into structure, and stutter into speed.
+
+And honestly? It feels good to write code that respects the machine again.

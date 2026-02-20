@@ -1,0 +1,39 @@
+---
+title: "Building a Web UI for a Headless Scraping Engine: How We Brought the Vultr Scraper to Life with FastAPI and HTML Templates"
+date: "2026-01-21"
+excerpt: "We turned a script-driven scraper into a fully observable web interface using FastAPI and server-rendered templates—no frontend framework needed."
+tags: ["FastAPI", "web scraping", "Python", "observability", "developer tooling"]
+author: "Ryan Dashwood"
+---
+## From CLI Chaos to Clickable Control
+
+A few weeks ago, managing our Vultr Scraper felt like flying blind. We had a fleet of headless scrapers spinning across cloud instances, pulling data from dynamic pages at scale. But interacting with them? That meant SSHing into boxes, tailing log files, and manually triggering exports with CLI flags. It worked—until it didn’t. As the number of concurrent jobs grew, so did the friction. One missed log line could mean hours of debugging. We needed visibility, not just velocity.
+
+The breaking point came when a critical export failed silently during a weekend crawl. No alerts, no dashboard—just a missing CSV and a sinking feeling. That’s when I decided: this scraper needed a brain with a pulse. Not another logging dashboard bolted on with React and WebSockets, but something lightweight, fast, and tightly coupled to the backend. Enter FastAPI with server-side HTML templates.
+
+## FastAPI as the Glue: Routers, Templates, and Real-Time State
+
+I’ve used FastAPI for APIs before, but this time, I leaned into its underrated ability to serve full HTML pages. No separate frontend, no build step—just Python handling routes and rendering Jinja2 templates directly. The goal was simple: make every part of the scraper controllable and observable through a browser, without adding complexity.
+
+I broke the UI into four core routers:
+
+- `/settings` – tweak concurrency limits, target URLs, and retry policies
+- `/workers` – see live status of running instances, last heartbeat, current job
+- `/logs` – stream recent logs with optional filtering by worker or severity
+- `/export` – trigger manual exports or download recent CSVs
+
+Each endpoint returned `HTMLResponse` objects backed by templates that pulled live data from our Redis-backed state store. No async frontend framework—just form posts and page reloads. It felt almost retro, but the speed of iteration was unreal. Need a new config option? Add a field in the model, expose it in the settings form, and bind it in the backend. Done in five minutes.
+
+One of the most satisfying parts was the worker dashboard. Using a simple `GET /workers` endpoint, the template rendered a table showing each scraper instance, its current status (idle, crawling, errored), and uptime. Behind the scenes, workers periodically updated their state in Redis with a TTL. If a row turned red? That instance was gone. No need to check systemd or ping an API—the UI reflected reality.
+
+## Why Simplicity Won: Real-Time Feedback Without the Overhead
+
+I’ll admit—I almost reached for a React frontend. But every time I started sketching out component states and WebSocket handlers, I remembered: this isn’t a customer-facing app. It’s a tool for *us*. Engineers who value speed, clarity, and reliability over polish.
+
+By sticking with server-rendered templates, we got real-time operational feedback with minimal moving parts. Click "Export Now"? The button triggers a POST to `/export/trigger`, which queues the job and redirects back with a success flash message. Want to see what a worker logged during its last run? Click the log link—it’s a scrollable `<pre>` block with syntax coloring for JSON lines.
+
+The biggest win? Debugging time dropped by at least 70%. Instead of jumping between terminals and log aggregators, we now have a single pane of glass. And because everything runs in the same FastAPI app, authentication, rate limiting, and error handling are centralized.
+
+This wasn’t about building a flashy UI. It was about making a distributed system feel small again. The scraper didn’t get smarter—but *we* did, because we could finally see what it was doing.
+
+Looking back at the commit that launched it—`feat: Implement web UI with dashboard, settings, logs, and data export functionalities`—it’s wild how much changed from a few hundred lines of Python. We didn’t need a new framework or a full frontend team. Just a clear problem, a sharp tool (FastAPI), and the courage to keep it simple.

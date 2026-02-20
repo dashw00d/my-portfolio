@@ -1,0 +1,46 @@
+---
+title: "How We Automated Affiliate Attribution Audits in a High-Traffic Next.js App"
+date: "2026-01-17"
+excerpt: "Building a console-driven audit system to catch and fix lead credit discrepancies in a live affiliate platform."
+tags: ["Next.js", "data integrity", "affiliate marketing", "audit systems", "Node.js", "full-stack"]
+author: "Ryan Dashwood"
+---
+## The Cost of a Misattributed Lead
+
+Affiliate marketing lives and dies by attribution accuracy. At AustinsElite, where thousands of leads flow through our platform monthly, even a 1% error rate can mean tens of thousands in misallocated commissions. We learned this the hard way when a partner flagged a discrepancy during payout review—leads they swore they’d driven weren’t showing up in their dashboard.
+
+Our initial blame was on tracking scripts or UTM parsing. But after digging into logs and database snapshots, we found the real culprit: edge cases in session stitching and race conditions during lead ingestion. The logic worked 99% of the time, but that 1% was eroding trust and creating manual overhead. Engineering was spending hours each week reconciling spreadsheets instead of building.
+
+We needed a system that could proactively catch these gaps—not just react to them. So we built an automated audit command to run inside our Next.js backend, designed to recompute attribution, detect mismatches, and surface them before they became disputes.
+
+## Building the Audit Command: Recompute, Diff, Report
+
+The goal was simple: verify that every lead in the system was credited to the correct affiliate, based on the original session data and our attribution rules. The challenge? Doing it at scale, without locking tables or slowing down the live app.
+
+We implemented the audit as a Node.js CLI command within our Next.js monorepo—accessible via `npm run audit:affiliates`. It runs outside the request cycle, so it doesn’t impact user-facing performance. Here’s how it works:
+
+1. **Idempotent Recomputation**: The command pulls a batch of leads from the past 7 days and, for each, re-runs the full attribution logic using the stored session context (UTM params, referrer, cookie ID). This logic mirrors exactly what runs at ingestion time.
+
+2. **Diff Detection**: If the recomputed affiliate ID doesn’t match the one stored in the lead record, we flag it as a discrepancy. We log the lead ID, expected vs. actual affiliate, and the full session context for debugging.
+
+3. **Reporting & Hooks**: At the end of the run, the command outputs a summary (total leads scanned, mismatches found) and writes discrepancies to a secure S3 bucket. We also fire a webhook to our internal Slack channel if >5 mismatches are found—our canary in the coal mine.
+
+One key design decision was making the audit *read-only by default*. It doesn’t auto-correct records. Why? Because financial data demands caution. Instead, it generates a correction script—commented out, with a warning header—so engineers can review and run it manually if needed.
+
+We also added a `--fix` flag (guarded by environment variables and 2FA in prod) that applies corrections transactionally, updating the lead record and emitting an event to our audit log. This gives us automation *with* accountability.
+
+## Safety, Scale, and the Illusion of "Set It and Forget It"
+
+Automating audits sounds like a "set it and forget it" win. In reality, it’s more like adopting a high-maintenance pet. You love it, but it demands attention.
+
+We learned three hard lessons in the first two weeks:
+
+- **Performance matters more than elegance**: Our first version loaded all session data into memory. On a 10k-lead batch, it crashed with an OOM error. We switched to streaming with `pg-query-stream` and reduced memory usage by 80%.
+
+- **Idempotency isn’t optional**: Running the audit twice should yield the same results. We had to refactor our date-range logic to use immutable lead creation timestamps, not processed-at fields that could shift.
+
+- **False positives erode trust**: Early on, we flagged leads as mismatches because our recomputation logic didn’t match the *historical* version of the code. We solved this by snapshotting the attribution logic version alongside each lead at ingestion time.
+
+This system now runs nightly in production. Since its deployment on January 17th, we’ve caught 127 discrepant leads across 3 affiliates—some due to bugs, others from edge-case user behavior we hadn’t anticipated. More importantly, we’ve cut dispute resolution time from *days* to *minutes*.
+
+The real win isn’t just accuracy—it’s confidence. Our partners trust the numbers, and our team trusts the system. That’s what data integrity looks like in practice: not a one-time fix, but a continuous loop of verification, feedback, and control.

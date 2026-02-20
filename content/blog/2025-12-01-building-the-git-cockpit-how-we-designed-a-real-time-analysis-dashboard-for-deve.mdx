@@ -1,0 +1,49 @@
+---
+title: "Building the Git Cockpit: How We Designed a Real-Time Analysis Dashboard for Developer Context"
+date: "2025-12-01"
+excerpt: "How we architected a reactive, real-time dashboard inside Git Context to make git-aware development more intuitive and actionable."
+tags: ["Git Context", "VS Code", "real-time UI", "state management", "developer tools"]
+author: "Ryan Dashwood"
+---
+## Introducing the Need for a Developer Cockpit
+
+If you’ve ever stared at a half-resolved merge conflict while juggling five git commands in your head, you know how quickly context evaporates. We built Git Context to help developers stay grounded in their repo state—but until recently, that context was scattered across status bars, tooltips, and terminal output. We needed a central place to surface what matters: a cockpit for git-aware development.
+
+Enter the Cockpit webview. It’s not just another panel—it’s a live control center that visualizes the current git state, tracks analysis progress, and surfaces actionable insights. The goal? Turn invisible git operations into something you can see, trust, and act on. This post walks through how we architected the Cockpit’s reactive state system, structured multi-stage analysis, and kept the UI responsive without blocking core git workflows.
+
+## Architecting Multi-Stage Analysis with Reactive State
+
+The biggest challenge wasn’t rendering data—it was managing *when* and *how* we got it. Git operations are asynchronous, often interleaved, and sometimes cancel each other. We needed a state machine that could reflect not just *what* the repo is doing, but *why*, and *what’s next*.
+
+We broke analysis into discrete stages: `idle`, `scanning`, `analyzing`, `resolving`, and `ready`. Each stage triggers specific UI feedback—like progress bars during scanning or warning badges during conflict resolution. But instead of baking this logic into the webview, we built a lightweight state service in the extension host that broadcasts updates via message passing.
+
+```typescript
+this.webviewPanel.webview.postMessage({
+  type: 'state:update',
+  payload: { stage: 'analyzing', files: 12 }
+});
+```
+
+This decoupling was key. The webview stays lean—no access to git or fs APIs—while the extension host manages complexity. We used a simple publish-subscribe pattern with typed events, ensuring the UI only reacts to meaningful state transitions. No more guessing if a spinner should be shown; the state tells us.
+
+We also introduced a `staged pipeline` concept: each analysis step queues up only if the previous one succeeded. Want to diff changes? First, we must confirm the working directory is clean. This prevents race conditions and gives users predictable behavior—even when they’re rapidly staging and unstaging files.
+
+The UI itself is built with lightweight web components (no framework bloat), allowing us to render fast updates without rehydration costs. Buttons, badges, and progress indicators are all driven by the incoming state—making the view a true reflection, not a simulation.
+
+## Lessons from Real-Time Updates (Without Blocking Git)
+
+Early prototypes had a critical flaw: the webview would freeze during heavy git operations. Why? Because we were polling too aggressively and serializing large payloads. We learned three hard lessons:
+
+1. **Don’t push data just because you can.** We switched from polling to event-driven updates. Now, the extension host only sends messages when state changes—reducing webview overhead by ~70%.
+
+2. **Keep payloads minimal.** We used to send full file trees; now we send deltas or summary objects. For example, instead of transmitting 500 file paths, we send `{ modified: 3, staged: 1, conflicts: 0 }` and let the UI request details on demand.
+
+3. **Never block the git command stack.** The Cockpit listens, but never intercepts. All git operations run in isolated processes, and the UI updates *after* the fact. This ensures that even if the webview lags or crashes, your `git add` still works.
+
+One subtle win: we added a `lastUpdated` timestamp to every state message. This lets the UI show "Updated 2s ago" instead of pretending everything is real-time. Honesty in latency builds trust.
+
+We also discovered that visual feedback reduces perceived wait time. A smooth progress bar during `git status` polling feels faster than a frozen interface—even if the duration is the same. Small details like skeleton loaders and stage labels (“Scanning working directory…”) keep users informed and in control.
+
+The Cockpit is still evolving—next up, deeper integration with conflict resolution and branch insights—but the foundation is solid. By treating state as a first-class citizen and decoupling analysis from presentation, we’ve made Git Context not just smarter, but *understandable*.
+
+If you’re building IDE tools, the takeaway is clear: real-time doesn’t mean reactive at all costs. It means thoughtful state design, minimal payloads, and UI that reflects reality—not aspiration.

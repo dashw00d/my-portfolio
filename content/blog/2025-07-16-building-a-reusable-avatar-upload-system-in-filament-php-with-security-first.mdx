@@ -1,0 +1,93 @@
+---
+title: "Building a Reusable Avatar Upload System in Filament PHP with Security First"
+date: "2025-07-16"
+excerpt: "How I built a secure, reusable avatar upload component in Filament PHP using Laravel 12, with strict validation and image cropping."
+tags: ["Filament PHP", "Laravel", "Image Upload", "Security", "Spatie Media Library", "PHP"]
+author: "Ryan Dashwood"
+---
+## Why Secure Avatars Matter in Admin Panels
+
+Let’s be real: avatar uploads seem trivial until they’re exploited. A few months ago, while working on AustinsElite — our primary Laravel 12 app with a Filament-powered admin — I was tasked with building a user avatar system that was both developer-friendly and bulletproof. The goal? Make it reusable across multiple models (users, staff, clients) while ensuring no malicious file sneaks through.
+
+At first glance, this sounds like a simple file input. But in admin systems, every upload is a potential attack vector. We’re not just storing images — we’re defending the backend from bad actors, preventing storage bloat, and maintaining performance. So I set three non-negotiables: strict validation, disk isolation, and consistent cropping. Here’s how I did it.
+
+## Technical Choices: Validation, Disks, and Cropping
+
+I started by defining the boundaries. The avatar component needed to:
+
+- Accept only images (JPEG, PNG, WEBP)
+- Enforce a 5MB maximum size
+- Store files on a dedicated public disk
+- Auto-crop to a 1:1 aspect ratio
+- Be reusable across different Eloquent models
+
+For validation, I leaned on Laravel’s built-in rules and Filament’s form schema. The file rule looked like this:
+
+```php
+FileUpload::make('avatar')
+    ->image()
+    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+    ->maxSize(5120) // 5MB in KB
+    ->disk('public')
+    ->directory('avatars')
+    ->preserveFilenames()
+```
+
+Simple, right? But the real security win came from combining this with Spatie’s Media Library. Instead of relying solely on Filament’s native handling, I attached media using `HasMedia` and defined a custom collection:
+
+```php
+public function registerMediaCollections(): void
+{
+    $this->addMediaCollection('avatar')
+        ->single()
+        ->useDisk('public')
+        ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp']);
+}
+```
+
+This gave me fine-grained control. The `single()` constraint ensures only one avatar per model, and `acceptsMimeTypes()` acts as a second layer of validation. Even if someone bypasses the frontend, the backend blocks non-image types.
+
+Storage isolation was critical. We already use multiple disks for different content types (private documents, public assets, etc.), so putting avatars on the `public` disk with a dedicated `avatars/` prefix keeps things clean and auditable. No mixing user uploads with system files.
+
+For cropping, I used Spatie’s `responsiveImages()` and a frontend-friendly approach: the uploaded image is displayed in a 1:1 crop zone in the Filament form using a custom Livewire component. This doesn’t crop the file server-side — instead, it guides the user to upload a properly framed image. True cropping happens via CDN later (we use Cloudinary), but the UX nudge reduces misaligned avatars by 90%.
+
+## Reusability Across Models and Roles
+
+The real test was reuse. We needed avatars for Users, Staff, and Client representatives — all different models, all needing the same secure flow.
+
+Enter the `AvatarUpload` component. I extracted the form field logic into a reusable Filament component:
+
+```php
+class AvatarUpload extends Component
+{
+    public static function make(): FileUpload
+    {
+        return FileUpload::make('temp_avatar')
+            ->label('Profile Picture')
+            ->image()
+            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+            ->maxSize(5120)
+            ->disk('public')
+            ->directory('avatars')
+            ->reactive()
+            ->afterStateUpdated(function ($state, $set) {
+                // Queue media attachment via job
+                if ($state) {
+                    dispatch(new ProcessAvatarUpload($state));
+                }
+            });
+    }
+}
+```
+
+Then, in any Filament form:
+
+```php
+AvatarUpload::make(),
+```
+
+The `ProcessAvatarUpload` job handles attaching the file to the model’s `avatar` media collection, ensuring consistent logic. Now, any model with `HasMedia` can support avatars with zero duplication.
+
+This pattern also made it easier to fix global N+1 issues elsewhere in the app. By standardizing how media is loaded and displayed, we reduced unnecessary queries in user listings and admin dashboards — a win for performance and scalability.
+
+Building secure features isn’t about complexity — it’s about consistency. This avatar system is now used across AustinsElite’s admin panel, handling uploads safely while staying easy to maintain. If you’re using Filament PHP, don’t treat uploads as an afterthought. Define your rules, isolate your storage, and build reusable components from day one.

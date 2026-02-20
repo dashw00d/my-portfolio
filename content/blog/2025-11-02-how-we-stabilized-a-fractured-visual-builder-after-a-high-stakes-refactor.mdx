@@ -1,0 +1,42 @@
+---
+title: "How We Stabilized a Fractured Visual Builder After a High-Stakes Refactor"
+date: "2025-11-02"
+excerpt: "After a risky refactor broke our visual builder, we dug into race conditions, state desync, and schema mismatches to restore stability."
+tags: ["frontend", "debugging", "react", "state management", "post-mortem"]
+author: "Ryan Dashwood"
+---
+## The Refactor That Almost Broke Everything
+
+Last week, we landed a major refactor of HomeForged’s visual builder—a core piece of our low-code platform. The goal was noble: decouple the UI rendering engine from the state management layer to improve extensibility and make future feature work less of a minefield. We split the monolithic component tree into modular, composable units, each responsible for its own data binding and lifecycle. On paper, it was clean. In practice? Chaos.
+
+Within hours, reports flooded in: components disappearing, drag-and-drop freezing, and worst of all, users losing work. The visual builder was *alive*, but it was hallucinating—rendering stale state, misaligning layouts, and sometimes refusing to save at all. This wasn’t a bug. It was a systemic failure.
+
+We had to stabilize fast. This wasn’t just a feature—it’s how users build their entire homes in HomeForged. So we rolled up our sleeves and went deep.
+
+## From Symptom to Root Cause: Chasing Ghosts in the State Tree
+
+The first clue was UI desync: dragging a component would *sometimes* update the canvas, but the underlying model stayed frozen. Other times, the model updated but the UI didn’t refresh. Classic race condition vibes.
+
+We started with the usual suspects: React re-renders, useEffect timing, and prop drilling gone wrong. But the real breakthrough came when we logged the full state diff between UI interactions and backend sync events. That’s when we spotted it: two parallel state trees were evolving independently.
+
+The refactor had introduced a subtle but critical flaw. While we’d moved to a more modular architecture, we hadn’t fully synchronized the timing of state updates between the visual editor and the form schema engine. When a user dragged a field, the UI would update instantly—but the schema validation layer, now async and decoupled, wouldn’t acknowledge the change until the next tick. If the user made another change in that window? The second update would overwrite the first, or worse, trigger a validation error that rolled back both.
+
+Even worse, some components were reading from a stale closure of the form context, meaning they’d render with outdated values even after state updates propagated. We had race conditions *and* inconsistent subscriptions—a perfect storm.
+
+But the real kicker? Schema mismatches. The new modular components expected a stricter, normalized data shape. The old state layer, however, was still emitting denormalized, legacy-formatted payloads. The mismatch didn’t throw errors—it just corrupted data silently. Fields would appear to save, but their config would be mangled on reload.
+
+We weren’t just debugging UI glitches. We were untangling a data integrity crisis.
+
+## Rebuilding Stability: Validation, Reconciliation, and Guardrails
+
+We needed three things: visibility, consistency, and resilience.
+
+First, we built a validation pipeline that runs on every state mutation. Instead of trusting inputs, every action now passes through a schema validator powered by Zod. If the payload doesn’t match the expected shape, it’s rejected *before* it touches the state tree. This stopped malformed data at the gate and gave us clear error traces when integrations misbehaved.
+
+Second, we introduced a state reconciliation layer. Think of it as a traffic cop for state updates. Instead of letting components write directly to context, all changes go through a central dispatcher that batches and sequences mutations. It ensures that even during rapid-fire interactions (like dragging multiple components), updates are applied in order and without overlap. We also added a "commit queue" that holds pending changes until the schema layer confirms validation—no more lost edits.
+
+Finally, we wrapped critical UI sections in error boundaries with fallback UIs. If a component crashes during render, the rest of the builder stays usable. We also added local persistence: every change is written to IndexedDB immediately, so even if the app crashes, users don’t lose progress.
+
+The result? By 2025-11-02, the visual builder was stable. Not just working—*resilient*. We went from panic-mode rollbacks to shipping new features on top of the new architecture.
+
+This refactor taught us a brutal but valuable lesson: decoupling is powerful, but without strict contracts and coordination, it creates chaos. The real win wasn’t just fixing bugs—it was building systems that prevent them. Because in a low-code platform, the builder *is* the product. And it has to just work.

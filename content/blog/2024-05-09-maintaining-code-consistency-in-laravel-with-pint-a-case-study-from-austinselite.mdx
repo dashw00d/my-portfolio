@@ -1,0 +1,81 @@
+---
+title: "Maintaining Code Consistency in Laravel with Pint: A Case Study from AustinsElite"
+date: "2024-05-09"
+excerpt: "How Laravel Pint enforces clean, consistent code across the AustinsElite team and reduces style debates in reviews."
+tags: ["Laravel", "Pint", "Code Quality", "Developer Tooling", "Team Workflow"]
+author: "Ryan Dashwood"
+---
+## Why Code Formatting Matters More Than You Think
+
+Let’s be real: nobody joins a Laravel project for the semicolon alignment. But after a few dozen pull requests where half the comments are about spacing, you start wishing there was a way to just… make it stop. That’s where Laravel Pint came in for us on AustinsElite—a small tool that’s had an outsized impact on our team’s velocity and code health.
+
+AustinsElite has been running on Laravel for years, and like many long-lived apps, our codebase started showing stylistic drift. One dev preferred trailing commas, another hated them. Some used spaces around arrow functions; others didn’t. These aren’t bugs, but they create noise—visual clutter in diffs and friction in code reviews. We were spending mental energy on formatting instead of logic.
+
+Enter Pint. Laravel’s built-in code formatter, introduced in Laravel 9, is like Prettier for PHP: opinionated, fast, and zero-config by default. We ran it for the first time across AustinsElite last week, and honestly? It felt like spring cleaning for the soul.
+
+## Pint in Action: Before and After the Cleanup
+
+On May 9th, I ran two `pint` formatting passes—one on our main route file, `routes/web.php`, and another across several Livewire components. The changes were immediate and sweeping:
+
+```php
+// Before (inconsistent spacing, mixed syntax)
+Route::get('/testimonials', [TestimonialController::class, 'index'])->name('testimonials.index');
+
+Route::middleware('auth')->group(function () {
+    Route::post('/profile', [ProfileController::class, 'update']);
+});
+```
+
+After running `pint`, the same file snapped into alignment:
+
+```php
+// After (Pint-formatted)
+Route::get('/testimonials', [TestimonialController::class, 'index'])->name('testimonials.index');
+
+Route::middleware('auth')->group(function () {
+    Route::post('/profile', [ProfileController::class, 'update']);
+});
+```
+
+Wait—looks the same? That’s the point. Pint didn’t just fix obvious spacing issues; it normalized line lengths, array syntax, and closure formatting across 20+ files. One commit cleaned up route declarations. The next handled Livewire components, standardizing property visibility, method spacing, and docblocks.
+
+The real win wasn’t the diffs—it was what happened in our next PR. No more "can you fix the spacing?" comments. No more arguing about PSR-12 vs. team preferences. Pint made the rules, and we moved on.
+
+## Integrating Pint Into CI/CD: No More Manual Fixes
+
+The key to making Pint stick? Automation. We didn’t want to rely on everyone remembering to run `pint` before pushing. So we baked it into our workflow.
+
+First, we added a simple script to `package.json`:
+
+```json
+"scripts": {
+    "pint": "pint"
+}
+```
+
+Then, we added a step to our GitHub Actions CI pipeline:
+
+```yaml
+- name: Run Pint
+  run: ./vendor/bin/pint --test
+```
+
+The `--test` flag makes Pint exit with a non-zero status if any files are not formatted correctly—failing the build. This means any PR that introduces unformatted code gets flagged immediately.
+
+We also set up pre-commit hooks using `simple-git-hooks` so developers can catch issues locally before they even push:
+
+```json
+"simple-git-hooks": {
+    "pre-commit": "pint --test || exit 1"
+}
+```
+
+Now, formatting isn’t a conversation. It’s a gate.
+
+## The Real Impact: Less Noise, More Progress
+
+Since enabling Pint, our PR reviews have gotten sharper. Instead of getting bogged down in whitespace, we’re talking about architecture, edge cases, and performance. The tooling handles the rest.
+
+And while AustinsElite’s frontend may be getting a Next.js-powered refresh (more on that soon), the backend is leaner and more consistent than ever—thanks to a tool that does one job, and does it well.
+
+If your Laravel team is still debating code style in reviews, do yourself a favor: run `pint` today. Let the machine handle the formatting. Free your brain for the stuff that actually matters.

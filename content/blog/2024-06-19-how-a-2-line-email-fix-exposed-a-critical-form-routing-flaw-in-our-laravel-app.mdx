@@ -1,0 +1,74 @@
+---
+title: "How a 2-Line Email Fix Exposed a Critical Form Routing Flaw in Our Laravel App"
+date: "2024-06-19"
+excerpt: "A tiny email address change revealed a major flaw in our form routing logic—here’s how we caught it before it cost us hires."
+tags: ["Laravel", "form handling", "email routing", "debugging", "data integrity"]
+author: "Ryan Dashwood"
+---
+## The Wrong Inbox Almost Cost Us Hires
+
+Last week, a candidate submitted an employment application through AustinsElite’s frontend. Simple enough. Except… no one on the hiring team saw it. Instead, it landed in the sales inbox—where it sat, unopened, for two days.
+
+That should’ve been impossible. The form was labeled *Employment*, not *Sales Inquiry*. But when I dug into the logs, the trail was clear: the email was sent to `sales@wehelpyouparty.com`. That address wasn’t a typo. It was hardcoded.
+
+This wasn’t a UI bug or a backend crash. It was a logic leak—something that slipped through code reviews because it *worked*, just… wrong. And fixing it took two lines. But learning from it? That took a full audit.
+
+## The Fix Was Tiny. The Oversight Wasn’t.
+
+The immediate fix was dead simple:
+
+```diff
+- 'to' => 'sales@wehelpyouparty.com',
++ 'to' => 'staff@wehelpyouparty.com',
+```
+
+That’s it. One line changed in a Laravel Mailable class triggered by the employment form submission. The commit message? `fixed employment (low) — updated recipient from sales@wehelpyouparty.com to staff@wehelpyou...`. Low priority, small diff, easy merge.
+
+But here’s the thing: this wasn’t just a wrong email. It was a symptom of a bigger problem in how we handle form routing in our Laravel 12 app.
+
+We’d built the employment form as a standalone feature, wired directly to a controller that dispatched the Mailable. No shared form service. No routing abstraction. Just a quick `Mail::to($hardcoded)->send(new EmploymentApplication())` buried in the handler. It worked in testing because—surprise—we tested it by checking if *an* email went out, not *which* inbox it landed in.
+
+That’s the trap: we validated delivery, not destination.
+
+## Form Routing Hygiene: Treat Every Form Like a Business-Critical Pipeline
+
+After the fix, I went digging. How many other forms were flying blind?
+
+Turns out, we had five form endpoints across the app—contact, booking, vendor onboarding, employment, and feedback—each with its own hardcoded recipient or quick-and-dirty `Mail` call. Zero centralized logic. Zero environment-aware routing.
+
+That’s when it hit me: **forms are data pipelines**, not just UI components. And like any pipeline, they need validation at every stage.
+
+So we made three immediate upgrades:
+
+1. **Centralized Form Handlers**: We created a `FormSubmissionService` that maps form types to destination rules. Now, `EmploymentApplication` goes through a shared handler that reads the recipient from config, not code.
+
+2. **Environment-Safe Recipient Mapping**: In `config/forms.php`, we now define:
+
+```php
+'employment' => [
+    'to' => env('EMPLOYMENT_FORM_RECIPIENT', 'staff@wehelpyouparty.com'),
+],
+'contact' => [
+    'to' => env('CONTACT_FORM_RECIPIENT', 'hello@wehelpyouparty.com'),
+],
+```
+
+This means staging forms never accidentally hit real inboxes, and changes don’t require code deploys.
+
+3. **Pre-Dispatch Validation**: We added a simple check in the base Mailable:
+
+```php
+if ($this->to === []) {
+    throw new InvalidFormRoutingException("No recipient defined for form: {$this->formType}");
+}
+```
+
+It fails fast. Loudly. And in testing.
+
+## Small Bugs, Big Lessons
+
+This wasn’t a framework flaw. Laravel handled the email perfectly. The bug was in our process: we treated form routing as an afterthought, not a contract.
+
+But here’s the upside: because the fix was so small, it forced us to ask *why* it was wrong—not just *how* to fix it. That question led to better architecture, safer deploys, and confidence that when someone applies to join our team, the right person sees it.
+
+So next time you’re wiring up a form, ask: *If this email goes to the wrong place, would we know?* If the answer isn’t a loud ‘yes,’ build the guardrails now—before the next `sales@` typo costs you more than time.

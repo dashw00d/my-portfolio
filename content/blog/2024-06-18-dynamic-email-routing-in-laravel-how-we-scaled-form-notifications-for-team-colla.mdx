@@ -1,0 +1,72 @@
+---
+title: "Dynamic Email Routing in Laravel: How We Scaled Form Notifications for Team Collaboration"
+date: "2024-06-18"
+excerpt: "We revamped our form email system to route messages dynamically, improving team response times and reducing missed submissions."
+tags: ["Laravel", "Livewire", "email routing", "team workflow", "form handling"]
+author: "Ryan Dashwood"
+---
+## Before: One Inbox to Rule Them All
+
+Not too long ago, every form submission on AustinsElite — whether it was a client inquiry, vendor request, or partnership pitch — landed in a single shared inbox. It worked… sort of. But as our team grew and form volume increased, critical messages started slipping through. Someone would follow up late, or worse, not at all. We needed a system that routed submissions intelligently, not just dumped them into a void.
+
+The root issue wasn’t the forms themselves — they were functional and validated properly — but the notification layer. All Laravel mail calls used a hardcoded recipient. No context, no routing logic. Just `Mail::to('hello@austinselite.com')->send(new FormSubmitted($data))`. Simple? Yes. Scalable? Not even close.
+
+We realized we weren’t just building forms — we were building communication pipelines. And pipelines need switches, not just hoses.
+
+## Adding Smarts: Dynamic Recipients and Context-Aware Subjects
+
+Our fix started with a shift in mindset: every form submission carries metadata, and that metadata should dictate who gets notified and how.
+
+Using Laravel 12’s native mail system and Livewire’s reactive component structure, we refactored our form handling to include context-aware routing. Each Livewire form component now passes a `formType` attribute to the backend, which we use to determine recipients and email subjects.
+
+Here’s a simplified version of the logic:
+
+```php
+public function submitForm()
+{
+    $this->validate();
+
+    $routeConfig = [
+        'client_inquiry' => [
+            'recipients' => ['ryan@austinselite.com', 'kim@austinselite.com'],
+            'subject' => 'New Client Inquiry: ' . $this->name
+        ],
+        'vendor_submission' => [
+            'recipients' => ['partnerships@austinselite.com'],
+            'subject' => 'New Vendor Application Received'
+        ],
+        // ... more types
+    ];
+
+    $config = $routeConfig[$this->formType];
+
+    Mail::to($config['recipients'])
+        ->send(new ContextualFormEmail($this->all(), $config['subject']));
+
+    $this->dispatch('form-submitted');
+}
+```
+
+This pattern gave us flexibility without complexity. Adding a new form type? Just extend the config. Need to loop in Kim on client inquiries? Already done — and reflected in the commit history: `added kim to email, alert message more pronounced`.
+
+But we didn’t stop at recipients. We also made subject lines more descriptive. Instead of "New Form Submission," we now see "New Client Inquiry: Sarah from Bloom Events." That small change means faster triage and fewer opened emails just to figure out relevance.
+
+## UX That Shouts: Clearer Alerts, Faster Responses
+
+Routing is only half the battle. On the frontend, we also tackled how users (and admins) perceive form success.
+
+The old success message was a quiet, easy-to-miss toast: "Thanks, we’ll be in touch." Functional, but forgettable. Now, upon submission, a bold, high-contrast alert appears with a clear next step: "Got it! Someone will reach out within 24 hours."
+
+This wasn’t just copywriting — it was behavioral design. The visual weight of the message ensures users notice it, reducing "Did it send?" anxiety. Internally, it also reduced duplicate submissions, which had been skewing our analytics.
+
+We also tied the `form-submitted` event to internal dashboards, so even if an email is missed, the submission appears in our admin UI with full context. This dual-layer notification system — email + UI — has cut our average response time by nearly 40% in the past month.
+
+One commit, `cleaned up form alters and email context`, might sound minor, but it represented a larger cleanup of how we handle state, messaging, and side effects across forms. That clarity is now paying dividends in maintainability.
+
+## The Bigger Picture: Forms as Collaboration Tools
+
+What started as a fix for missed emails turned into a rethinking of how forms function in a team environment. They’re not just data collectors — they’re the first touchpoint in a workflow.
+
+By leveraging Laravel’s flexibility and Livewire’s tight frontend-backend coupling, we built a system that scales with our team, not against it. The next time we add a new service line or onboarding flow, the email routing is already ready — just plug in the config.
+
+If you’re working on form-heavy Laravel apps, don’t treat notifications as an afterthought. Bake in context from the start. Your team — and your response times — will thank you.

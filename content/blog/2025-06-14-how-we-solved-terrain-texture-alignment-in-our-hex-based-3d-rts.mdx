@@ -1,0 +1,49 @@
+---
+title: "How We Solved Terrain Texture Alignment in Our Hex-Based 3D RTS"
+date: "2025-06-14"
+excerpt: "We fixed persistent terrain texture misalignment in our hex grid RTS by centralizing map settings and integrating a unified texture atlas system."
+tags: ["Godot", "3D Rendering", "Terrain Textures", "Hex Grid", "Shader Programming"]
+author: "Ryan Dashwood"
+---
+## The Glitch That Broke the Illusion
+
+We were deep in the Civ RTS project, refining the visual fidelity of our procedurally generated 3D hex-based world. Everything looked promising—until you looked *closely*. At terrain borders, textures would misalign, stretch, or abruptly change shading. Rivers didn’t blend into grasslands smoothly. Cliffs stood out like pixelated scars. It wasn’t just ugly; it broke immersion in a game where visual continuity sells the scale of civilization.
+
+The root cause? Inconsistent material assignments across hex tiles. Each tile pulled texture data independently, with no global reference for scale, offset, or material mapping. Even minor floating-point drift or UV miscalculation meant seams. We tried quick fixes—tweaking UVs, forcing texture repeats—but the problem kept resurfacing in new forms. It was clear: we needed a systemic fix, not a patch.
+
+## Centralizing Control with MapGenerationSettings
+
+Our breakthrough came when we stopped treating terrain rendering as a per-tile concern and started thinking of it as a map-wide contract. We introduced a new `MapGenerationSettings` class—a single source of truth for all terrain generation parameters, including texture scale, tile resolution, biome material indices, and UV tiling behavior.
+
+Instead of each hex tile querying a loosely defined config or hardcoding material IDs, they now reference this centralized settings object. This ensured every tile, regardless of when or where it was generated, used the same base assumptions for how textures should map to geometry.
+
+```gdscript
+# Now: consistent across all tiles
+var settings = MapGenerationSettings.get_singleton()
+material.set_shader_param("albedo_atlas", settings.terrain_atlas.albedo)
+material.set_shader_param("uv_scale", settings.uv_scale)
+```
+
+This change alone eliminated 80% of the alignment issues. But we still had blending artifacts at biome edges. The textures were consistent, but they weren’t *connected*.
+
+## Atlases, Shaders, and Seamless Blending
+
+The final piece was integrating a full texture atlas system—packing albedo, normal, and roughness maps for all terrain types into single, large textures. This wasn’t just about performance (though that helped); it was about precision.
+
+By using a shared atlas, we could ensure that adjacent tiles sampled from the same pixel space. No more mismatched texture repeats or offset seams. But to make this work, we had to tightly coordinate between the atlas layout, the material shader, and the tile’s material index.
+
+We built a `TerrainMaterialMap` that assigns each biome a normalized UV region within the atlas. During mesh generation, each hex tile writes its material index to a per-vertex custom attribute (using `ARRAY_CUSTOM` in Godot’s `SurfaceTool`). The shader then uses this index to sample the correct region of the atlas.
+
+The magic happened in the fragment shader:
+
+```glsl
+// Sample albedo from atlas using material index
+vec2 atlas_uv = uv * atlas_tile_size + material_region.xy;
+ALBEDO = texture(albedo_atlas, atlas_uv).rgb;
+```
+
+But blending? That required a second pass. We added a "blend mask" channel to our terrain data, where each vertex could reference up to two material regions. The shader then lerps between them based on a blend weight, all sampled from the same atlas—ensuring perfect alignment even during transitions.
+
+The result? Smooth, continuous terrain that holds up at any zoom level. No more jarring lines between tiles. Rivers flow into plains. Forests fade into hills. And all of it driven by a system that’s now reusable across maps and biomes.
+
+This fix wasn’t flashy, but it was foundational. Solving terrain texture alignment didn’t just make the game look better—it made the world feel *real*. And in a 3D RTS where players are building empires, that sense of cohesion is everything.

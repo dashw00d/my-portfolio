@@ -1,0 +1,100 @@
+---
+title: "Building a Scalable Contact Form in a Next.js Migration: Lessons from AustinsElite"
+date: "2024-05-12"
+excerpt: "How we integrated a resilient contact form into a Next.js frontend while bridging a Laravel 12 backend during the AustinsElite migration."
+tags: ["Next.js", "Laravel", "Form Integration", "Frontend Migration", "API Routes", "Sanctum"]
+author: "Ryan Dashwood"
+---
+## Setting Up the Contact Page in a Hybrid World
+
+When we started rebuilding AustinsElite in Laravel 12, the goal wasn’t to rewrite everything overnight. We’re migrating incrementally—keeping Laravel 12 as the source of truth for business logic and data while progressively replacing Blade templates with a modern React frontend. One of the first user-facing features we tackled? The Contact Us page.
+
+At first glance, it’s a simple form. But in a partial migration, even "simple" comes with caveats. We needed to ensure the new Next.js page:
+
+- Matched the existing site’s routing structure
+- Inherited shared layouts (header, footer)
+- Didn’t break when Laravel-side middleware or CSRF protections changed
+
+We started by creating `pages/contact.js` and mimicking the Laravel route (`/contact`) to avoid redirect churn. Instead of duplicating layout components, we pulled in shared UI elements—like the site header and footer—via a common design system package used across both apps. This let us maintain visual consistency without coupling the frontends.
+
+The real challenge began when it came time to make the form actually *do* something.
+
+## Bridging React and Laravel: API Routes as Glue
+
+Our legacy contact form was a classic Blade template with server-side validation and a direct controller POST. In the new world, we wanted client-side interactivity—real-time validation, loading states, error feedback—without rewriting the backend just yet.
+
+Enter: Next.js API routes as integration middleware.
+
+We created `pages/api/contact/submit.js`—a tiny proxy that forwards form data to the existing Laravel endpoint (`/api/contact`). This way, we reuse the Laravel 12 controller, its validation rules, and its email dispatch logic, while giving our React frontend full control over UX.
+
+But how do we authenticate the request? Laravel uses Sanctum for API auth, and we needed to ensure the Next.js frontend could talk to Laravel securely—without exposing endpoints to the wild.
+
+We implemented a two-step flow:
+
+1. On page load, the Next.js app makes a `GET /api/sanctum/csrf-cookie` request to the Laravel backend to set the XSRF token.
+2. On form submit, we read the `XSRF-TOKEN` from cookies and attach it as the `X-XSRF-TOKEN` header.
+
+Here’s the hook we ended up with:
+
+```js
+const handleSubmit = async (data) => {
+  const xsrf = getCookie('XSRF-TOKEN');
+  
+  const res = await fetch('https://austinselfite.com/api/contact', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-XSRF-TOKEN': xsrf,
+    },
+    body: JSON.stringify(data),
+    credentials: 'include',
+  });
+
+  if (res.ok) {
+    // Handle success
+  } else {
+    // Handle error
+  }
+};
+```
+
+This setup let us keep Sanctum’s protection intact while allowing cross-origin requests during development (via proxy config) and same-origin in production.
+
+## State, Validation, and Surviving the Transition
+
+With the plumbing in place, we turned to user experience. We didn’t want a full-page reload or a redirect to a Laravel "thank you" page. We wanted inline feedback—errors under fields, a loading spinner, and a success message that felt part of the app.
+
+We used React Hook Form for state management. It’s lightweight, plays well with uncontrolled components, and made it easy to reset the form after submission:
+
+```js
+const { register, handleSubmit, formState: { errors }, reset } = useForm();
+```
+
+For validation, we mirrored Laravel’s rules (required, email format, message length) on the frontend for instant feedback—but treated them as advisory. The source of truth remains the Laravel backend. If the API returns a 422, we map the error keys back to the form fields:
+
+```js
+const onSubmit = async (data) => {
+  const res = await fetch('/api/contact/submit', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+  if (res.status === 422) {
+    const { errors } = await res.json();
+    Object.keys(errors).forEach((field) => {
+      setError(field, { message: errors[field][0] });
+    });
+  } else if (res.ok) {
+    reset();
+    setSubmitted(true);
+  }
+};
+```
+
+This dual-layer approach—client-side hints, server-side enforcement—gave us fast UX without sacrificing data integrity.
+
+Migrating a feature like this isn’t just about code. It’s about managing expectations: users shouldn’t notice the backend is still Laravel. The form should feel fast, reliable, and modern—even if it’s powered by a controller that’s been around since 2021.
+
+As we continue the AustinsElite rebuild, this pattern—Next.js for UI, Laravel for business logic, API routes as glue—has become our go-to for incrementally replacing legacy pages. The contact form was small, but it proved the model works.
+
+And honestly? It feels good to ship something users actually interact with—even if they don’t know it’s running on a Frankenstein stack.

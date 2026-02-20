@@ -1,0 +1,1 @@
+Regenerating daily ideas (step 1): /home/ryan/tools/git-chronicle/.venv/bin/python enhance.py blog-ideas-daily --model stepfun/step-3.5-flash:free --workers 12

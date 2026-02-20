@@ -1,0 +1,62 @@
+---
+title: "Adding Audit-Ready Event Metadata in Legacy Laravel Systems"
+date: "2025-09-23"
+excerpt: "How I extended event tracking in a legacy PHP app with approval context and derived timestamps—without rewriting a thing."
+tags: ["Laravel", "Legacy PHP", "Audit Trails", "Compliance", "Event Tracking"]
+author: "Ryan Dashwood"
+---
+## Why Auditability Matters in Old Code
+
+Let’s be real: not every Laravel app gets a clean-slate rewrite. At AustinsElite (Legacy), we’re running a years-old PHP application built on a custom framework—though we do lean on a few Laravel components where it counts. The codebase isn’t flashy, but it works. And more importantly, it handles real business data that needs to be accountable.
+
+Recently, compliance requirements tightened. We needed better audit trails—not just *what* happened, but *who approved it* and *when it went live*. The challenge? Deliver this without destabilizing a system that’s been in production for nearly a decade.
+
+The good news: auditability doesn’t require modern tooling. It just needs intentionality. With a few surgical changes, we enhanced our event tracking to meet new governance standards—all within the constraints of legacy architecture.
+
+## Deriving 'Posted Date' from Existing Data
+
+One of the first gaps we noticed: events showed when they were *created*, but not when they were *posted*. That distinction matters. A marketing campaign might be drafted weeks in advance, but its legal impact starts at publication.
+
+We already had a `create_on` field in the database—originally meant for internal tracking. It wasn’t labeled "posted date," but in practice, that’s how it was being used once approval happened. Instead of adding a new column and migrating data (risky in a legacy system), I repurposed what we had.
+
+In the event display logic, I added a simple transformation:
+
+```php
+'posted_date' => $event->create_on ? \Carbon\Carbon::parse($event->create_on)->format('M j, Y') : 'Not posted'
+```
+
+This normalized the display across the UI and made the field meaningful to non-technical stakeholders. No schema changes, no data migration—just clearer semantics on existing data. It’s a small change, but it closed a key audit gap: now anyone reviewing an event can see exactly when it went live.
+
+The lesson? In legacy systems, *data intent* often matters more than *data structure*. Sometimes the field you need already exists—you just have to clarify its meaning.
+
+## Adding 'Approved By' for Accountability
+
+The second piece was trickier: proving who authorized an event. Without approval metadata, accountability breaks down. "Someone must have approved it" isn’t good enough when regulators come knocking.
+
+We didn’t have an `approved_by` column. But we *did* have user session data and a central event submission flow. So I added two fields to the event table: `approved_by` (user ID) and `approved_at` (timestamp). These were populated only when an admin finalized an event through the existing approval interface—no workflow changes required.
+
+Here’s how it looked in practice:
+
+```php
+if ($user->hasRole('admin') && $request->input('action') === 'approve') {
+    $event->approved_by = $user->id;
+    $event->approved_at = now();
+    $event->save();
+}
+```
+
+Then, in the event detail view, we surfaced it plainly:
+
+> Approved by {{ $event->approver->name }} on {{ $event->approved_at->format('M j, Y') }}
+
+This created a clear chain of custody. And because we tied it to existing roles and actions, there was no training overhead. Admins didn’t even notice the change—they just kept doing what they were already doing.
+
+The real win? This wasn’t just about compliance. It changed team behavior. People thought twice before approving edge-case events, knowing their name would be attached. Accountability became visible, not theoretical.
+
+## Small Changes, Big Impact
+
+This wasn’t a refactor. It wasn’t even a feature drop. But it *was* progress—real, measurable improvement in how we handle data responsibility.
+
+The commit message was humble: *'added approved by info'*. But behind it was a shift in mindset: legacy systems can be compliant systems, as long as we work *with* the grain of the code, not against it.
+
+If you’re maintaining an older Laravel or Laravel-adjacent app, don’t assume audit readiness requires a rewrite. Start small. Leverage existing fields. Add context where it matters. And remember: the best audit trail isn’t the most complex—it’s the one that’s always up to date because it fits seamlessly into how people already work.

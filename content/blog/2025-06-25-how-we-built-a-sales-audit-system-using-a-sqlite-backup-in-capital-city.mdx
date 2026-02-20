@@ -1,0 +1,108 @@
+---
+title: "How We Built a Sales Audit System Using a SQLite Backup in Capital City"
+date: "2025-06-25"
+excerpt: "We turned a cold SQLite backup into a secure, queryable sales audit dashboard using Laravel and Filament—without touching production."
+tags: ["Laravel", "SQLite", "Filament", "Data Analysis", "Audit Systems", "Legacy Data"]
+author: "Ryan Dashwood"
+---
+## The Problem: Auditing Sales Data Without a Live Connection
+
+We were handed a challenge in the Capital City project: analyze two years of historical sales data for compliance reporting—but the original system was offline, and the only artifact we had was a single SQLite database backup. No APIs, no replication, no live access. Just a `.db` file sitting in cold storage.
+
+Our goal wasn’t to restore operations. It was to answer real business questions: What were the top-selling items by quarter? Were there any suspicious spikes in refunds? How did regional performance shift over time? And we needed to deliver this insight securely to stakeholders—without risking production data integrity.
+
+The catch? We couldn’t connect to the live app database, and we couldn’t modify the backup. So we had to build a read-only analysis layer that treated the SQLite file like a time capsule: observe, query, visualize—but never alter.
+
+## Restoring the Past: Read-Only SQLite in Laravel
+
+Our stack for Capital City is Laravel-based, so we looked for a way to mount the SQLite backup as a secondary, isolated database connection. The key was ensuring immutability—both technically and culturally—so no developer or admin could accidentally write to it.
+
+First, we added a new connection in `config/database.php`:
+
+```php
+'backup_sales' => [
+    'driver'   => 'sqlite',
+    'url'      => env('BACKUP_SALES_DATABASE_URL'),
+    'database' => storage_path('backups/sales-archive-2023.db'),
+    'prefix'   => '',
+    'foreign_key_constraints' => false,
+    'busy_timeout' => 10000,
+    'synchronous' => 'off',
+    'immutable' => true, // Critical: enables SQLite's immutable mode
+],
+```
+
+Setting `'immutable' => true` was the game-changer. It tells SQLite to open the file in read-only mode and prevents any write operations—even if someone tries to `INSERT` via a raw query. We also set `foreign_key_constraints` to false since the backup didn’t enforce them, and disabled synchronous writes for faster reads.
+
+Next, we created a dedicated Eloquent model:
+
+```php
+namespace App\Models\Analysis;
+
+class HistoricalSale extends Model
+{
+    protected $connection = 'backup_sales';
+    protected $table = 'sales';
+    public $timestamps = false;
+
+    protected $guarded = [];
+}
+```
+
+This model became our window into the past. We could now write standard Laravel queries:
+
+```php
+HistoricalSale::where('region', 'North')
+    ->whereBetween('sale_date', [$start, $end])
+    ->sum('amount');
+```
+
+But we didn’t stop at raw queries. We wanted stakeholders—product leads, finance, compliance—to explore the data themselves.
+
+## Querying the Past: Secure Filament Admin Integration
+
+Enter Filament PHP. We used it to build a lightweight, role-gated admin panel where authorized users could explore sales trends without writing SQL.
+
+We created a Filament Resource for `HistoricalSale` with custom filters for date ranges, regions, and product categories. We also added summary widgets to show high-level KPIs: total sales, average order value, refund rates.
+
+```php
+// app/Filament/Resources/HistoricalSaleResource.php
+
+public static function getWidgets(): array
+{
+    return [
+        SaleStatsOverview::class,
+    ];
+}
+```
+
+The real win was access control. Using Laravel’s gate system, we restricted access to the `sales-audit` panel to only users with the `audit_viewer` role:
+
+```php
+// In AuthServiceProvider
+
+Gate::define('viewSalesAudit', function ($user) {
+    return $user->hasRole('compliance') || $user->hasRole('finance_lead');
+});
+```
+
+Then in Filament:
+
+```php
+public static function canViewAny(): bool
+{
+    return auth()->user()?->can('viewSalesAudit');
+}
+```
+
+Now, instead of developers running manual queries and emailing spreadsheets, stakeholders could log in and explore trends in real time. All backed by a static file, zero writes, zero risk.
+
+This pattern has since inspired similar approaches in our Subscription Platform project, where we’re exploring ways to audit billing history using point-in-time backups.
+
+## Why This Matters Now
+
+As SaaS platforms mature, the demand for auditability grows. Regulators want proof. Executives want insights. Developers want safety.
+
+By treating backups as first-class data sources—and building secure, read-only analysis layers on top—we can deliver all three. No ETL pipelines. No data lakes. Just a `.db` file, Laravel, and a clear boundary between observation and operation.
+
+If you're sitting on legacy data and wondering how to extract value without reactivating old systems, consider this: sometimes the best database for analysis is one that can’t be changed at all.

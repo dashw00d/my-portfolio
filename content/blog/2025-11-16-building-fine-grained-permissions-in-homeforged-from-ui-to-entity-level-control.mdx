@@ -1,0 +1,62 @@
+---
+title: "Building Fine-Grained Permissions in HomeForged: From UI to Entity-Level Control"
+date: "2025-11-16"
+excerpt: "How we unified action-level permissions across entities in HomeForged using a scalable adapter pattern in React and Laravel."
+tags: ["permissions", "React", "Laravel", "visual builder", "security"]
+author: "Ryan Dashwood"
+---
+## The Permission Problem in Visual Builders
+
+When you're building a low-code workflow engine like HomeForged, one of the quiet killers is permission sprawl. You start with "who can edit this flow?" and quickly spiral into "can this user trigger *that* action, only if they own the record, and only during business hours?" We hit that wall hard last quarter. Our visual builder supports multiple node types—entities, data sources, custom components—and each was handling permissions differently. That inconsistency wasn’t just a maintenance burden; it was a security risk.
+
+We needed a system that could express fine-grained, action-level permissions (think: *view*, *edit*, *delete*, *execute*) across all node types, while keeping the UI intuitive and the backend enforceable. The goal wasn’t just role-based access control (RBAC)—we wanted attribute-based capabilities that could scale with complexity, without turning our codebase into a maze of conditional checks.
+
+## Adapters, Not Inheritance: Unifying the Frontend
+
+Our first breakthrough was stepping back from component inheritance. Early attempts tried to bake permission logic directly into each node’s React component. That led to duplicated UI, inconsistent behavior, and a nightmare when we added new node types.
+
+Instead, we built a permission designer panel as a standalone, composable React component—and then created *adapters* for each node type. These adapters translate between the generic permission interface and the specific shape of the node’s data.
+
+```tsx
+interface PermissionAdapter {
+  getAvailableActions(node: Node): Action[];
+  getCurrentGrants(node: Node, subject: Subject): Grant[];
+  applyGrants(node: Node, grants: Grant[]): Node;
+}
+```
+
+Each node type—whether it’s a database entity, an API data source, or a UI component—implements this adapter. The permission panel doesn’t care about the underlying type; it just asks the adapter what actions are available and how to apply changes. This decoupling let us roll out the permission designer to all relevant components in under two weeks, with zero duplication.
+
+The UI now renders a consistent, clean matrix: subjects (users, roles, teams) on one axis, actions on the other. You toggle permissions like a spreadsheet. But behind the scenes, the adapter ensures that "execute" means calling an API endpoint for a component, but triggers a row-level policy for an entity.
+
+## Enforcing Consistency from Schema to Server
+
+A beautiful UI is useless if the backend doesn’t enforce what it promises. We’ve all seen apps where you disable a button but the API still accepts the request. We didn’t want that.
+
+Our solution was schema-driven validation on both ends. On the frontend, every node’s adapter must pass its grants through a shared Zod schema before submission:
+
+```ts
+const GrantSchema = z.object({
+  subjectType: z.enum(['user', 'role', 'team']),
+  subjectId: z.string(),
+  action: z.enum(['view', 'edit', 'delete', 'execute']),
+  condition: z.record(z.unknown()).optional(),
+});
+```
+
+This ensures we never accidentally send malformed grants. But the real enforcement happens in Laravel.
+
+On the backend, every request that touches a node first passes through a `Gate::define` policy that loads the node’s grants from the database and evaluates them against the current user and context. We use Laravel’s built-in authorization layer, but with a twist: the policy resolution is polymorphic. The gate doesn’t care if it’s an entity or a component—it resolves the appropriate Eloquent model and delegates to a contract-implementing `AuthorizableNode` interface.
+
+```php
+interface AuthorizableNode {
+    public function getGrants(): Collection;
+    public function getOwner(): ?User;
+}
+```
+
+This means our middleware can universally call `Gate::authorize('edit', $node)`—and it *just works*, whether `$node` is a FormComponent or a DatabaseTable. The adapter pattern from the frontend now has a mirrored enforcement layer on the backend.
+
+The result? We shipped unified permissions across all node types in HomeForged, with zero divergence between what the UI shows and what the API allows. It’s not just secure—it’s *predictable*. And that predictability is what lets us move fast without fear.
+
+This wasn’t just a feature drop. It was a foundational shift in how we think about access control in visual systems. If you’re building a builder, don’t let permissions be an afterthought. Design them as a first-class interface—one that’s as composable as the components it governs.

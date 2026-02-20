@@ -1,0 +1,146 @@
+---
+title: "Implementing Role-Based Permissions in a Laravel 12 + Next.js Stack Using Spatie"
+date: "2025-05-22"
+excerpt: "How I built fine-grained role-based access control in AustinsElite using Spatie Laravel Permission and a Laravel 12 frontend."
+tags: ["Laravel", "Spatie", "Next.js", "Authentication", "Role-Based Permissions", "Full-Stack"]
+author: "Ryan Dashwood"
+---
+Last month, I dove into one of the trickiest parts of modernizing AustinsElite: replacing a brittle, hand-rolled permissions system with something scalable, auditable, and developer-friendly. The app—now running on Laravel 12 (not Next.js, despite the old label)—needed clean role-based access control for Admin, Lead, and Staff roles. On the frontend, our Laravel 12 interface had to reflect those roles in real time. Here’s how I made it work using Spatie’s Laravel Permission package and a tightly designed API layer.
+
+## Setting Up Spatie Laravel Permission
+
+The first step was ripping out the old `is_admin` flags and role strings scattered across the user table. I replaced them with Spatie’s `spatie/laravel-permission`, which gives us proper roles, permissions, and the ability to sync them across teams and features.
+
+After installing the package and publishing its migrations, I ran:
+
+```bash
+php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider"
+php artisan migrate
+```
+
+This created the `roles`, `permissions`, and pivot tables we needed. Then, in a service provider or seeder, I defined our core roles:
+
+```php
+Role::create(['name' => 'admin']);
+Role::create(['name' => 'lead']);
+Role::create(['name' => 'staff']);
+```
+
+Permissions were scoped to domain actions: `edit_clients`, `view_reports`, `manage_users`. I assigned them to roles based on responsibility level:
+
+```php
+$admin = Role::findByName('admin');
+$admin->givePermissionTo(Permission::all());
+
+$lead = Role::findByName('lead');
+$lead->givePermissionTo(['edit_clients', 'view_reports']);
+```
+
+User assignment became trivial:
+
+```php
+$user->assignRole('lead');
+```
+
+Now, checking access was expressive and reliable:
+
+```php
+if ($user->can('manage_users')) { /* show UI */ }
+```
+
+Spatie handled the heavy lifting—caching, polymorphic relationships, guards—so I could focus on integration.
+
+## Exposing Roles and Permissions via API
+
+Our Next.js frontend needed to know what the user could do. I didn’t want to expose raw roles or permissions recklessly, so I designed a secure `/api/user/permissions` endpoint that returned a clean, minimal payload:
+
+```php
+public function permissions(Request $request)
+{
+    return response()->json([
+        'roles' => $request->user()->getRoleNames(),
+        'permissions' => $request->user()->getPermissionsViaRoles()->pluck('name')
+    ]);
+}
+```
+
+This endpoint was protected by Sanctum middleware, ensuring only authenticated users could access it. I cached the response for 15 minutes per user to reduce DB load—since permissions don’t change mid-session.
+
+On the Next.js side, I created a `usePermissions` hook that fetched this data on login and stored it in context:
+
+```tsx
+const { data } = useQuery(['permissions'], fetchPermissions);
+
+const can = (permission: string) => 
+    data?.permissions.includes(permission);
+```
+
+This made authorization checks in components intuitive:
+
+```tsx
+{can('manage_users') && <SettingsButton />}
+```
+
+## Client-Side Route Guards and UI Guards
+
+With permission data available, I implemented two layers of protection: route-level and UI-level.
+
+For protected routes (like `/admin/users`), I built a `ProtectedRoute` component that checked required permissions before rendering:
+
+```tsx
+const ProtectedRoute = ({ children, requires }) => {
+  const { can } = usePermissions();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!can(requires)) {
+      router.push('/unauthorized');
+    }
+  }, [can, requires]);
+
+  return can(requires) ? children : null;
+};
+```
+
+Then, in my page routes:
+
+```tsx
+<ProtectedRoute requires="manage_users">
+  <UserAdminPanel />
+</ProtectedRoute>
+```
+
+For UI conditionals—buttons, tabs, modals—I used the `can()` helper directly. This kept the UI responsive and consistent with backend rules.
+
+I also added a `fallback` prop for cases where users lacked access but needed guidance:
+
+```tsx
+{can('edit_clients') ? 
+  <EditForm /> : 
+  <CallToAction>Ask your Lead for access.</CallToAction>
+}
+```
+
+## Testing Edge Cases and Audit Logging
+
+Real-world usage isn’t clean. Users have multiple roles. Permissions overlap. Roles change.
+
+I wrote tests covering:
+
+- Users with mixed roles (e.g., both `lead` and `staff`)
+- Permission conflicts (denied vs. inherited)
+- Fallback behavior when API fails to load permissions
+
+I also enabled Spatie’s built-in event system to log permission changes:
+
+```php
+Event::listen(PermissionUpdated::class, function ($event) {
+    Log::info('Permission updated', [ 'user' => $event->user, 'changes' => $event->changes ]);
+});
+```
+
+This gave us auditability—critical for compliance and debugging.
+
+In the end, the system proved fast, reliable, and easy to extend. When we add a new role like `contractor`, it’s a few lines of code and a migration.
+
+If you’re juggling permissions in a Laravel + Next.js stack, don’t roll your own. Spatie’s package is battle-tested, and pairing it with a lean API makes full-stack RBAC not just possible—but pleasant.

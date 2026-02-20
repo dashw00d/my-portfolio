@@ -1,0 +1,77 @@
+---
+title: "How We Ensured Critical Form Emails Reach the Right People with SMTP2Go and Livewire"
+date: "2024-08-08"
+excerpt: "Fixed unreliable form emails in AustinsElite by integrating SMTP2Go and refining Livewire recipient logic for critical business workflows."
+tags: ["Livewire", "SMTP2Go", "Laravel", "email-delivery", "full-stack"]
+author: "Ryan Dashwood"
+---
+## The Problem: Silent Failures in Critical Email Workflows
+
+A few months ago, we had a quiet but serious issue in AustinsElite: form submissions—especially those tied to event contracts—weren’t reliably reaching key stakeholders. The system was sending emails, but deliverability was spotty, and worse, there was no visibility into whether messages actually arrived. This wasn’t just a technical hiccup; it was a business risk. When a client submits an event contract request, someone *has* to act on it. If the email lands in a spam folder or bounces silently, the entire workflow stalls—and we look unprofessional.
+
+Originally, our Laravel 12 app used basic SMTP drivers without monitoring. We’d hardcoded recipients, and there was no logging or fallback. When I audited recent form logs, I found gaps: no confirmation that emails were sent, no tracking, and zero insight into delivery status. For a growing platform handling real bookings, that’s not good enough.
+
+## Integrating SMTP2Go for Reliable, Trackable Delivery
+
+We needed a solution that was simple to integrate, reliable in production, and gave us real-time visibility. After evaluating a few options, I went with SMTP2Go. It’s lightweight, has excellent deliverability rates, and offers detailed analytics—exactly what we needed to move from "hope it worked" to "know it worked."
+
+The integration was straightforward but impactful. In `config/mail.php`, I updated the mailer to use SMTP2Go’s credentials:
+
+```php
+'mailers' => [
+    'smtp' => [
+        'transport' => 'smtp',
+        'url' => env('MAILER_URL'),
+        'host' => 'mail.smtp2go.com',
+        'port' => 587,
+        'encryption' => 'tls',
+        'username' => env('SMTP2GO_USERNAME'),
+        'password' => env('SMTP2GO_API_KEY'),
+        'timeout' => null,
+        'local_domain' => 'austinselite.com',
+    ],
+],
+```
+
+I pulled credentials into environment variables (of course) and set up SMTP2Go’s sending domain with proper SPF and DKIM records. Within an hour, we were sending through their network.
+
+The real win? The dashboard. Now, every time a form submits, we can see in real time whether the email was accepted, delivered, or bounced. No more black box. We even set up webhook alerts for failed deliveries—because getting paged about a bounced email is better than learning about it three days later from an angry client.
+
+## Extending Recipient Logic with Livewire
+
+With delivery stabilized, the next step was making sure the right people got the emails—especially as our team grew. One glaring gap: Caela, who handles event contracts on the operations side, wasn’t on the recipient list. That meant missed follow-ups and delayed responses. Not anymore.
+
+Our form is powered by Laravel Livewire, which made it easy to tweak the backend logic without rewriting the frontend. In the `SubmitContractForm` component, I updated the `sendEmail()` method to conditionally include additional recipients based on form type and environment:
+
+```php
+public function sendEmail()
+{
+    $data = $this->validate();
+
+    $recipients = ['admin@austinselite.com'];
+
+    // Only add Caela for production event contracts
+    if (app()->isProduction() && $this->formType === 'event_contract') {
+        $recipients[] = 'caela@wehelpyouparty.com';
+    }
+
+    Mail::to($recipients)
+        ->cc($this->clientEmail)
+        ->send(new ContractSubmitted($data));
+
+    // Log for audit
+    activity()
+        ->withProperties(['recipients' => $recipients])
+        ->log('Contract email sent');
+
+    $this->redirect('/thank-you');
+}
+```
+
+This change—captured in the commit "Added caela to event contract"—was small but high-impact. Now, production event submissions always include Caela, while staging and testing flows keep things clean. We also log every send with Laravel Activity Log, so we can audit who got what and when.
+
+## Why This Matters Beyond the Inbox
+
+This wasn’t just about fixing email. It was about building trust—both with our users and our internal team. When a form submits, we now *know* the message was sent, who received it, and whether it arrived. That level of certainty changes how you build and maintain applications.
+
+If you’re working with Laravel Livewire and struggling with email reliability, I’d strongly recommend evaluating SMTP2Go. It’s not flashy, but it’s solid. And don’t overlook the business logic around recipients—sometimes the most important fix is just making sure the right human gets the message.

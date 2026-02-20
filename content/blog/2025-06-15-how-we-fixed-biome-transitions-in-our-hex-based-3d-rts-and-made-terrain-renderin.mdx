@@ -1,0 +1,49 @@
+---
+title: "How We Fixed Biome Transitions in Our Hex-Based 3D RTS (And Made Terrain Rendering Faster)"
+date: "2025-06-15"
+excerpt: "We overhauled terrain texturing in Civ RTS by switching to discrete height map combination and post-blur, fixing jagged biome edges and boosting performance."
+tags: ["Godot", "terrain rendering", "RTS development", "procedural generation", "optimization", "biome transitions"]
+author: "Ryan Dashwood"
+---
+## The Ugly Truth About Our Biome Borders
+
+If you’ve ever built a hex-based 3D RTS with procedurally generated terrain, you’ve probably seen it: jagged, flickering seams where one biome meets another. In Civ RTS, our early terrain looked great up close—lush forests fading into deserts, mountains rising from plains—but when you panned the camera, the illusion shattered. At biome boundaries, you’d see hard lines, texture popping, and interpolation glitches that made the world feel broken.
+
+We were blending biome textures based on continuous height and moisture gradients, feeding everything through a standard noise-driven shader. On paper, it made sense. In practice? A mess. The transitions were *too* smooth in some places and *too* sharp in others, with no control over how materials blended across hex edges. And because we were doing heavy noise sampling per-pixel in the shader, performance tanked on lower-end devices.
+
+Something had to change.
+
+## From Continuous Soup to Discrete Layers (And Why It Worked)
+
+Our breakthrough came when we stopped treating height and biome assignment as a single, fluid spectrum. Instead, we shifted to a **discrete height map combination** system—where each biome layer is generated separately, snapped to defined elevation bands, and only *then* combined in a final pass.
+
+Here’s how it works now:
+
+1. We generate base height using layered 3D noise (via FastNoiseLite in Godot), but instead of using raw output directly, we quantize it into discrete elevation tiers—think ‘coastal,’ ‘lowland,’ ‘highland,’ ‘mountain.’
+
+2. Each tier gets assigned a primary biome (e.g., sandy beaches at coast, grasslands in lowlands), and we stamp down corresponding material IDs across the terrain mesh.
+
+3. Only *after* all biome assignments are finalized do we apply a controlled blur pass—just enough to soften the edges between adjacent hexes without smearing detail.
+
+This might sound like a step backward—aren’t we losing nuance by snapping to discrete levels? Surprisingly, no. By decoupling biome logic from real-time blending, we gained precision. We could now define exact transition zones and control how textures interact at boundaries, rather than relying on noisy gradients that fought each other in the shader.
+
+The performance win was immediate. We reduced per-pixel noise sampling by over 60% because we precomputed most of the logic in the terrain generation step. The GPU now handles a simpler, more predictable material blend—just four weighted layers max, packed into a single texture array.
+
+## Smarter Transitions, Cleaner Code
+
+With discrete height layers in place, we turned to the transition textures themselves. Our original approach used smooth interpolation between material weights based on distance to biome edge. Sounds good—until you realize that in a hex grid, distance functions are tricky, and linear blends create muddy in-between states.
+
+We refactored the system to use **layered noise masks** for transition zones. Instead of blending all materials everywhere, we now:
+
+- Define narrow transition bands (e.g., 0.5 hex width) at biome borders
+- Generate a secondary noise layer *only* within those bands
+- Use that noise to selectively reveal a ‘transition material’ (like rocky soil between grass and desert)
+- Apply a small Gaussian blur in the final render pass to soften hard edges
+
+This gave us artistic control—we could hand-tune which biomes get transition materials and how noisy or smooth they appear—without bloating the shader. The blur is applied once, at the end, as a full-screen effect with a tiny kernel. It’s cheap, consistent, and eliminates the ‘crawling pixel’ artifact we saw with per-vertex interpolation.
+
+The result? Biome transitions that look intentional, not accidental. No more flickering. No more texture soup. Just clean, readable terrain that performs well even on integrated graphics.
+
+We committed these changes on June 15th, and it’s already made a visible difference in playtests. Players aren’t distracted by visual glitches—they’re immersed in the world.
+
+This isn’t the end. We’re exploring triplanar mapping and signed distance field textures next. But for now, it’s satisfying to solve a problem that haunted us for months—with simpler math, less code, and better-looking results.

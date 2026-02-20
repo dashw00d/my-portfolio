@@ -1,0 +1,84 @@
+---
+title: "Building an SMS-Powered Staff Check-In System with Twilio Webhooks in a Legacy PHP App"
+date: "2026-02-05"
+excerpt: "How we added real-time SMS check-ins to a 15-year-old PHP app using Twilio—without breaking a sweat (or the auth system)."
+tags: ["Laravel", "Twilio", "Legacy Systems", "Webhooks", "PHP", "API Integration"]
+author: "Ryan Dashwood"
+---
+## The Problem: Real-Time Needs in a World Built for Batch Processing
+
+We run a staffing platform called AustinsElite—a Laravel app that’s been in production for over 15 years. It was built for web forms, cron jobs, and MySQL dumps. Real-time? Not so much. But our field staff were tired of logging into a clunky portal just to check in. They wanted to text.
+
+So we set out to build an SMS-powered check-in system using Twilio—letting staff send commands like `CHECKIN` or `CLOCKIN 12345` from their phones. Simple idea. Hard execution—especially when your app wasn’t designed for inbound webhooks, stateless requests, or command parsing.
+
+The kicker? We couldn’t touch the legacy auth system. No JWTs. No OAuth. Just PHP sessions baked into every controller. So how do you authenticate an SMS from Twilio when there’s no session, no cookies, and no browser?
+
+## Designing a Secure, Idempotent Webhook Endpoint
+
+Twilio sends two things: inbound SMS messages and status callbacks (like `delivered`, `failed`). Both hit the same webhook endpoint. We needed one controller that could handle both, verify the request wasn’t spoofed, and process it safely—even under replay attacks.
+
+First, security. Twilio signs webhook requests with a cryptographic hash (using your auth token). Laravel doesn’t support this out of the box, so we added a middleware that validates the `X-Twilio-Signature` header using Twilio’s PHP SDK. If the signature fails, the request dies—no logs, no side effects.
+
+```php
+// TwilioSignatureValidator.php
+public function handle($request, Closure $next)
+{
+    $validator = new RequestValidator(config('services.twilio.auth_token'));
+    $url = $request->fullUrl();
+    $signature = $request->server('HTTP_X_TWILIO_SIGNATURE');
+
+    if (! $validator->validate($signature, $url, $request->all())) {
+        abort(403, 'Invalid Twilio signature.');
+    }
+
+    return $next($request);
+}
+```
+
+We wrapped the entire `/webhook/twilio` route in this middleware. No exceptions. No bypasses.
+
+Next: idempotency. Twilio may retry failed webhooks. Sending duplicate clock-in records? Not acceptable. So we used Laravel’s cache system to store processed message SIDs for 24 hours. If we see the same `MessageSid` again, we return 200 and move on.
+
+## Parsing Commands and Bridging the Auth Gap
+
+Twilio delivers SMS as POST requests with `Body`, `From`, and `MessageSid`. Our job: parse commands like `CHECKIN` or `CLOCKIN 12345`, map the phone number to a staff member, and trigger the right backend logic.
+
+We started with a simple regex-driven parser:
+
+```php
+$command = strtoupper(trim($request->input('Body')));
+
+if (preg_match('/^CLOCKIN\s+(\d+)$/', $command, $matches)) {
+    $staffId = $matches[1];
+    // ... handle clock-in
+} elseif ($command === 'CHECKIN') {
+    // ... handle check-in
+}
+```
+
+But phone numbers aren’t unique in our system—contractors reuse devices, numbers get reassigned. So we added a lookup table: `phone_number -> staff_id`, managed through an admin UI. When an SMS arrives, we use that to resolve the user—not guess based on number alone.
+
+Now, the hard part: auth. Our legacy time-tracking logic lives in controllers that assume `$request->user()` is set via Laravel’s session guard. But webhooks don’t have sessions. We couldn’t refactor 50 controllers to accept API-style auth.
+
+So we cheated.
+
+We created a "ghost" authentication system. When a valid SMS arrives, we temporarily impersonate the staff member using Laravel’s `Auth::onceUsingId($staffId)`. This gives us access to the same authorization gates, policies, and business logic—without touching cookies or sessions.
+
+```php
+Auth::onceUsingId($staffId);
+
+// Now we can safely call legacy methods
+$checkInService->handle($request->user(), 'field_checkin');
+```
+
+It’s not pretty, but it’s safe, auditable, and—most importantly—non-disruptive.
+
+## Why This Matters Beyond SMS
+
+This wasn’t just about texting. It was about evolving a monolith without rewriting it. We added real-time capabilities to a system that predates REST, smartphones, and even Composer.
+
+The Twilio webhook became a pattern: secure, stateless entry points into legacy logic. Now we’re using the same approach for email replies, IoT pings, and Slack integrations.
+
+And staff love it. 83% of field check-ins now happen via SMS—up from 0% two months ago. No app installs. No logins. Just text.
+
+If you’re maintaining a legacy app, don’t wait for a rewrite to add modern features. Build bridges. Use webhooks. Respect the old, but don’t be ruled by it.

@@ -1,0 +1,104 @@
+---
+title: "From In-Memory to Database: How We Made RR Bot’s Lobby System Persistent"
+date: "2025-02-25"
+excerpt: "We replaced RR Bot’s volatile in-memory lobby state with a database-backed system for true persistence and reliability."
+tags: ["Discord bot", "PHP", "Laravel", "Database design", "Eloquent"]
+author: "Ryan Dashwood"
+---
+## The Problem with In-Memory Lobbies
+
+When RR Bot first launched its lobby system, we kept everything in memory. Simple, fast, easy to debug—perfect for prototyping. But as soon as we hit production traffic, the cracks showed.
+
+Discord bots restart. Servers reboot. PHP workers die after handling a few requests. And every time that happened, our lobbies vanished—mid-game, mid-selection, no warning. Players would lose their spots, hosts would have to recreate lobbies, and the whole experience felt flaky.
+
+We knew persistence was the answer, but we didn’t want to over-engineer it. This wasn’t a distributed microservice architecture—we were running a Laravel-based Discord bot with clean command patterns and Eloquent already in the stack. The goal? Swap out volatile state with something durable, without sacrificing responsiveness.
+
+So on February 25, 2025, we made the jump: from arrays in memory to real database records.
+
+## Designing a Lightweight, Query-Friendly Schema
+
+The lobby system tracks two core things: lobbies and players. A lobby has a host, a game mode, a status (open, starting, full), and a creation timestamp. Players belong to lobbies, have selected classes, and need to be added or removed on command.
+
+Our first instinct was to go full normalization—separate tables, foreign keys, cascading deletes. But we paused. This is Discord: most lobbies live minutes, not hours. We didn’t need enterprise-grade integrity; we needed speed, clarity, and resilience.
+
+So we went minimal:
+
+```php
+Schema::create('lobbies', function (Blueprint $table) {
+    $table->id();
+    $table->string('channel_id');
+    $table->string('host_id');
+    $table->string('game_mode');
+    $table->enum('status', ['open', 'starting', 'full', 'closed'])->default('open');
+    $table->timestamps();
+});
+
+Schema::create('players', function (Blueprint $table) {
+    $table->id();
+    $table->string('user_id');
+    $table->string('class')->nullable();
+    $table->foreignId('lobby_id')->constrained()->onDelete('cascade');
+    $table->timestamps();
+});
+```
+
+The `channel_id` is critical—it’s how we tie a lobby to a Discord text channel, allowing us to safely restore state when the bot comes back online. And by using Eloquent, we get soft deletes, timestamps, and eager loading out of the box.
+
+We also added indexes on `channel_id` and `lobby_id` to make lookups fast. No joins for every command? Great. Just one query to fetch a lobby with its players:
+
+```php
+Lobby::with('players')->where('channel_id', $channelId)->first();
+```
+
+Simple. Fast. Reliable.
+
+## Migrating Logic Without Breaking Flow
+
+The real test wasn’t the schema—it was the command layer. RR Bot’s commands are event-driven: a user types `/join`, we check if a lobby exists in that channel, and either add them or prompt to create one.
+
+Before, that check was:
+
+```php
+if (isset($lobbies[$channelId])) { ... }
+```
+
+Now, it’s:
+
+```php
+$lobby = Lobby::with('players')->where('channel_id', $channelId)->first();
+if ($lobby) { ... }
+```
+
+Same logic, different backing. But we couldn’t afford latency. Discord expects responses fast—under 3 seconds, or you risk timeouts.
+
+So we optimized:
+
+- Used Laravel’s query caching for repeated reads in the same session
+- Kept Eloquent model mutators minimal
+- Ensured all writes were wrapped in transactions
+
+One sneaky bug we hit? The `isset()` check on an Eloquent model’s relation. We had code like:
+
+```php
+if (isset($lobby->players)) { ... }
+```
+
+But Eloquent collections are always set—even when empty. That caused logic errors in lobby status checks. Fixed it by switching to:
+
+```php
+if ($lobby->players->isNotEmpty()) { ... }
+```
+
+Small change, big impact.
+
+We also preserved responsiveness by keeping message updates asynchronous. The database writes happen in the command handler, but the Discord response fires as soon as we know the action succeeded—no waiting for DB sync to complete before replying.
+
+## What Changed After the Switch
+
+Since deploying the database-backed lobbies, we’ve had zero state loss due to restarts. Lobbies survive deploys. Players stay joined. Hosts don’t rage-quit.
+
+We didn’t need Redis, or a message queue, or a custom ORM. Just PostgreSQL, Eloquent, and a schema that matches the domain.
+
+Was it more complex than in-memory arrays? Sure. But the trade-off was clear: short-term simplicity vs. long-term reliability. And for a bot that people rely on to organize games, reliability wins every time.
+
+If you’re building a Discord bot in PHP and still using in-memory state—don’t. Add the database early. Your future self (and your users) will thank you.

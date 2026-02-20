@@ -1,0 +1,60 @@
+---
+title: "Building a Scalable Venue Data Pipeline in Laravel 12: Lessons from AustinsElite"
+date: "2026-01-02"
+excerpt: "How we evolved AustinsElite’s venue data pipeline to handle scale with batch processing, versioning, and standardized commands."
+tags: ["Next.js", "data pipeline", "batch processing", "LLM integration", "Node.js", "full-stack"]
+author: "Ryan Dashwood"
+---
+## Taming the Chaos: The Problem with Inconsistent Venue Data
+
+When I first joined AustinsElite, our venue data pipeline was a patchwork of one-off scripts, cron jobs, and manual interventions. Every new venue import or marketing update risked breaking something downstream—analytics were off, ops alerts fired incorrectly, and marketing campaigns launched with stale or malformed data. The root issue? We were processing venues in real-time with zero consistency, no versioning, and no isolation between concerns.
+
+We had scripts scattered across the codebase: a Filament resource here, a Laravel job there, even some raw API endpoints being hit by internal tools. It worked—barely—but didn’t scale. As we added LLM-powered metadata enrichment and automated reporting, the cracks widened. We needed a system that could handle volume, survive failures, and evolve without breaking everything.
+
+The turning point came when a batch of 500 venues failed mid-process due to an uncaught schema mismatch. It took hours to debug and rollback. That’s when I knew: we needed a real pipeline.
+
+## Designing the Batch Processing Backbone
+
+The solution? A batch-first architecture built directly into our Next.js API layer. Instead of processing venues one by one on demand, we introduced `ProcessVenueOpsBatch`, a centralized job that handles venue data in chunks, with built-in retries, error isolation, and stage tracking.
+
+Here’s how it works:
+
+- **Batch ingestion**: A new endpoint `/api/venue-batch` accepts a list of venue IDs and metadata, queues them into a Redis-backed job queue (via BullMQ), and returns a batch ID for tracking.
+- **Staged processing**: Each venue goes through discrete phases—`fetch`, `normalize`, `enrich`, `validate`, `publish`—with results logged at each step. This lets us pause, inspect, or retry individual stages.
+- **LLM integration**: During the `enrich` phase, we call an internal LLM service to generate venue descriptions, tags, and categorizations. The batch system ensures we don’t overwhelm the LLM API and can gracefully handle rate limits.
+
+One key win was replacing the old `Venue Marketing Filament resource` with this new flow. That old UI-based tool encouraged manual, untracked changes. Now, all operations flow through the batch system, whether triggered via API, CLI, or scheduled job.
+
+We also added automatic cleanup: failed batches older than 7 days are archived, and successful ones are snapshotted for audit. This reduced noise and made debugging recent issues way faster.
+
+## Versioning and Standardization: The Hidden Wins
+
+The real magic didn’t come from the batch system itself—it came from how we structured it to evolve.
+
+We introduced **pipeline versioning** using a simple `pipelineVersion` field in each batch. This lets us run multiple versions side-by-side during migrations. For example, when we updated the LLM prompt format, we launched `v2` of the enricher while keeping `v1` alive for pending batches. No downtime, no data corruption.
+
+Even more impactful? **Standardizing console commands**.
+
+Before, every engineer wrote their own ad-hoc scripts. Now, we have a unified `bin/` command suite:
+
+- `bin/process-venues --batch-size=100 --pipeline=v2`
+- `bin/validate-venue-data --source=csv`
+- `bin/rollback-batch <batchId>`
+
+These commands share the same config, logging, and error handling. They’re tested, documented, and used by marketing, ops, and analytics teams. Marketing can trigger a data refresh without asking engineering. Ops can validate a batch before go-live. Stats team can reprocess historical data with a new model.
+
+This wasn’t just about automation—it was about **ownership**. By making the pipeline predictable and self-serve, we reduced toil and increased trust in the data.
+
+## Final Thoughts: Scalability Is a System, Not a Script
+
+The refactor we shipped on January 2, 2026, wasn’t a rewrite—it was a maturation. We didn’t just fix the bugs; we built a system that can grow, adapt, and survive real-world use.
+
+If you’re wrestling with messy data pipelines in Next.js, here’s my advice:
+
+1. **Batch first**—even if you think you need real-time, start with batches. They’re easier to monitor, retry, and test.
+2. **Version your pipelines**—assume your logic will change, and design for coexistence.
+3. **Standardize your entry points**—whether it’s a CLI, API, or cron, make them consistent, documented, and shared.
+
+The result? AustinsElite now processes thousands of venues a week with near-zero manual intervention. And when something *does* go wrong, we know exactly where to look.
+
+That’s not just progress—it’s peace of mind.

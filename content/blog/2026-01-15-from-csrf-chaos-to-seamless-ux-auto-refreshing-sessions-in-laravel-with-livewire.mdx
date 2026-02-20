@@ -1,0 +1,72 @@
+---
+title: "From CSRF Chaos to Seamless UX: Auto-Refreshing Sessions in Laravel with Livewire"
+date: "2026-01-15"
+excerpt: "Fixed Laravel Livewire's dreaded 'Page Expired' error by auto-refreshing sessions instead of breaking the UX."
+tags: ["Laravel", "Livewire", "UX", "CSRF", "Session Management"]
+author: "Ryan Dashwood"
+---
+## The Annoying Truth About Livewire and CSRF Tokens
+
+If you've built anything non-trivial with Laravel Livewire, you've probably seen it: the dreaded *"Page Expired"* error. Not a JavaScript crash. Not a database timeout. Just a blank white screen with three words that kill user trust instantly.
+
+Here’s how it happens: Livewire relies on CSRF tokens for security. Those tokens are tied to sessions. Sessions expire. But unlike traditional form submissions, Livewire apps often run for *minutes*—especially in admin panels with long forms or real-time data. By the time a user hits "Save," their token is stale, Laravel throws a 419, and boom: confusion, frustration, lost work.
+
+At AustinsElite, this wasn’t theoretical. Our admin team was constantly hitting this during venue management workflows. They’d spend 10 minutes filling out a form, click submit, and get ghosted by the app. Not cool.
+
+We tried the usual fixes: bumping session timeout, tweaking garbage collection, even storing tokens in localStorage. But none solved the real issue: **we were showing users a broken state instead of recovering gracefully**.
+
+## Hooking Into Livewire’s Lifecycle to Rescue the Session
+
+The breakthrough came when I stopped thinking about *preventing* expiration and started thinking about *handling* it invisibly.
+
+Livewire 3 exposes a powerful client-side hook system. One of them—`onError`—fires whenever a Livewire request fails. That includes 419s. So instead of letting that error bubble up to a dead-end page, I used it to detect session death and trigger a full page refresh—*but only when necessary*.
+
+Here’s the snippet we added to our base layout:
+
+```js
+Livewire.hook('message.failed', ({ request, response }) => {
+  if (response.status === 419) {
+    console.debug('CSRF expired. Refreshing to restore session.');
+    window.location.reload();
+  }
+});
+```
+
+That’s it. No complex token syncing. No background pings. Just a lean, reliable reflex: if the server says "I don’t know who you are anymore," we refresh and let Laravel’s session middleware re-authenticate via existing cookies.
+
+This worked because our users were authenticated with persistent sessions (via `remember_me` or long-lived guards). The refresh isn’t a logout—it’s a soft reboot. The page comes back, the user is still logged in, and they can try their action again.
+
+We paired this with a small but critical backend tweak:
+
+```php
+// Disable caching on forms prone to CSRF issues
+Route::middleware(['no-cache'])->group(function () {
+    Route::get('/admin/venues/{venue}/edit', [VenueController::class, 'edit']);
+});
+```
+
+Caching full-page responses in browsers or CDNs can freeze CSRF tokens in time. By adding `Cache-Control: no-store` headers on sensitive routes, we ensured users always got a fresh token on load—reducing the race condition window.
+
+## Trade-Offs: Yes, You Lose Some Context (But Gain Trust)
+
+Let’s be real: auto-refreshing isn’t magic. If a user is 8 steps deep in a multi-stage Livewire component, they’ll lose that state. There’s no way around it—Laravel invalidates the entire session.
+
+But here’s the thing: **a refresh is still better than a brick wall**.
+
+With the old "Page Expired" screen, users had no idea what went wrong. They’d hit back, refresh manually, re-navigate, and *hope* it worked. Now, the app *reacts*. It doesn’t pretend nothing happened—but it also doesn’t abandon them.
+
+We also added a subtle UX touch: a toast notification on reload:
+
+```js
+if (performance.navigation.type === 1) { // Reload
+  showToast('Session refreshed. Please retry your action.');
+}
+```
+
+It’s honest, lightweight, and keeps the user in control.
+
+Looking back at the 39 commits touched that day—from caching headers to Livewire lifecycle tweaks—it’s clear this wasn’t just a quick fix. It was a shift in philosophy: **treat session expiration as a recoverable network event, not a fatal error**.
+
+And honestly? Our support tickets about "broken forms" dropped to zero after this went live.
+
+If you're wrestling with CSRF in Livewire, don’t just extend timeouts. Build resilience. Let the app heal itself. Your users won’t know the mechanics—but they *will* notice it just… works.

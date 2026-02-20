@@ -1,0 +1,92 @@
+---
+title: "From ClawHub to Loom: How We Executed a Seamless Project-Wide Rename in Python"
+date: "2026-02-15"
+excerpt: "Renaming ClawHub to Loom taught us how to refactor a mature Python codebase without breaking imports, tests, or team momentum."
+tags: ["python", "refactoring", "codebase", "testing", "developer-experience"]
+author: "Ryan Dashwood"
+---
+## Why Rename a Working Codebase?
+
+This week, we wrapped up the rename of our internal orchestration system from `ClawHub` to `Loom`. You might ask: why mess with something that works? The answer isn’t vanity—it’s clarity.
+
+`ClawHub` had served us well, but the name no longer reflected what the system actually did. It wasn’t a hub for claws (whatever that means), but a quiet, persistent weaver of agent workflows—spinning up tasks, routing messages, and stitching together distributed state. Once someone on the team said, “It’s like a loom for agent logic,” we knew we had a better name.
+
+But renaming isn’t just about updating a README. This was a core system used across services, tests, configs, and developer muscle memory. A sloppy rename could’ve broken CI, confused new hires, and left behind technical debt worse than the ambiguity we were trying to fix.
+
+So we treated it like a migration: planned, automated, and validated.
+
+## Rewriting Imports at Scale (Without Losing Our Minds)
+
+The biggest challenge? Python’s import system. Our codebase spans multiple packages, and `clawhub` had crept into absolute and relative imports, test files, configs, and even string literals used for dynamic loading.
+
+We started with a discovery pass:
+
+```bash
+find . -type f -name "*.py" | xargs grep -l "clawhub"
+```
+
+Shocking how many places a name can hide.
+
+Our strategy had three phases:
+
+1. **Automate with safety** – We used `sed` for bulk replacement, but only after generating a diff plan. A custom script walked the filesystem, identified import lines, and produced a preview of changes. No blind find-and-replace.
+
+2. **Isolate and redirect** – We didn’t want to break active branches. So we introduced a temporary `clawhub` module that re-exported everything from `loom`, with deprecation warnings:
+
+```python
+# clawhub/__init__.py (temporary)
+import warnings
+from loom import *
+
+warnings.warn(
+    "clawhub is deprecated, use loom instead", 
+    DeprecationWarning, 
+    stacklevel=2
+)
+```
+
+This let engineers migrate at their own pace while keeping CI green.
+
+3. **Validate with tests** – Every PR that touched a renamed import had to include updated test imports. We ran a pre-commit hook that flagged any new `import clawhub` statements. Meanwhile, our CI pipeline ran both the old and new import paths during the transition.
+
+The real win? We automated 90% of the rename with a single script, then used Python’s module system to paper over the gaps. No downtime, no broken builds.
+
+## Keeping Tests Alive During Structural Chaos
+
+Tests are the canary in the coal mine during refactors. If your test suite breaks, you’ve lost your safety net.
+
+Our first attempt at renaming broke over 40 tests—not because the logic changed, but because we missed edge cases:
+
+- Mocked import strings in `@patch("clawhub.agent.dispatch")`
+- Config files with `module: clawhub.workflow`
+- Dynamic imports using `importlib.import_module("clawhub.utils")`
+
+We fixed this by treating test files not as second-class citizens, but as first-class stakeholders in the rename.
+
+We added a dedicated test refactoring step to our checklist:
+
+- Replace all `@patch` strings
+- Update any config fixtures
+- Audit `importlib` and `__import__` calls
+- Run tests in isolation to catch lazy imports
+
+One PR, [Loom] Refactor tests to replace 'clawhub' with 'loom' in import statements, became our template. New contributors could follow it like a playbook.
+
+We also made sure coverage didn’t drop. We ran `pytest --cov` before and after, and set a pipeline gate: no rename PR could reduce overall coverage. Spoiler: we ended up with *higher* coverage, because the process forced us to clean up neglected test files.
+
+The lesson? Tests aren’t just for business logic—they’re part of the dependency graph. Refactor them with the same rigor.
+
+## What We Learned (So You Don’t Have To)
+
+Renaming a project sounds trivial until you’re three hours deep in import errors. But done right, it’s a chance to clean up tech debt, improve clarity, and strengthen your testing discipline.
+
+Key takeaways:
+
+- Use Python’s module system to support dual imports during transition
+- Automate, but always preview changes before applying
+- Treat test files as critical paths—not afterthoughts
+- Communicate early: we announced the rename a week in advance with a migration guide
+
+Now, when I type `from loom.agent import spawn`, it feels right. The code reads clearer, new developers get it faster, and the system finally has a name that matches its purpose.
+
+And honestly? It’s nice to no longer explain what a ‘claw’ has to do with anything.

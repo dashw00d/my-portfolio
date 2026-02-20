@@ -1,0 +1,75 @@
+---
+title: "Building a Vendor Ad System in a Laravel Stack: From Filament Resources to Frontend Integration"
+date: "2024-05-15"
+excerpt: "How I built a vendor ad system using Laravel 12 and Filament v4, then surfaced it in a Next.js frontend via API integration."
+tags: ["Laravel", "Filament", "Next.js", "Full-Stack", "Eloquent", "API Integration"]
+author: "Ryan Dashwood"
+---
+## Setting Up Eloquent Models for Vendors and Ads
+
+When building the vendor ad system for AustinsElite, the first step was modeling the data correctly. We needed vendors, their ads, and a clean way to manage them both in the admin and on the frontend. Using Laravel 12’s Eloquent, I set up a `Vendor` model and a `VendorAd` model with a one-to-many relationship—each vendor can have multiple ads, but each ad belongs to one vendor.
+
+The `VendorAd` model includes fields like `title`, `description`, `image_url`, `is_active`, and `position`—the last two being critical for admin control and frontend rendering. I added soft deletes and timestamps for auditability, and scoped queries to only return active ads (`where('is_active', true)`) to keep the frontend lean.
+
+```php
+// app/Models/VendorAd.php
+public function scopeActive($query)
+{
+    return $query->where('is_active', true);
+}
+```
+
+This small pattern pays off later when fetching data for the frontend. It also keeps business logic out of controllers and API routes, which I like.
+
+## Building Admin Tools with Filament v4
+
+With the models in place, I turned to Filament v4 to build the admin interface. Filament’s resource system is perfect for this—fast to scaffold, easy to customize, and powerful enough to handle bulk actions and imports.
+
+I generated a `VendorResource` and `VendorAdResource`, then customized the forms to include image uploads (via Spatie’s Media Library), toggle switches for `is_active`, and a drag-sort input for `position`. The real challenge came with onboarding existing vendor data.
+
+The initial import was a mess—hundreds of records, inconsistent formatting, and image URLs pointing to legacy storage. My first attempt used a simple CSV import in Filament, but it choked on memory limits. So I refactored it in what I now call the 'chunky pint' commit: I broke the import into chunks of 50, processed them in batches, and mapped legacy fields to the new schema using a transformer class.
+
+```php
+// app/Imports/VendorAdImport.php
+public function import(): void
+{
+    $chunks = $this->getRecords()->chunk(50);
+
+    foreach ($chunks as $chunk) {
+        $chunk->each(fn ($data) => VendorAd::create($this->transform($data)));
+    }
+}
+```
+
+This not only prevented timeouts but made the import idempotent and resumable. I also added real-time progress feedback in the Filament widget, which clients love. The takeaway? Never trust a big CSV. Chunk it, validate it, and give users feedback.
+
+## Integrating Ads into the Next.js Frontend
+
+Even though AustinsElite’s primary app runs on Laravel 12, we’re using a Next.js frontend for specific dynamic pages—like the vendor directory and ad carousel. So the final step was getting ad data from Laravel to Next.js.
+
+I created a simple API route in Laravel (`/api/vendor-ads`) that returns active ads with vendor info via resource collections.
+
+```php
+// routes/api.php
+Route::get('/vendor-ads', function () {
+    return VendorAdResource::collection(VendorAd::with('vendor')->active()->orderBy('position')->get());
+});
+```
+
+On the Next.js side, I used `getServerSideProps` to fetch ads server-side, ensuring SEO-friendliness and fast FCP. The component renders a responsive carousel using Swiper.js, with image optimization via Next.js’s `next/image`.
+
+```tsx
+// pages/vendor-ads.tsx
+export const getServerSideProps = async () => {
+  const res = await fetch('https://austinselite.com/api/vendor-ads');
+  const ads = await res.json();
+
+  return { props: { ads } };
+};
+```
+
+One gotcha: CORS. I used Laravel Sanctum to secure the endpoint and set proper headers so the Next.js app could safely consume it. Also, I added caching with Redis (`Cache::remember('active-vendor-ads', 3600, fn => ...)`) to reduce DB load during peak traffic.
+
+The result? A snappy, admin-managed ad carousel that updates in real time—no rebuilds, no deploys, just data changes in Filament.
+
+This project reinforced something I’ve learned the hard way: a great admin panel isn’t just about CRUD. It’s about import resilience, data hygiene, and making frontend integration dead simple. Filament + Laravel 12 nails the backend; Next.js gives us the flexibility we need up front. Together, they’re a solid combo for content-heavy, admin-driven apps.

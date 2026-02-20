@@ -1,0 +1,96 @@
+---
+title: "How We Solved a Sticky Header Transition Loop in Next.js with Scroll Threshold Logic"
+date: "2024-06-27"
+excerpt: "Fixed a flickering sticky header in Next.js by replacing naive scroll checks with a threshold-based debounce pattern."
+tags: ["Next.js", "Alpine.js", "Scroll Events", "UI Bugs", "Frontend Debugging"]
+author: "Ryan Dashwood"
+---
+## The Bug That Wouldn’t Scroll Still
+
+A few weeks ago, while polishing the frontend for AustinsElite’s upcoming production launch, we hit a maddening visual glitch: the navigation bar would flicker and enter a rapid toggle loop every time a user scrolled past exactly 150px. It wasn’t just ugly—it felt broken. And on a site where first impressions matter, that kind of jank sticks.
+
+The effect was supposed to be smooth: a sticky header that collapses as you scroll down, expands when you scroll up. Harmless enough. But somewhere between our Alpine.js state logic and CSS scroll triggers, things went off the rails. The header wasn’t just collapsing—it was flinching, snapping back and forth like it couldn’t make up its mind.
+
+We knew this was tied to the `scrollY` threshold we’d set, but the real culprit wasn’t the threshold itself—it was how we were handling it.
+
+## Why the Loop Happened: State vs. Style in the DOM
+
+At first glance, the code looked clean. We had a simple Alpine.js component attached to the `<header>` that listened to `window.onscroll`, checked `window.scrollY`, and toggled a `collapsed` state when passing 150px. That state flipped CSS classes, which triggered a transform and height transition.
+
+```js
+x-data = {
+  collapsed: false,
+  handleScroll() {
+    this.collapsed = window.scrollY > 150;
+  }
+}
+```
+
+And in CSS:
+
+```css
+.header {
+  transition: all 0.3s ease;
+}
+```
+
+Simple. Too simple.
+
+The problem? As soon as the header collapsed, the page layout shifted slightly—just enough to change the effective `scrollY` position. That tiny reflow pushed `scrollY` just below 150px, which flipped `collapsed` back to `false`. Then the header expanded, pushing the scroll position back up—triggering the collapse again. Boom: infinite loop.
+
+Even worse, because the transition itself was animated via CSS, the browser was constantly interrupting and restarting animations. DevTools showed rapid `transitionstart` and `transitioncancel` events. It wasn’t just a visual bug—it was a performance drain.
+
+We’d built a Rube Goldberg machine out of scroll events.
+
+## The Fix: A Threshold with Guard Rails
+
+We needed to prevent rapid toggling around the threshold. The solution wasn’t debouncing the scroll event (though that helped), but introducing *hysteresis*—a concept borrowed from electronics where the system behaves differently when moving up vs. down.
+
+We updated our Alpine logic to use two thresholds:
+
+- Collapse when `scrollY > 150`
+- Expand only when `scrollY < 100`
+
+That 50px buffer meant the user had to scroll back *well* past the trigger point to reverse the state—giving the layout time to stabilize without re-triggering.
+
+Here’s the revised Alpine component:
+
+```js
+x-data = {
+  collapsed: false,
+  lastScrollY: 0,
+
+  handleScroll() {
+    const current = window.scrollY;
+
+    // Only update if scrolled past thresholds
+    if (current > 150 && !this.collapsed) {
+      this.collapsed = true;
+    } else if (current < 100 && this.collapsed) {
+      this.collapsed = false;
+    }
+
+    this.lastScrollY = current;
+  }
+}
+```
+
+We also added a passive event listener to avoid scroll blocking:
+
+```js
+x-on:scroll.window.passive = "handleScroll"
+```
+
+And voilà—no more flickering. The header now collapses at 150px, but doesn’t reconsider expanding until you’re safely above 100px. That small gap eliminated the oscillation entirely.
+
+This fix was captured in the commit: `fixed transition loop at 150px`—a small message for a surprisingly deep issue.
+
+## Aftermath: Smoother UX, Cleaner Performance
+
+Post-deploy, we monitored both user behavior and performance metrics. The scroll-jank reports dropped to zero. Lighthouse scores improved slightly on the accessibility and best practices categories—likely due to reduced layout thrashing.
+
+But more importantly, the site *feels* more intentional. Small details like this don’t get applause, but their absence screams.
+
+It’s a reminder that even in a modern stack like Next.js—where routing, rendering, and styling are mostly handled—the devil’s still in the DOM details. Especially when you’re mixing declarative CSS transitions with imperative JavaScript state.
+
+If you’re building scroll-driven UIs, don’t just react to positions—guard them. Use thresholds with buffers. Track direction. And never trust a pixel.

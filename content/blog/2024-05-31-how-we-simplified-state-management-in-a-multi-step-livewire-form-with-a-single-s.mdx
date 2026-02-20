@@ -1,0 +1,104 @@
+---
+title: "How We Simplified State Management in a Multi-Step Livewire Form with a Single $step Variable"
+date: "2024-05-31"
+excerpt: "How a single $step variable in Livewire cut complexity and bugs in AustinsElite's quote request flow."
+tags: ["Livewire", "Laravel", "Form Design", "State Management", "PHP"]
+author: "Ryan Dashwood"
+---
+## The Problem with Scattered Step Logic
+
+A few weeks ago, I was knee-deep in refactoring the quote request flow for AustinsElite—a Laravel 12 application where we’re using Livewire to power interactive forms without leaving the ecosystem. Our goal? Make it easier for clients to request custom fitness program quotes through a clean, multi-step form.
+
+Originally, each step of the form lived in its own Livewire component. That sounded modular—until we needed to track progress, validate transitions, or debug a user getting stuck on step two. We were checking step state in multiple places: component properties, session flash data, even URL parameters. It was messy.
+
+The logic looked something like this:
+
+```php
+if ($this->currentStep === 'client-info' && session('contract_form_validated')) { ... }
+```
+
+Or worse—duplicate checks across components that had no shared context. Every time we added a new step or changed validation rules, something broke downstream. We knew we needed a simpler way to manage flow.
+
+## Centralizing Control with a Single $step
+
+The breakthrough came when we stepped back and asked: *Do we really need multiple components? Or are we overcomplicating it?*
+
+We consolidated the entire form into a single Livewire component and introduced a simple integer property: `$step`.
+
+```php
+public int $step = 1;
+```
+
+From there, the entire UI flow became a `switch` statement in the Blade template:
+
+```blade
+<div>
+    @switch($step)
+        @case(1)
+            @include('livewire.quote-form.steps.client-info')
+            @break
+        @case(2)
+            @include('livewire.quote-form.steps.program-preferences')
+            @break
+        @case(3)
+            @include('livewire.quote-form.steps.payment-options')
+            @break
+        @default
+            {{ redirect()->route('quote.start') }}
+    @endswitch
+</div>
+```
+
+Navigation became trivial:
+
+```php
+public function next() {
+    $this->validateStep();
+    $this->step++;
+}
+
+public function previous() {
+    $this->step--;
+}
+```
+
+And validation? Instead of scattering rules, we grouped them by step in a private method:
+
+```php
+private function validateStep()
+{
+    if ($this->step === 1) {
+        $this->validate([
+            'name' => 'required|string',
+            'email' => 'required|email',
+        ]);
+    }
+
+    if ($this->step === 2) {
+        $this->validate([
+            'goal' => 'required|in:strength,hypertrophy,conditioning',
+            'availability' => 'required|array',
+        ]);
+    }
+}
+```
+
+This wasn’t rocket science—but it was *effective*. The entire flow became predictable, testable, and easy to trace.
+
+## Why This Pattern Wins for Complex Forms
+
+You might be thinking: *Isn’t this too simplistic for real-world use?* But after shipping this in production, I’d argue the opposite.
+
+**Debugging got easier.** With a single source of truth for the current step, I could dump `$step` and instantly know where a user was stuck. No more hunting through session data or component props.
+
+**Validation became linear.** We could enforce rules *before* advancing, and roll back cleanly if needed. No more half-submitted forms or skipped steps due to client-side manipulation.
+
+**Navigation logic stayed clean.** Adding a "skip payment" option for certain users? Just increment `$step` by 2. Need to return to step 1 from step 3? `$step = 1`—done.
+
+And perhaps most importantly: **the code became readable to new team members.** No need to explain a custom state machine or event-driven step tracker. It’s just a number that goes up and down.
+
+This refactor was part of a broader push in May to stabilize and simplify the quote request flow in AustinsElite. By leaning into Livewire’s strengths—reactive properties and server-side rendering—we avoided the overhead of a full SPA while keeping the UX smooth.
+
+If you're building multi-step forms in Livewire, I’d encourage you to try this pattern before reaching for complex state libraries or multiple components. Sometimes the simplest solution is the one that scales the best.
+
+A single `$step` won’t solve every form challenge—but for most, it’s more than enough to get it right.

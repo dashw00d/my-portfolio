@@ -1,0 +1,64 @@
+---
+title: "Why We Upgraded Tailwind CSS in a Legacy Next.js App — And What Broke"
+date: "2025-10-02"
+excerpt: "A patch-level Tailwind upgrade exposed deep CSS cascade issues in our legacy Next.js frontend — here's how we caught it and what we learned."
+tags: ["Tailwind CSS", "Next.js", "frontend", "tech debt", "dependency management"]
+author: "Ryan Dashwood"
+---
+## The Upgrade That Was Supposed to Be Boring
+
+Last week, I merged what looked like a routine dependency update: bumping Tailwind CSS from 3.4.3 to 3.4.18 in AustinsElite’s legacy Laravel 12 frontend. No breaking changes listed. Just security patches and minor fixes. "Low risk," I thought. "Just hygiene."
+
+This was part of our October push to tighten up the stack — outdated packages, version skew, the usual suspects. AustinsElite’s Laravel 12 backend is humming along nicely now, but the frontend still carries years of incremental changes, React upgrades, and styling compromises. We’re not rewriting it (yet), but we *are* making it more maintainable. So yes — time to update Tailwind.
+
+One deploy later, the design team flagged something subtle but widespread: buttons were misaligned, form inputs lost padding, and a few components rendered with unexpected spacing. Not catastrophic, but definitely broken. And all style-related.
+
+Something as small as a patch update shouldn’t break layout. But it did. Time to dig in.
+
+## What Changed (And Why We Didn’t See It Coming)
+
+Tailwind 3.4.10 introduced a subtle but impactful shift in how utility classes are ordered in the compiled CSS. Specifically, the internal layering between `base`, `components`, and `utilities` was adjusted to fix edge cases around `@apply` and pseudo-class ordering. Most apps wouldn’t notice. Ours did — painfully.
+
+Why? Because over five years of development, we’d accumulated a lot of custom CSS that relied on *implicit* cascade behavior. We had:
+
+- Global `.btn` classes that used `@apply` but were injected in the wrong layer
+- Component-specific styles in `styles/globals.css` that assumed Tailwind’s utility order wouldn’t shift
+- Third-party UI components with hardcoded assumptions about which class wins in a conflict
+
+One example: we had a `.btn-primary` class defined in our components layer that used `@apply bg-blue-600 text-white px-4 py-2 rounded`. But after the update, a utility like `bg-red-500` applied directly in JSX would *lose* to the `@apply` rule — whereas before, it *won*. That’s because Tailwind’s utilities layer was now more consistently prioritized.
+
+This wasn’t a bug. It was *correct* behavior. We were the ones relying on a quirk.
+
+The real issue wasn’t the Tailwind update — it was that our styling architecture had never been audited. We’d treated `globals.css` like a junk drawer. Now, a patch release had shaken it, and everything fell out.
+
+## How We Fixed It (And Made Sure It Won’t Happen Again)
+
+First, rollback wasn’t an option. We needed those security patches. So we leaned in.
+
+Step one: audit every custom class in `styles/globals.css` and component stylesheet. We identified 17 rules using `@apply` that were either:
+
+- Defined in the wrong layer (`@layer base` instead of `@layer components`)
+- Applying utilities that no longer existed or had changed meaning
+- Overriding Tailwind in fragile ways (e.g., `!important` sprinkled like salt)
+
+We migrated all custom component classes into the `@layer components` block, ensuring they were processed in the right order. We replaced brittle `@apply` chains with explicit utility classes in JSX where possible — leaning into Tailwind’s intended usage.
+
+Step two: enforce layer hygiene. We added a lint rule via `stylelint` to flag any `@apply` usage outside of `@layer` blocks. We also documented layer conventions in our frontend README so new devs don’t repeat our mistakes.
+
+Step three: build visibility. I wrote a quick script — `check-tailwind-tokens.mjs` — that parses our JSX files and compares used utility classes against the current Tailwind config. It flags:
+
+- Deprecated or missing classes
+- Conflicting modifiers (e.g., `p-4` and `p-6` on same element)
+- Overuse of override patterns like `!important`
+
+We run it in CI now. Not perfect, but it catches drift early.
+
+## The Real Cost of "Just a Patch"
+
+This wasn’t really about Tailwind. It was about tech debt hiding in plain sight. A patch-level bump exposed architectural fragility because our CSS wasn’t *designed* — it was *accumulated*.
+
+The fix took three days. But the lesson was worth it: in legacy frontends, styling is often the most brittle surface area. Assumptions calcify. Layers blur. And a "safe" update can become a debugging marathon.
+
+If you’re maintaining a long-running Next.js app, don’t wait for a dependency bump to audit your styles. Check your `@layer` usage. Audit your `@apply` rules. Know where your overrides live.
+
+Because next time, it might not just be a button that breaks.

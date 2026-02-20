@@ -1,0 +1,67 @@
+---
+title: "How We Streamlined Contract Management in a Laravel Admin Dashboard by Extending Form Logic and Dependencies"
+date: "2025-06-10"
+excerpt: "Adding a critical SMS permission field and updating key Laravel dependencies—without breaking the build."
+tags: ["Laravel", "Filament", "form validation", "dependency management", "admin panel"]
+author: "Ryan Dashwood"
+---
+## Introducing the 'SMS Invoice Permission' Field in Our Admin Flow
+
+One of the most common pain points in our contract management system was a missing piece of client consent: permission to send invoices via SMS. We had the backend logic to trigger SMS notifications, but no structured way to capture explicit client opt-in during contract setup. That changed last week when we integrated a new 'SMS Invoice Permission' toggle directly into the contract creation form inside our Laravel-powered admin dashboard.
+
+The dashboard runs on Filament, Laravel’s sleek admin panel framework, which made field integration relatively straightforward—but not trivial. We needed more than just a checkbox; we needed traceability, validation, and alignment with our backend contract processing pipeline. So instead of slapping on a boolean field, we treated it like a first-class citizen in the contract lifecycle.
+
+The field was added as a `Toggle` component in the Filament form schema, with explicit labels and helper text to ensure clarity for non-technical users. But the real work happened behind the scenes: we tied it to a new `sms_invoice_permission` column in the contracts table and enforced it through Laravel’s native validation rules. Now, when a contract is created or updated, the system checks not just *if* the field is present, but *how* it was set—and logs changes for audit purposes.
+
+This might sound like overkill for a single checkbox, but in regulated environments (and let’s be honest, invoicing often is), consent isn’t just a UI pattern—it’s a contract. Getting this right meant bridging frontend clarity with backend rigor.
+
+## Validating Consent Across Layers
+
+We’ve all seen it: a form field works perfectly in the UI, but the backend silently ignores it. Or worse, it accepts bad data and breaks downstream processes. To avoid that, we made sure the SMS permission field was validated consistently across both layers.
+
+On the Filament form side, we used Laravel’s built-in `boolean` and `required` rules in the request validation. But we didn’t stop there. We added a custom rule to ensure the value could only be `true` or `false`—no string coercion, no sneaky `"1"` or `"on"` slipping through. This was especially important because the field feeds into an automated invoicing workflow that triggers SMS via a third-party gateway. We don’t want ambiguity when money’s involved.
+
+```php
+// In the Filament form's create request
+public function rules(): array
+{
+    return [
+        'sms_invoice_permission' => ['required', 'boolean'],
+        // ... other rules
+    ];
+}
+```
+
+We also extended the model’s mutator to cast the value explicitly, ensuring data integrity at the database level:
+
+```php
+// In the Contract model
+protected function casts(): array
+{
+    return [
+        'sms_invoice_permission' => 'boolean',
+        // ...
+    ];
+}
+```
+
+The frontend? It simply reflects the state truthfully. No JavaScript validation magic—just clean, predictable behavior powered by Laravel’s form requests and Filament’s reactive components. When the user toggles the field, it updates instantly. When they submit, Laravel does the heavy lifting.
+
+This approach keeps the frontend lean and the backend authoritative—exactly how it should be in a Laravel-centric admin system.
+
+## Updating Dependencies Without Breaking the Asset Pipeline
+
+While we were in the code, we noticed we were running an older version of `awcodes/filament-curator` (3.7.3). It’s a great package for media management in Filament, but like any dependency, it needs updates. The latest patch (3.7.7) included critical fixes for asset URL generation—something we’d been seeing minor issues with in staging.
+
+Normally, updating a Filament plugin is trivial. But because we’re deep in a production environment with custom asset pipelines and cached configurations, we took a cautious approach:
+
+1. We checked the changelog—no breaking changes, just bug fixes and minor improvements.
+2. We ran the update in a feature branch: `composer update awcodes/filament-curator`.
+3. We cleared config and view caches (`php artisan config:clear`, `php artisan view:clear`).
+4. We tested image uploads, cropping, and URL rendering across multiple browsers.
+
+The update went smoothly, but we didn’t stop there. We also pulled in the latest Laravel framework patches to stay current on security and performance. No flashy features—just quiet, necessary maintenance.
+
+The real win? Zero downtime, zero broken images, and a slightly more reliable media workflow. It’s not glamorous, but it’s the kind of work that keeps systems running when no one’s watching.
+
+Adding a simple toggle and updating a few packages might not sound like a big deal. But in a mature admin system, these small, deliberate improvements compound. We’re not just shipping features—we’re tightening the feedback loop between user intent, data integrity, and system stability. And that’s how you build admin panels that last.

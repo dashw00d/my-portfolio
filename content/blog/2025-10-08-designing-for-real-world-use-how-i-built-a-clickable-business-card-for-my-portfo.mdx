@@ -1,0 +1,91 @@
+---
+title: "Designing for Real-World Use: How I Built a Clickable Business Card for My Portfolio"
+date: "2025-10-08"
+excerpt: "I built a lightweight, accessible business card component for my portfolio—here’s how semantic HTML, CSS layout, and real-device testing shaped it."
+tags: ["frontend", "accessibility", "css", "html", "ui-components"]
+author: "Ryan Dashwood"
+---
+## Why a Business Card Belongs on a Developer’s Portfolio
+
+Most developers treat their portfolio as a static resume—a place to list projects and skills. But I wanted mine to be *usable*. When someone lands on my site, whether it’s a recruiter, collaborator, or curious peer, I want them to be able to connect with me—fast.
+
+That’s why I added a clickable business card component. It’s not flashy, but it’s functional: a compact, self-contained block with my name, role, contact info, and social links—designed to work everywhere. No downloads, no friction. Just click, copy, or save.
+
+This small addition reflects a bigger shift in how I approach UI: not as decoration, but as utility. With systems like HomeForged and ForgeKit pushing toward modular, reusable components, I saw an opportunity to apply those principles at the smallest scale.
+
+## Building the Layout: Flexbox, Responsiveness, and Print
+
+The card had to look good and work well across devices—desktop, mobile, and even when printed. I started with a clean HTML structure:
+
+```html
+<article class="business-card">
+  <h2>Ryan Dashwood</h2>
+  <p>Frontend Developer & UI Engineer</p>
+  <ul>
+    <li><a href="mailto:ryan@example.com">ryan@example.com</a></li>
+    <li><a href="tel:+1234567890">+1 (234) 567-890</a></li>
+    <li><a href="https://github.com/ryandas">GitHub</a></li>
+  </ul>
+</article>
+```
+
+Using `<article>` makes the card a standalone semantic unit—important for both SEO and screen readers. The `<h2>` gives it proper document hierarchy, and each contact method is a list item with a meaningful link.
+
+For layout, I leaned on Flexbox. A vertical stack on mobile, horizontal on desktop—simple, predictable, and easy to maintain.
+
+```css
+.business-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  max-width: 400px;
+}
+
+@media (min-width: 600px) {
+  .business-card {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+```
+
+I also added print-specific styles so the card looks clean on paper—removing borders, adjusting colors for ink efficiency, and ensuring links are visible.
+
+```css
+@media print {
+  .business-card {
+    border: none;
+    background: white;
+    color: black;
+  }
+  .business-card a {
+    color: black;
+    text-decoration: underline;
+  }
+}
+```
+
+It’s a small touch, but it matters. Someone might print this to share in a meeting.
+
+## Accessibility: More Than Just Keyboard Navigation
+
+A component is only as good as its accessibility. I tested early with keyboard navigation—tabbing through links, ensuring focus states were visible—and fixed a few subtle issues, like inconsistent tab order and missing `:focus-visible` styles.
+
+But I went further. I tested with VoiceOver and NVDA to confirm screen readers announced the card as a cohesive unit with proper context. The `<article>` role helped, but I also added `aria-label` to links where the text wasn’t descriptive enough (e.g., "GitHub" became "GitHub profile, external link").
+
+I also made sure interactive elements had sufficient contrast and tap targets—especially on mobile. No one should struggle to tap an email link on a small screen.
+
+One lesson: accessibility isn’t a checklist. It’s a mindset. When I caught a contrast ratio issue on the phone link (barely under WCAG AA), I didn’t just tweak the color—I questioned why I was using a subtle gray in the first place. Now it’s a clear, readable blue.
+
+This attention to detail came from earlier fixes, like cleaning up footer links across the portfolio. Consistency isn’t just visual—it’s behavioral. If one link works a certain way, users expect others to follow.
+
+## Small Component, Big Impact
+
+The business card is a tiny part of my portfolio, but it represents a bigger philosophy: design for real use. Not for Dribbble likes or code golf, but for the person on a slow connection, the recruiter in a hurry, or the designer printing it out.
+
+It’s built with semantic HTML, responsive CSS, and tested with real assistive tools. It’s not perfect—but it’s usable, today. And that’s what matters.
+
+If you’re building your own site, ask: what’s the one thing someone would want to *do* after landing? Make that action effortless. Even if it’s just sending an email.

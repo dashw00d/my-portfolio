@@ -1,0 +1,80 @@
+---
+title: "How a Tiny SQL Fix Fixed a Legacy Role Permission Leak"
+date: "2025-02-14"
+excerpt: "A single SQL WHERE clause change plugged a role-based access hole in a legacy PHP admin panel by replacing fragile string checks with ID ranges."
+tags: ["PHP", "Legacy Systems", "Security", "Refactoring", "Role-Based Access Control", "SQL"]
+author: "Ryan Dashwood"
+---
+## The Client That Shouldn’t Be
+
+Last week, while digging through the AustinsElite (Legacy) codebase—a PHP monolith built on a custom framework with a few Laravel packages sprinkled in—I spotted something off in the staff role dropdown. The UI was excluding the 'Client' role from the list, which sounds right. Admin panels shouldn’t let you assign client-level access to staff accounts. But the way it was doing it? That’s where things got brittle.
+
+The original SQL query looked like this:
+
+```sql
+SELECT * FROM roles WHERE name != 'Client' ORDER BY name;
+```
+
+Simple, readable… and dangerous. Because somewhere down the line, a developer added a new role: 'Client Manager'. Suddenly, that role was also being hidden—not because of any security decision, but because of a substring collision in a naive string comparison. Worse, if someone added 'External Client' or 'Client Admin' later, same problem. And what if 'Client' was ever renamed? The logic breaks silently.
+
+But here’s the real issue: this wasn’t just a UI glitch. The same string-based exclusion was used in permission checks across the app. That meant role checks in critical endpoints were relying on fragile name matching. One typo, one translation layer, one renamed role—and you’ve got an access control bypass.
+
+## Why String-Based Role Checks Don’t Scale
+
+Let’s be clear: checking roles by name might seem fine in a small app with three roles. But in a system like AustinsElite (Legacy), where roles have evolved over a decade, it’s a ticking time bomb.
+
+Names are for humans. IDs are for machines.
+
+When you tie security logic to string values, you’re coupling business rules to presentation. You’re assuming that 'Client' will always be called 'Client', that no future role will include that word, and that no one will accidentally trim or title-case it into a mismatch.
+
+I’ve seen this go wrong in three ways:
+
+1. **Accidental exclusion/inclusion** due to partial matches (like 'Client Manager' being hidden).
+2. **Silent failures** when roles are renamed for branding or clarity.
+3. **Inconsistent checks** across the codebase—some places check `name`, others check `slug`, others use magic numbers.
+
+And because this was a legacy system with no centralized authorization layer, every new feature just copied whatever pattern was nearby. We had at least four different ways roles were being filtered or checked. That’s not just messy—it’s a security risk.
+
+## From Strings to Boundaries: A Smaller, Stronger Fix
+
+Rewriting the entire permission system wasn’t on the table. We’re in stabilization mode, not full rewrite. So I needed a surgical fix: one that would eliminate the string dependency without introducing risk.
+
+The solution? Switch to numeric `role_id` ranges.
+
+In AustinsElite (Legacy), roles were already seeded with IDs in a rough hierarchy:
+
+- `1–10`: System roles (Admin, Staff, Client)
+- `11–49`: Custom staff roles
+- `50+`: Client-facing roles
+
+Instead of filtering by `name != 'Client'`, I changed the query to:
+
+```sql
+SELECT * FROM roles WHERE role_id < 50 ORDER BY name;
+```
+
+That single line—part of a commit titled 'fixed client in staff role dropdown'—did more than clean up the dropdown. It established a clear, enforceable boundary: roles with ID 50 and above are client-tier. Everything below is staff-tier or system-tier.
+
+No more string parsing. No more magic names. Just a numeric guardrail that’s easy to understand, audit, and extend.
+
+And because `role_id` is immutable and database-enforced, it’s not subject to the whims of a product manager who wants to rename 'Client' to 'End User'. The security boundary stays put.
+
+This also opened the door for future improvements. Now that we have a clear ID-based tier system, we can start adding role-based middleware that checks `role_id` ranges instead of names. We can log access attempts by tier. We can even build tooling to visualize role inheritance—all because we stopped treating role names as code.
+
+## Refactoring Legacy Permissions Without Blowing It Up
+
+You don’t need a full RBAC overhaul to make legacy systems safer. Sometimes, the highest-impact changes are the quietest.
+
+Here’s what I’ve learned from this and similar fixes in AustinsElite (Legacy):
+
+- **Start with data, not code.** Look at how roles are actually used. Are there patterns in IDs, creation order, or groupings? Use those as the basis for rules.
+
+- **Prefer immutability.** Names change. Slugs change. IDs (once set) don’t. Anchor your logic to stable values.
+
+- **One boundary at a time.** You don’t have to fix everything today. Pick one leak, plug it with a durable rule, and move on.
+
+- **Document the why.** I added a comment: `-- role_id >= 50 are client-tier roles; staff dropdown only shows staff-tier and below`. That tiny note saves future devs from reverse-engineering intent.
+
+This fix took 20 minutes and one migration. But it eliminated a whole class of potential permission bugs. In legacy systems, that’s a win.
+
+Because modernization isn’t always about shiny new frameworks. Sometimes, it’s about making the old code just a little more honest—and a lot harder to break.

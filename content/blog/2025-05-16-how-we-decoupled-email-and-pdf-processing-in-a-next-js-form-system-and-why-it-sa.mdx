@@ -1,0 +1,85 @@
+---
+title: "How We Decoupled Email and PDF Processing in a Next.js Form System — And Why It Saved Our Logs"
+date: "2025-05-16"
+excerpt: "Breaking apart tightly coupled form side effects in Laravel 12 improved debugging, resilience, and observability during AustinsElite's critical rebuild phase."
+tags: ["Next.js", "Laravel", "form handling", "job queues", "observability"]
+author: "Ryan Dashwood"
+---
+## The Monolith That Broke the Logs
+
+A few months ago, our form submission handler in the AustinsElite rebuild looked like a crime scene. A single API route in Laravel 12 was doing *everything*: validating input, sending confirmation emails, generating PDFs, logging to external services, and updating internal state. All synchronously. All in one function.
+
+It worked — until it didn’t.
+
+When a PDF generation failed due to a flaky dependency, the entire submission would crash. Worse, we’d lose the email send too, even though that part was fine. And good luck figuring out *why* it failed. Our logs were a wall of noise — success messages, stack traces, and half-baked context all jumbled together. Debugging meant sifting through gigabytes of logs, hoping to spot a pattern.
+
+We were treating a multi-step business process like a single atomic operation. That’s fine for simple forms. But AustinsElite’s rebuild involved complex quote requests with multiple downstream actions. We needed resilience. We needed visibility. We needed separation.
+
+## Enter ProcessFormSubmissionJob: One Job to Rule Them All (But Not Really)
+
+The fix wasn’t about rewriting the whole system. It was about *refactoring intent*. Instead of doing everything in the route handler, we introduced a single job: `ProcessFormSubmissionJob`. This wasn’t a full queue system (yet), but it was a mental shift — from "handle request" to "dispatch work."
+
+Here’s what changed:
+
+```ts
+// BEFORE: Route handler doing everything
+export default async function handler(req, res) {
+  const data = validate(req.body);
+  await sendEmail(data);
+  await generatePDF(data);
+  await logToAnalytics(data);
+  res.status(200).json({ success: true });
+}
+```
+
+```ts
+// AFTER: Route handler delegates
+export default async function handler(req, res) {
+  const data = validate(req.body);
+  
+  // Fire and forget (well, not *too* forget)
+  await ProcessFormSubmissionJob.handle(data);
+  
+  res.status(200).json({ success: true });
+}
+```
+
+The `ProcessFormSubmissionJob` class became the orchestrator. It didn’t do the work itself — it coordinated it. More importantly, it *isolated* each step:
+
+```ts
+// Inside ProcessFormSubmissionJob
+await this.attemptSendEmail();
+await this.attemptGeneratePDF();
+await this.attemptLogToAnalytics();
+```
+
+Each method wrapped its logic in try/catch blocks. A PDF failure no longer killed the email. We could retry individual pieces. And because each step was named and self-contained, we could *reason* about them.
+
+This pattern was inspired by Laravel’s job system — something we were already using in the primary AustinsElite app on Laravel 12. Even though this was a Laravel 12 rebuild, we brought over the mental model: jobs as units of work, not just functions.
+
+## Logging That Actually Helps
+
+The real win came when we started adding structured logs to each job phase. Our earlier commit — "More logging, added missing additional details to RaQ" — wasn’t just about verbosity. It was about *context*.
+
+Instead of logging "Form submitted," we logged:
+
+- "ProcessFormSubmissionJob started for quote ID: abc123"
+- "Email sent to user@example.com — duration: 412ms"
+- "PDF generation failed — retrying (attempt 2/3)"
+- "Analytics event recorded — provider: RaQ"
+
+These weren’t just messages. They were breadcrumbs. When something went wrong, we didn’t have to guess. We could trace the entire journey of a submission.
+
+We also added unique correlation IDs to each job, passed through all logs and external calls. Suddenly, our monitoring tools could group related events. We could see that 12% of PDF failures were due to a specific template timeout — not user error, not data issues. That insight led to a targeted fix, not a rewrite.
+
+## Why This Matters Beyond One Form
+
+This wasn’t just a cleanup. It changed how we think about side effects in serverless environments. Next.js API routes are powerful, but they’re not meant to be long-running workers. By decoupling, we gained:
+
+- **Resilience**: One failure doesn’t kill the whole process.
+- **Observability**: Clear logs = faster debugging.
+- **Maintainability**: New team members can read `ProcessFormSubmissionJob` and understand the flow in minutes.
+
+We’re still evolving this — eventually, we’ll move to a real queue system with Redis and workers. But this job pattern got us 80% of the way there with minimal infrastructure.
+
+If you’re building form-heavy apps in Next.js, don’t let your API routes become dumping grounds. Treat submissions as *workflows*, not just endpoints. Decouple early. Log intentionally. And let your jobs do the heavy lifting — quietly, reliably, and one step at a time.

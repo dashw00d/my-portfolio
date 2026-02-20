@@ -1,0 +1,79 @@
+---
+title: "From Vanilla DOM to React: How We Fully Modernized Animation Staging Studio’s Frontend"
+date: "2025-12-30"
+excerpt: "We replaced 5 years of vanilla DOM code with React—here’s how we tackled state sync, hot-reload, and full legacy cleanup."
+tags: ["React", "Frontend Modernization", "Animation Tools", "Legacy Migration", "WebSockets", "Three.js"]
+author: "Ryan Dashwood"
+---
+## The DOM Was Winning (And We Were Losing)
+
+Five years ago, Animation Staging Studio launched with a simple premise: give animators real-time control over 3D scenes in the browser. Back then, vanilla DOM manipulation made sense—few dependencies, fast iteration. But as features piled on—timeline scrubbing, facial expression presets, asset hot-swapping—the DOM became a tangled web of event listeners, manual state mirrors, and fragile selectors.
+
+By 2025, we had over 200 tightly coupled UI functions directly manipulating the DOM. A single animation parameter update would trigger three separate `querySelector` chains, two manual input value syncs, and a side effect that sometimes fired twice. Performance wasn’t the only issue—debugging was a nightmare. We needed a paradigm shift.
+
+React wasn’t our first choice—we evaluated Svelte and even considered a custom signals-based system. But React’s ecosystem, developer tooling, and—critically—its compatibility with React Three Fiber made it the clear winner. Plus, our team already used it in AustinsElite (our Laravel 12 client project), so onboarding was fast.
+
+The goal? Replace every last line of legacy DOM code with a declarative, component-driven UI—without breaking real-time sync with our animation engine.
+
+## Building Panels That Stay in Sync (Without Breaking a Sweat)
+
+The biggest architectural challenge wasn’t just porting UI—it was ensuring React components stayed perfectly in sync with the animation state, which lives outside React’s world in a Three.js render loop.
+
+We couldn’t rely on useEffect polling. That would introduce lag and burn CPU. Instead, we implemented a hybrid pub-sub pattern: the animation engine emits state deltas via a central `AnimationEventDispatcher`, and a new `useAnimationState` hook subscribes to only the keys a component cares about.
+
+```js
+// Simplified hook
+function useAnimationState(keys) {
+  const [state, setState] = useState(getCurrentState(keys));
+
+  useEffect(() => {
+    const handler = (update) => {
+      if (keys.some(key => key in update)) {
+        setState(prev => ({...prev, ...update}));
+      }
+    };
+    AnimationEventDispatcher.on('state:update', handler);
+    return () => AnimationEventDispatcher.off('state:update', handler);
+  }, [keys]);
+
+  return state;
+}
+```
+
+This gave us fine-grained reactivity. When the animator scrubbed the timeline, only timeline-connected components re-rendered—not the entire panel tree. We paired this with React.memo and custom `arePropsEqual` checks to avoid unnecessary reconciliations.
+
+We also built a `PanelProvider` system that lets us mount React UIs directly into legacy Three.js overlay containers. This let us incrementally replace DOM panels without rewriting the entire rendering pipeline.
+
+## Hot-Reload That Actually Works (Thanks, WebSockets)
+
+One of our killer features is live asset reloading: drop a new GLB file into your project, and it instantly appears in the UI. The old system used `MutationObserver` hacks and was flaky at best.
+
+With React, we rebuilt this on WebSockets. The file watcher (Node.js backend) pushes asset events to the client, which triggers a `useAssets` hook update. The UI re-renders, but—critically—we preserve selection state and animation bindings.
+
+```js
+// On the backend
+wsServer.broadcast({
+  type: 'asset:updated',
+  payload: { id, url, metadata }
+});
+
+// On the frontend
+useEffect(() => {
+  ws.on('asset:updated', handleAssetUpdate);
+  return () => ws.off('asset:updated', handleAssetUpdate);
+}, []);
+```
+
+This wasn’t just about convenience. Frame-accurate asset swaps are critical when animators are previewing character rigs. We added checksum validation and lazy texture preloading to ensure no hitches during playback.
+
+## The Big Bang: Deleting 12,000 Lines of Legacy Code
+
+On December 30, 2025, we landed the final cleanup: `chore(cleanup): Big Bang cleanup - Remove all legacy vanilla DOM UI and state adapters`.
+
+It was euphoric. We deleted 12k lines of DOM code, 47 event adapters, and 6 global state mirrors. The bundle size dropped by 18%. More importantly, the app felt *lighter*—not just in performance, but in maintainability.
+
+But getting here wasn’t just about coding. It was about testing. We built a shadow mode: the old and new UIs ran side-by-side, comparing state updates and event emissions. Any mismatch triggered a dev warning. We also wrote integration tests that simulate scrubbing, playback, and asset swaps—using Puppeteer to verify DOM output.
+
+Would I do it again? In a heartbeat. Migrating a live 3D tool from vanilla JS to React is no small feat—but with incremental architecture, disciplined state sync, and real-world testing, it’s not just possible. It’s liberating.
+
+Now, when I add a new animation control, I write a component—not a selector chain. And that, more than anything, tells me we made the right call.

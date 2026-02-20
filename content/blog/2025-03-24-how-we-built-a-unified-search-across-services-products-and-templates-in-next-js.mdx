@@ -1,0 +1,91 @@
+---
+title: "How We Built a Unified Search Across Services, Products, and Templates in Next.js"
+date: "2025-03-24"
+excerpt: "Implementing global search in a hybrid Laravel-Next.js app: indexing strategies, query handling, and fixing focus UX for accessibility."
+tags: ["Next.js", "Laravel", "Global Search", "UX Optimization", "Full-Stack"]
+author: "Ryan Dashwood"
+---
+## Breaking Down the Search Scope: Not Just Services Anymore
+
+When we first shipped search in AustinsElite, it only covered services. That made sense at the time — services were the core offering, and the data lived neatly in our Laravel 12 backend. But as the product grew, users started asking: "Can I search for products too? What about template snippets or route paths?"
+
+The answer had to be yes. So we redefined the scope: global search now needed to unify four distinct data types:
+
+- Services (Eloquent models, API-driven)
+- Products (separate Eloquent model, same DB)
+- Routes (statically defined in PHP, used for navigation)
+- Blade templates (filesystem-based, used for dynamic content rendering)
+
+The challenge wasn’t just breadth — it was heterogeneity. Each type lived in a different layer of the stack, had different metadata, and updated on different cycles. We couldn’t just slap a LIKE query on everything and call it a day.
+
+Our solution? A centralized search index built client-side during build time and hydrated at runtime. We exposed lightweight JSON endpoints from Laravel for services and products, parsed route definitions via a custom Artisan command, and scanned Blade files using Node’s fs module during the Next.js build. All data was normalized into a flat array of searchable items with consistent fields: `title`, `type`, `url`, and `keywords`.
+
+This hybrid approach let us keep Laravel in charge of business logic and data integrity, while Next.js handled fast, client-side search without additional runtime queries.
+
+## Implementing Consistent Indexing and Query Handling
+
+Once we had all data sources exporting JSON, the next step was making them play nice together in the frontend. We created a `searchIndex.json` file during the Next.js build process, combining:
+
+- `/api/search/services` (Laravel endpoint)
+- `/api/search/products` (newly added)
+- Static `routes.json` (generated from RouteServiceProvider)
+- Parsed `templates.json` (from Blade file comments and filenames)
+
+Each item was transformed into a common schema:
+
+```json
+{
+  "id": "product-123",
+  "title": "Premium SEO Package",
+  "type": "product",
+  "url": "/products/123",
+  "keywords": ["seo", "optimization", "package"]
+}
+```
+
+We used Next.js’s `getStaticProps` to preload this index on the search page, then implemented a lightweight fuzzy search using `fuse.js`. It gave us typo tolerance and ranking without the overhead of a full search engine.
+
+But the real win was consistency. Whether you searched for "blog template", "SEO service", or "/admin/users", the results felt like they came from one system — not four. We added type badges and grouped results by category in the UI to maintain clarity.
+
+One gotcha: Blade templates didn’t have metadata. We solved this by parsing comment headers:
+
+```blade
+{# title: Homepage Hero; keywords: hero, banner, cta #}
+<div class="hero">...</div>
+```
+
+A small convention, but it gave us searchable context without coupling templates to the backend.
+
+## Fixing Subtle UX Issues: Why Focus Matters
+
+Here’s a detail most users wouldn’t notice — until it’s broken. After clicking the search icon, the input field opened, but the cursor didn’t land inside. You had to click again. On mobile? Even worse.
+
+It sounds minor. But it broke the flow. We’d built a fast, comprehensive search — then added a friction point at the very first interaction.
+
+The issue stemmed from how we toggled the search modal. We used a button to control visibility, but React didn’t automatically shift focus to the input. Accessibility-wise, this failed WCAG 2.1’s focus management guidelines.
+
+The fix was simple, but telling:
+
+```tsx
+const inputRef = useRef<HTMLInputElement>(null);
+
+const openSearch = () => {
+  setIsOpen(true);
+  // Next tick ensures DOM update
+  setTimeout(() => inputRef.current?.focus(), 50);
+};
+```
+
+We added a ref to the input and manually focused it after state update. The `setTimeout` ensured React had rendered the input before attempting focus.
+
+This tiny change transformed the experience. Click the magnifying glass, start typing — no extra taps, no confusion. It’s the kind of polish that makes a feature feel *done*.
+
+This wasn’t just about convenience. It was about respecting user intent. When someone hits search, they’re ready to type. Our job is to get out of the way.
+
+## Wrapping Up: Search as a Cohesive Experience
+
+What started as a simple service lookup became a unified discovery layer across AustinsElite. By combining Laravel’s backend strength with Laravel 12’s frontend agility, we built a search that’s fast, accurate, and surprisingly flexible.
+
+The commits that got us here — adding products, parsing templates, fixing focus — weren’t headline-grabbers. But together, they solved real usability gaps and expanded what users could find in one place.
+
+If you’re working on a hybrid Laravel-Next.js app, don’t treat search as an afterthought. Plan for heterogeneity, normalize early, and obsess over the little things. The difference between "meh" and "wow" is often just one focused input field.

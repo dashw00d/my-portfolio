@@ -1,0 +1,83 @@
+---
+title: "How We Built a Self-Service Brand Kit Page in Next.js (And Why It Matters for Developer Advocacy)"
+date: "2025-02-07"
+excerpt: "We launched a self-service brand kit with optimized assets and automated ZIP generation—here’s how we did it in Next.js."
+tags: ["Next.js", "Developer Experience", "Asset Optimization", "Static Export", "Build Automation", "Brand Systems"]
+author: "Ryan Dashwood"
+---
+## Why a Brand Kit Isn’t Just for Designers
+
+Last week, we shipped a brand kit page for AustinsElite—and no, it’s not hosted in Laravel. While the primary AustinsElite app runs on Laravel 12 (the historical stack), this particular feature lives in a separate, statically exported Laravel 12 site used for public-facing content and developer resources. That distinction matters.
+
+As developer advocates, we often talk about DX—developer experience—but branding consistency is just as critical when representing a project publicly. Reporters, contributors, and community members kept asking for logo assets, color palettes, and usage guidelines. Instead of handling requests manually, we decided to automate it.
+
+Enter: the self-service brand kit.
+
+## Serving Optimized Assets at Scale
+
+The core of the brand kit is simple: provide clean, production-ready logos in SVG and PNG formats. But delivering them efficiently? That’s where things get interesting.
+
+We used Next.js’s `next/image` with the `static` export mode. Since this isn’t a dynamic app, we pre-render everything. All logos live in `/public/assets/brand`, and we serve them through the Image component with `unoptimized={true}`—because for SVGs, `next/image` doesn’t add value and can actually interfere.
+
+But raw SVGs from designers? They’re bloated. Ours had embedded metadata, editor cruft, and redundant paths. So we added a pre-build script using [SVGO](https://github.com/svg/svgo) to strip all that out:
+
+```bash
+npx svgo -f public/assets/brand --config=svgo.config.js
+```
+
+Our `svgo.config.js` disables plugins like `addAttributesToSVGElement` and enables `cleanupIDs`, `removeViewBox`, and `removeTitle`. The result? A 68% reduction in file size on average. Smaller downloads, faster renders, cleaner DOM.
+
+For PNGs, we run them through `imagemin` during the build process—lossless compression, 8-bit where possible. Every byte counts when you’re embedding assets in docs or third-party sites.
+
+## Automating the ZIP: Build-Time Magic
+
+The real win wasn’t just hosting files—it was bundling them. We didn’t want users manually selecting and downloading each asset. So we wrote a build-time script (`scripts/generate-brand-zip.js`) that runs *after* optimization and *before* export.
+
+Using Node’s `fs`, `path`, and `archiver`, the script:
+
+- Scans the optimized `/public/assets/brand` directory
+- Groups assets by type (logo, icon, wordmark) and format
+- Generates a `austinselite-brand-kit-v1.0.zip` with a `README.md` and `LICENSE` included
+- Places the ZIP in `/public/downloads`
+
+We version the ZIP using environment variables (`BRAND_KIT_VERSION`) set in CI, so every deploy can bump the version without touching code.
+
+And because this runs during `next build`, the ZIP is available immediately in the static output—no external storage, no runtime overhead.
+
+Here’s a snippet:
+
+```js
+const archive = archiver('zip');
+const output = fs.createWriteStream(zipPath);
+
+archive.pipe(output);
+archive.directory('public/assets/brand/', 'assets');
+archive.file('public/brand/README.md', { name: 'README.md' });
+archive.finalize();
+```
+
+It’s low-tech, reliable, and fits perfectly into our CI/CD pipeline.
+
+## Aligning UX with Brand Clarity
+
+We originally called this a "Press Kit"—but that felt limiting. This isn’t just for journalists. It’s for contributors, integrators, and community builders who want to represent AustinsElite correctly.
+
+So we renamed it to "Brand Kit" across the nav, headers, and metadata. Small change, big signal: this is the source of truth for how the project looks and feels.
+
+We also added clear usage guidelines—do’s and don’ts for logo placement, color codes in HEX/RGB, and typography pairings. All statically rendered, all searchable.
+
+The impact? Immediate. Within 48 hours of launch, we saw 120+ ZIP downloads and a noticeable drop in "Can I get the logo?" Slack messages. More importantly, external sites started using the correct assets—no more stretched PNGs or outdated wordmarks.
+
+## Why This Matters Beyond the Code
+
+Building a brand kit might sound like a design task, but it’s deeply technical when you care about performance, automation, and scalability. This wasn’t just about dropping files online. It was about creating a system:
+
+- **Performance**: Optimized assets load fast, even on slow connections.
+- **Consistency**: Everyone uses the same, approved visuals.
+- **Autonomy**: No gatekeeping. No bottlenecks.
+
+For developer advocates, that last point is gold. The less time we spend fulfilling asset requests, the more we can focus on building tools, writing docs, and supporting the community.
+
+And for users? It’s a signal: *We take our brand seriously—so you can too.*
+
+If you’re maintaining an open-source project or public design system, consider adding a brand kit. With Next.js’s static export, a few smart scripts, and some attention to detail, it’s easier than you think.

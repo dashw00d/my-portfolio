@@ -1,0 +1,86 @@
+---
+title: "How We Added a Poaching Clause to Our Client Contracts in a Laravel 12 + Next.js Stack"
+date: "2025-09-26"
+excerpt: "Here's how we rolled out a legal update across both web forms and PDFs in our Laravel 12 and Next.js app—without breaking a sweat."
+tags: ["Laravel", "Next.js", "Legal Compliance", "Full-Stack", "PDF Generation"]
+author: "Ryan Dashwood"
+---
+## Why We Needed a Poaching Clause
+
+A few weeks ago, our sales team flagged a recurring issue: clients were hiring our on-site developers directly after project completion. While flattering, it undercut our delivery model and hurt team retention. The fix? A clear poaching clause in our client contracts.
+
+This wasn’t just a legal tweak—it was a full-stack update. Our primary product, AustinsElite, runs on Laravel 12 with a modern Laravel 12 frontend. Contract terms appear in two places: a user-editable form powered by Laravel Livewire (rendered in the Laravel 12 interface), and a PDF generated server-side for e-signature. Any change had to be reflected in both—consistently and accurately.
+
+The challenge? Keep the UX smooth, maintain document integrity, and ship fast. Here’s how we did it.
+
+## Updating the Livewire Form in the Next.js Frontend
+
+Even though our frontend is built with Next.js, the contract form itself is a Livewire component embedded via Inertia.js (a setup we’ve found perfect for gradual modernization of Laravel apps). That meant the form logic and state lived in Laravel, but the rendering happened in React.
+
+Our first step was to add the new clause as a checkbox in the Livewire component (`EditContract`). We didn’t want to hardcode it—this might not be the last legal addition—so we abstracted contract clauses into a config-driven array:
+
+```php
+// config/contract_clauses.php
+return [
+    'poaching' => [
+        'label' => 'No Poaching Agreement',
+        'text' => 'Client agrees not to hire or solicit any member of the development team for 12 months.',
+        'required' => true,
+    ],
+];
+```
+
+Then, in the Livewire view:
+
+```blade
+@foreach(config('contract_clauses') as $key => $clause)
+    <div class="clause">
+        <x-checkbox
+            wire:model="clauses.{{ $key }}"
+            :required="$clause['required']"
+        />
+        <label>{{ $clause['text'] }}</label>
+    </div>
+@endforeach
+```
+
+This approach let us toggle clauses globally or per-contract type later. The Next.js layer didn’t need deep changes—just a re-render when the Livewire component updated. Inertia handled the data sync seamlessly.
+
+We also added client-side validation using Laravel’s native rules, ensuring the clause was acknowledged before submission. No extra JavaScript libraries, no race conditions—just clean, predictable behavior.
+
+## Syncing the PDF Template for Consistency
+
+The real gotcha? The PDF. We generate it server-side using DomPDF and a Blade template (`contract.blade.php`), which pulls the same contract data from the database. If the web form showed the clause but the PDF didn’t, we’d have a legal nightmare.
+
+So we mirrored the config change in the PDF template:
+
+```blade
+<!-- resources/views/pdf/contract.blade.php -->
+@foreach(config('contract_clauses') as $clause)
+    @if($contract->hasClause($key))
+        <div class="pdf-clause">
+            <strong>{{ $clause['label'] }}:</strong>
+            {{ $clause['text'] }}
+        </div>
+    @endif
+@endforeach
+```
+
+We added a `hasClause()` method to our `Contract` model to support conditional inclusion (e.g., for enterprise clients who might have negotiated it out). This kept the logic centralized and testable.
+
+To verify parity, we wrote a quick feature test that renders both the Livewire form and the PDF for the same contract and checks for the presence of the clause text. One test, two outputs validated.
+
+```php
+$this->assertStringContainsString('No Poaching Agreement', $livewireHtml);
+$this->assertStringContainsString('No Poaching Agreement', $pdfText);
+```
+
+It’s not glamorous, but it’s bulletproof.
+
+## Shipping Fast Without Sacrificing Integrity
+
+This wasn’t a flashy feature—no animations, no new APIs. But it mattered. Legal compliance is part of the product, especially in B2B SaaS. By treating contract terms as first-class application data (not static text), we made future updates faster and safer.
+
+The hybrid Laravel 12 + Next.js stack gave us the best of both worlds: Laravel’s rapid backend iteration and form handling, and Next.js’s modern frontend. Livewire kept the interactivity tight, while the shared config ensured consistency.
+
+Now, when legal comes knocking with another clause—NDAs, IP ownership, you name it—we’re ready. One config update, two templates in sync, and we’re done.

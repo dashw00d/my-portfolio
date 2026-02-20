@@ -1,0 +1,62 @@
+---
+title: "Modularizing Vite: How We Extracted Custom Build Logic into a Reusable Plugin"
+date: "2025-08-25"
+excerpt: "We extracted custom Vite logic into a standalone plugin to streamline per-site builds across our PHP component generator."
+tags: ["Vite", "Laravel", "PHP", "Build Tools", "Code Generation"]
+author: "Ryan Dashwood"
+---
+## The Problem With Copy-Pasted Vite Configs
+
+We run a Laravel-based code generation system—Component Gen—that spins up full frontend sites from PHP components. Each generated site uses Vite for asset compilation, but we weren’t using it out of the box. We had custom logic baked directly into vite.config.js: dynamic entry points, site-specific output paths, and theme-aware asset resolution—all hardcoded or conditionally loaded based on environment variables.
+
+At first, that worked fine. But as we scaled to dozens of generated sites, maintaining these configs became a mess. Every change—like tweaking output hashing or adding a new theme preset—meant manually updating or regenerating config files across repos. We had technical debt piling up in our build layer, and it was slowing us down.
+
+We needed consistency, reusability, and a clean separation between *what* we build and *how* we build it.
+
+## Extracting Logic into a Reusable Vite Plugin
+
+The fix? Modularize. We pulled all our project-specific Vite logic into a standalone plugin: `vite-plugin-component-gen`. The goal wasn’t to build something generic for the world—it was to make our own lives easier by encapsulating complexity in one place.
+
+We started by identifying the core responsibilities:
+
+- Resolving dynamic entry points based on site ID
+- Setting output paths per site (e.g., `/build/site-123/assets`)
+- Injecting theme variables at build time from database-driven config
+- Ensuring HMR worked reliably across isolated site contexts
+
+Once we had clear boundaries, we structured the plugin as a Vite config enhancer that accepts a `siteId` option. Inside, it hooks into `config`, `configResolved`, and `buildStart` to dynamically adjust entry points, resolve paths, and inject environment constants.
+
+Here’s a simplified version of how it’s used in a generated site:
+
+```js
+// vite.config.js (now clean and minimal)
+import { defineConfig } from 'vite'
+import componentGen from 'vite-plugin-component-gen'
+
+export default defineConfig({
+  plugins: [
+    componentGen({ siteId: process.env.SITE_ID })
+  ],
+  // no more custom build logic here
+})
+```
+
+All the messy, conditional logic lives in the plugin now—tested, versioned, and shared across all sites. When we need to update how assets are hashed or add a new preprocessor, we change one package, not fifty configs.
+
+This wasn’t just about cleanliness. It also made our build pipeline more reliable. With consistent plugin behavior, we eliminated subtle config drift that had once caused silent asset misfires in production.
+
+## Enabling Per-Site Builds and Future-Proofing Themes
+
+The real win came when we combined this plugin with our shift to database-driven theming via Filament. Now, during generation, we assign a site ID, pull its theme settings from the database, and pass that context straight into the Vite plugin.
+
+That means each site compiles with its own branding, entry structure, and asset rules—without any manual config work. We trigger builds in our CI pipeline with:
+
+```bash
+SITE_ID=42 npm run build
+```
+
+And behind the scenes, the plugin fetches theme data, sets paths, and compiles a fully branded output. This powers dynamic frontend generation at scale—exactly what we need for Component Gen.
+
+Looking ahead, this modular approach opens doors. We can now experiment with per-site CSS extraction, conditional JS bundles, or even runtime theme switching—all without touching individual vite.config.js files. The plugin becomes a control point for innovation, not just maintenance.
+
+Modularizing our Vite setup didn’t require rewriting our build system. It just meant treating our tooling like real code: encapsulated, reusable, and built to evolve. If you’re managing multiple Laravel or PHP-generated frontends, consider pulling your Vite logic into a plugin. It’s one of the most impactful refactorings you can make—especially when your builds need to scale.

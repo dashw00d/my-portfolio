@@ -1,0 +1,81 @@
+---
+title: "How We Scaled Dashboard Personalization with Role-Based Widgets in Laravel Filament"
+date: "2025-05-23"
+excerpt: "We built a dynamic, permission-aware dashboard in Laravel Filament that scales with team roles—here's how we did it."
+tags: ["Laravel", "Filament", "Spatie Permissions", "Dashboard Design", "Role-Based Access"]
+author: "Ryan Dashwood"
+---
+## Breaking Down Roles to Power Widget Visibility
+
+At AustinsElite, our team wears a lot of hats. Marketing managers need campaign analytics. Support leads want ticket queues. Execs care about revenue trends. One-size-fits-all dashboards? That stopped working the minute we hit 15 active users.
+
+Our solution: rebuild the dashboard as a composition of widgets—each one a self-contained UI module—whose visibility is determined at runtime by the user’s role. We’re using Laravel 12 with Filament as our admin panel framework, and Spatie’s Laravel Permission package to define granular roles and abilities.
+
+The first step was auditing our user roles. We mapped out every team function and distilled them into permission groups: `view_reports`, `manage_users`, `access_finance_data`, etc. These aren’t just labels—they’re gates that control what widgets appear.
+
+For example, a support agent has `view_tickets` but not `view_finances`. So when they log in, the Revenue Forecast widget doesn’t just hide—it’s never rendered. That’s not just cleaner UI; it’s a security win.
+
+## Building a Widget System That Respects Permissions at Render Time
+
+Filament makes it easy to add static widgets to dashboards. But we needed something smarter: dynamic composition based on permissions.
+
+We created a base `DashboardWidget` class that all our widgets extend. Inside, we override the `canView()` method—Filament’s built-in hook for conditional rendering—and tie it directly to Spatie’s `@can` directive logic:
+
+```php
+public static function canView(): bool
+{
+    return auth()->user()->can('view_' . strtolower(class_basename(static::class)));
+}
+```
+
+Now, each widget automatically checks if the user has a matching permission. `TicketStatsWidget` → `view_ticket_stats`, `RevenueChartWidget` → `view_revenue_chart`. We enforce naming conventions in our PR reviews, so this stays consistent.
+
+But we didn’t stop there. Some widgets need more nuance. A marketing manager should see campaign data, but only for their region. So we added context-aware logic:
+
+```php
+public static function canView(): bool
+{
+    $user = auth()->user();
+    
+    if (! $user->can('view_campaigns')) {
+        return false;
+    }
+
+    // Regional scope check
+    return $user->region === static::getRegion();
+}
+```
+
+This keeps the permission layer flexible without sacrificing performance. We cache role permissions on login using Spatie’s built-in caching, so every `can()` call is fast.
+
+We also built a `WidgetRegistry` service that scans all widget classes, checks `canView()`, and returns only what the user should see. This powers the dynamic grid layout:
+
+```php
+public function getWidgets(): array
+{
+    return WidgetRegistry::forUser(auth()->user())->get();
+}
+```
+
+No config files. No hardcoded arrays. Just PHP classes that declare their intent and let the system compose the right dashboard.
+
+## Integrating with Filament’s Dynamic Layout for a Seamless UX
+
+Filament’s dashboard supports dynamic widgets out of the box—but only if you return them from `getWidgets()`. Our registry plugs right in.
+
+We also wanted control over layout density. Executives prefer a high-level overview; analysts want data density. So we introduced user preferences:
+
+```php
+public function getColumns(): int
+{
+    return auth()->user()->prefers_dense_layout ? 2 : 1;
+}
+```
+
+Now the same set of widgets can render in a compact 2-column grid or a spacious single column, based on user choice. We store this in the users table and load it early in the session.
+
+The result? A dashboard that feels personal, fast, and secure. New roles can be added in minutes—just define the permissions, assign them to the role, and deploy. No frontend changes needed. The widgets themselves handle the rest.
+
+This approach has scaled cleanly from 5 to 50+ internal users. We’ve even open-sourced our `WidgetRegistry` pattern internally as a reusable package across other Laravel apps.
+
+If you’re building admin panels in Filament, don’t settle for static dashboards. Use Spatie Permissions not just for access control—but as the foundation for a truly personalized UI. Your users won’t miss what they can’t see, and they’ll love how fast they find what they need.

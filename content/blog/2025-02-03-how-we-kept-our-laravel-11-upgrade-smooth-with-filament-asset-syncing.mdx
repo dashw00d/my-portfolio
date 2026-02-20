@@ -1,0 +1,47 @@
+---
+title: "How We Kept Our Laravel 11 Upgrade Smooth with Filament Asset Syncing"
+date: "2025-02-03"
+excerpt: "Here's how we avoided frontend-backend drift after upgrading to Laravel 11.6.1 by syncing skeletons and properly publishing Filament assets."
+tags: ["Laravel", "Filament", "PHP", "Asset Management", "Upgrades"]
+author: "Ryan Dashwood"
+---
+## Syncing the Laravel 11.6.1 Skeleton Was Non-Negotiable
+
+When we pulled in Laravel v11.6.1 for the DataAnno Fil Starter, we didn’t just bump the version in `composer.json` and call it a day. This wasn’t a minor patch—it was a stabilization point after major framework shifts, and skipping the skeleton sync would’ve been asking for trouble.
+
+Laravel’s skeleton defines the baseline structure: config files, bootstrapping logic, and default service providers. If your app’s core files drift from the official skeleton, you risk subtle failures—like missing middleware groups or outdated exception handlers—that only surface at runtime.
+
+We ran the official upgrade guide steps meticulously, but the real move was syncing the latest changes directly from the [laravel/laravel](https://github.com/laravel/laravel) repo. This meant manually comparing and merging updates to `bootstrap/app.php`, `config/`, and `public/index.php`. It’s tedious, yes—but skipping it is like upgrading your car’s engine and forgetting to check the transmission fluid.
+
+The payoff? No mysterious `500` errors on fresh installs. No "why isn’t Sanctum working?" at 2 a.m. Just a clean, predictable foundation.
+
+## Publishing vs. Building Filament Assets—Don’t Confuse the Two
+
+Here’s where things get real for Filament users: **publishing** and **building** assets are not the same, and mixing them up breaks your admin panel.
+
+After the Laravel upgrade, we ran `php artisan filament:publish`, and for good reason. Filament ships with pre-built frontend assets (CSS, JS) that need to be copied into your app’s `public/` directory. This is *publishing*—a Laravel pattern you’ve seen with packages like Nova or Backpack.
+
+But here’s the trap: some devs assume that running `npm run build` (or `vite build`) automatically updates Filament’s UI. It doesn’t. Vite compiles *your* custom frontend code, not Filament’s internal assets. If you skip `filament:publish`, you’re still running old JS—even if your Vite build succeeds.
+
+Our pipeline now enforces this order:
+
+1. `composer update`
+2. `php artisan filament:publish`
+3. `npm run build`
+
+That sequence ensures backend contracts (like Livewire component mappings) and frontend assets stay in sync. Miss step two, and you’ll see console errors like `Class \"Filament\\Support\\Components\\ViewComponent\" not found` or broken modals that won’t close.
+
+We learned this the hard way during a staging deploy. The logs were clean, the build passed, but the Filament sidebar was unresponsive. A quick `diff` on `public/vendor/filament` showed we were three versions behind. One `filament:publish` later—fixed.
+
+## Debugging Asset Mismatches? Start Here
+
+When your Filament UI acts up post-upgrade, don’t panic. Follow this checklist:
+
+- **Clear the published assets**: Delete `public/vendor/filament` and re-publish. No exceptions.
+- **Check version alignment**: Run `composer show filament/filament` and ensure it matches the version your app expects. A `composer update` might not pull in the latest if your `composer.json` pins too tightly.
+- **Verify file existence**: Hit `/vendor/filament/core.js` in the browser. 404? You skipped publishing. 200 but outdated? You’re not re-publishing after deploys.
+- **Inspect browser console errors**: Look for `Failed to load module` or `Livewire component not registered`. These often trace back to stale JS trying to reference PHP classes that moved or changed in the upgrade.
+
+We automated part of this by adding a post-deploy health check that verifies the existence and modification time of key assets. It’s saved us twice already.
+
+Upgrading Laravel with Filament isn’t just about dependencies—it’s about respecting the contract between PHP and JavaScript. The skeleton keeps the backend sane. `filament:publish` keeps the frontend honest. Nail both, and your upgrade isn’t just smooth—it’s silent.

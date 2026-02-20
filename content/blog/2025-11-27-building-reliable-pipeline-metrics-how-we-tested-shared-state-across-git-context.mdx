@@ -1,0 +1,56 @@
+---
+title: "Building Reliable Pipeline Metrics: How We Tested Shared State Across Git Context Steps"
+date: "2025-11-27"
+excerpt: "We built a test framework to validate shared state in our Git Context pipeline, ensuring metric consistency across steps."
+tags: ["testing", "frontend", "pipelines", "observability", "git"]
+author: "Ryan Dashwood"
+---
+## The Problem with Pipeline Metrics (and Why They’re Hard to Trust)
+
+When you're running a multi-step client-side pipeline—like analyzing a Git repository across branches, commits, and file trees—it’s easy to assume each step plays nice with the last. But in reality, shared state between steps is fragile. A small mutation in one phase can silently corrupt metrics downstream, leading to misleading performance data or broken diagnostics.
+
+In Git Context, we recently overhauled our pipeline to support modular schema v2.0 and introduced live tracking for key operations. That meant more moving parts, more state sharing, and a growing need for confidence in our numbers. We couldn’t just *log* metrics—we needed to *test* them.
+
+The core issue? Our pipeline steps operate asynchronously, often in different execution contexts (think Web Workers or isolated modules), and pass around a shared state object. This object accumulates metadata like processing duration, file counts, cache hits, and error flags. Without rigorous validation, we were flying blind.
+
+We needed a way to assert that metrics were not only present but *consistent* across steps—and that no step was accidentally overwriting or misshaping data.
+
+## Building a Test Framework for Shared-State Integrity
+
+Our solution was a lightweight, composable test framework embedded directly into the pipeline runtime. Instead of treating metrics as a side effect, we elevated them to first-class citizens with schema validation, step-level assertions, and traceable lineage.
+
+Here’s how it works:
+
+Each pipeline step now declares its expected input and output metric shape using a minimal schema definition. These aren’t full JSON Schema blobs—just lightweight validators that check for required fields and types (e.g., `durationMs: number`, `fileCount: integer`).
+
+At runtime, the framework wraps each step and intercepts the shared state object before and after execution. It runs two checks:
+
+1. **Pre-flight validation**: Ensures the incoming state meets the step’s expectations.
+2. **Post-flight audit**: Verifies that the step didn’t remove or corrupt existing fields, and that any new metrics it adds conform to spec.
+
+If a violation occurs, the framework doesn’t just throw a console warning—it generates a detailed test report in TAP (Test Anything Protocol) format, which we can parse in CI.
+
+We also added opt-in mutation tracking. For high-risk steps, we enable deep cloning and diffing to detect *unexpected* changes to state properties. This isn’t on by default (performance matters), but it’s been invaluable for debugging edge cases.
+
+The whole thing is built as a middleware layer, so it’s easy to toggle in development or test environments without affecting production bundles.
+
+## From Test Reports to Real Debugging Wins
+
+The real payoff came when we plugged this into our CI pipeline. Now, every PR that touches Git Context’s analysis logic generates a `metrics-report.tap` file alongside unit tests. Our CI job parses it and fails the build if metric integrity is compromised.
+
+But the reports aren’t just for CI. We also made them human-readable. Running the pipeline locally with `DEBUG_METRICS=1` outputs a formatted summary like:
+
+```
+[Metrics Audit] Step: analyzeCommits
+✓ Preserved existing fields: repoSize, branchCount
+✓ Added valid metrics: commitCount (42), avgCommitSizeKB (3.1)
+⚠ Mutated 'cacheHit' from true → false (expected immutability)
+```
+
+That warning? Caught a bug where a cleanup step was inadvertently resetting flags meant to persist across phases. Without this framework, it would’ve slipped into production—quietly skewing our cache efficiency metrics.
+
+We’ve also started correlating these reports with performance data. When a step suddenly shows higher `durationMs` *and* a mismatch in expected output shape, it’s often a sign of logic drift or unintended reprocessing.
+
+This isn’t just testing—it’s observability with teeth. We’re no longer guessing whether our metrics reflect reality. We’re proving it, step by step.
+
+If you’re working on a frontend pipeline with shared state, I’d encourage you to treat metrics not as passive logs, but as testable contracts. A little structure goes a long way in keeping your data honest.

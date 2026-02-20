@@ -1,0 +1,42 @@
+---
+title: "Building a Time-to-Payment Pipeline: How We Engineered Hour Tracking and Reporting in Laravel 12"
+date: "2025-05-20"
+excerpt: "How we built a robust hour logging and payment reporting system in Laravel 12, from calendar sync to financial-grade data aggregation."
+tags: ["Laravel", "time tracking", "payment reporting", "full-stack", "SaaS"]
+author: "Ryan Dashwood"
+---
+## Overview of the hour log manager: from time entry to payment processing
+
+Last week, we wrapped up a major feature in AustinsElite: a full time-to-payment pipeline that lets users log hours, sync with calendars, and generate auditable payment reports. It’s now live and handling real financial data—so getting it right was non-negotiable.
+
+At its core, the system revolves around an hour log manager that acts as the single source of truth for time entries. Users can manually input hours or sync events from Google Calendar (via the Google Calendar API), which are then parsed, validated, and stored as structured time logs. Each entry includes metadata: project ID, client, rate, billable status, and notes. This wasn’t just about storing time—it was about building a chain of custody from log to ledger.
+
+We chose Laravel 12 as the backbone because of its mature ecosystem for business logic, Eloquent’s relationship handling, and built-in queue system for async processing. The frontend is Vue-powered but lives within Laravel Blade views, keeping the UX tight and SSR-friendly. No Laravel 12 here—despite earlier labels suggesting otherwise, AustinsElite has always been a Laravel app at heart.
+
+The real challenge? Ensuring every hour logged could be traced, verified, and rolled up into accurate payments—without letting edge cases slip through.
+
+## Designing the Reports cluster with calendar sync and export logic
+
+The reports module is where everything comes together. We needed to answer questions like: "How many billable hours did this client accrue last month?" and "What’s the total payout due to contractors this week?"—with zero room for approximation.
+
+We built a Reports cluster that aggregates time logs using Laravel Scout for fast filtering and a custom Eloquent scope system that handles date ranges, client filters, and billable status. But the trickiest part was syncing with Google Calendar.
+
+Calendar events don’t come pre-labeled as billable or tied to a project. So we implemented a two-step process: first, users map calendar events to clients/projects via a simple UI (think: "All events with 'Client X' in the title go to Project Y"). Then, our sync job pulls events, applies the mapping rules, and creates draft time logs. Users review and confirm before anything becomes official.
+
+We also added export functionality—CSV and PDF—for accounting teams. The PDFs are generated via Browsershot (Laravel’s Puppeteer wrapper) and include company branding, totals, and a verification hash to prevent tampering. These aren’t just summaries; they’re legal-grade documents.
+
+One subtle win: we added a "time gap" warning in the UI. If a user hasn’t logged hours in 72+ hours, the system flags it. Not because we’re nagging—but because missing logs mean delayed payments, and that hurts trust.
+
+## Lessons learned in validating and aggregating time data for financial reporting
+
+When money’s on the line, data integrity isn’t optional. We burned a few midnight oil sessions chasing edge cases that could’ve led to over- or under-payment.
+
+First lesson: never trust start/end times from calendar events at face value. We found events with end times *before* start times (thanks, time zone weirdness). So we built a `NormalizeTimeEntry` action that validates duration, adjusts for daylight saving, and logs anomalies for review.
+
+Second: aggregation logic must be idempotent. We had a bug where running the weekly payout job twice would double-pay everyone. Ouch. We fixed it by introducing a `payout_run` table that tracks which time logs have been processed—and we now lock the period once finalized.
+
+Third: real-time isn’t always better. We initially pushed time log updates via WebSockets, but that caused race conditions during bulk edits. We switched to a queued job system with Redis-backed locks. Slower? Slightly. Safer? Absolutely.
+
+The biggest insight? Financial systems need paper trails—even digital ones. Every time log now has an audit log showing who created it, when it was last modified, and whether it was synced or manual. That transparency has already helped resolve two client disputes before they escalated.
+
+This feature wasn’t flashy, but it’s foundational. It turns hours worked into payments received—with as little friction and as much accuracy as we could engineer. And that’s the kind of plumbing that keeps SaaS products alive.

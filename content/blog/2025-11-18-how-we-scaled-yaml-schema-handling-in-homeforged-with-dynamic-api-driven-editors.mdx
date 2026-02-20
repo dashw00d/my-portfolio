@@ -1,0 +1,47 @@
+---
+title: "How We Scaled YAML Schema Handling in HomeForged with Dynamic API-Driven Editors"
+date: "2025-11-18"
+excerpt: "We replaced static YAML schemas with dynamic, API-backed context loading to enable backend-controlled validation and real-time editing at scale."
+tags: ["yaml", "api-driven", "frontend-architecture", "real-time-validation", "homeforged"]
+author: "Ryan Dashwood"
+---
+## The Problem with Static YAML Schemas
+
+When we first built the YAML editor in HomeForged, we baked schema definitions directly into the frontend. It worked—initially. We had hardcoded field types, validation rules, and autocomplete suggestions mapped to specific configuration blocks. But as the product grew, so did the pain.
+
+Every time the backend added a new resource type or changed a field’s constraints, we had to push a frontend release. Worse, our real-time LLM-powered error correction had to reverse-engineer intent from incomplete or invalid YAML, often guessing wrong because it didn’t have access to up-to-date schema context. The frontend became a bottleneck.
+
+We were maintaining two parallel schema systems: one in Laravel, where business logic lived, and another in React, where users edited files. That duality was fragile. A typo in a field description meant syncing changes across repos. A new conditional rule? Another PR, another deploy. It didn’t scale.
+
+## Designing an API-Backed Schema Context System
+
+The fix? Flip the script: let the backend own the schema, and make the editor adapt.
+
+We introduced a new API endpoint—`/api/yaml/schema/context`—that accepts a partial YAML document and returns a dynamic schema context. Instead of shipping static JSON with the bundle, the editor now makes a lightweight POST request with the current document state and gets back structured metadata: which fields are valid at the cursor position, what types they expect, whether they’re required, and even LLM prompt hints for auto-correction.
+
+The magic is in the adapter pattern we used on the frontend. We built a `SchemaContextAdapter` that translates the API response into a format our Monaco-based editor understands. It maps backend-defined rules to JSON Schema fragments, powers autocomplete, drives form-like tooltips, and feeds constraints into our real-time validator.
+
+```ts
+// Simplified adapter logic
+const context = await fetchContext(yamlDocument, cursorPath);
+const jsonSchema = SchemaContextAdapter.toJSONSchema(context);
+monaco.languages.json.setDiagnosticsOptions({ schemaValidation: 'error', schemas: [jsonSchema] });
+```
+
+This shift meant we could evolve schema logic in Laravel—adding regex patterns, conditional requirements, or deprecation warnings—without touching the frontend. The editor just reacts.
+
+It also opened doors for smarter AI assistance. Since the LLM correction engine now pulls the same context from the API, it can suggest fixes that align with current backend rules, not stale frontend assumptions.
+
+## Keeping Real-Time Validation (and Sanity) Intact
+
+One fear during the refactor: would we lose the snappy, inline validation users loved?
+
+We didn’t just preserve it—we improved it. By decoupling schema resolution from the editor bundle, we reduced initial load time and made validation more accurate. The editor now validates against *live* rules, not snapshots from the last deploy.
+
+We also added debounce and caching to the context API calls, so we’re not spamming the server on every keystroke. The response includes an `etag` and expiration hint, letting us cache aggressively in the browser and fall back gracefully if the API is slow.
+
+And yes—LLM error correction still works in real time. In fact, it’s better. When a user types an invalid value, the editor fetches the current context, passes it (along with the error span) to our LLM service, and gets back a targeted fix suggestion—powered by up-to-date schema semantics.
+
+The refactor landed today after 13 focused commits. No more syncing schema changes across repos. No more guessing what the backend will accept. Just a lean, API-driven editor that stays in sync with the system it configures.
+
+This isn’t just a win for maintainability—it’s a foundation. Now, when we add multi-tenancy or environment-specific rules, the schema context can reflect that too. The backend stays in control. The editor stays smart. And we stay sane.

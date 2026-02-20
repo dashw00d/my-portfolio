@@ -1,0 +1,71 @@
+---
+title: "How We Unified State Management in a Complex Animation Tool Using Zustand"
+date: "2025-12-29"
+excerpt: "One day, five Zustand stores, and a fully decoupled state architecture for a real-time animation studio."
+tags: ["Zustand", "React", "TypeScript", "State Management", "Animation Tools", "R3F"]
+author: "Ryan Dashwood"
+---
+## Breaking State Into Domains—Not Just One Giant Store
+
+When you’re building an animation staging tool where artists tweak characters, timelines, and 3D scenes in real time, state gets messy fast. We started with React’s `useState` and `useContext`, but as the Animation Staging Studio grew, we hit the wall: cascading re-renders, prop drilling through R3F components, and logic scattered across hooks. It was time to go all-in on Zustand—but not with one monolithic store. Instead, we carved state into five distinct domains: `uiStore`, `projectStore`, `characterStore`, `timelineStore`, and `renderStore`.
+
+Each store owns a clear slice of the app. The `uiStore` handles panel visibility, modals, and active tools. The `projectStore` manages metadata, file persistence, and undo/redo stacks. `characterStore` tracks rig states, blend shapes, and pose layers. This separation wasn’t just about organization—it was about performance and team velocity. When a timeline scrubber moves, we don’t need the character rig re-rendering. Domain isolation made that possible.
+
+The real win? Co-locating logic and types. Each store is a self-contained `.ts` file with its own state interface, actions, and internal selectors. No more guessing what shape a piece of state should have. TypeScript guards everything, and autocomplete just works.
+
+## Type-Safe Cross-Store Access Without the Headaches
+
+Splitting state is great—until you need data from another domain. We knew early on that circular imports would kill us, so we established a rule: **stores can read from each other, but never import directly**. Instead, we use Zustand’s `useStore` selector pattern at the call site, keeping dependencies loose.
+
+For example, when syncing character visibility with timeline markers, `timelineStore` doesn’t import `characterStore`. Instead, components or utility functions pull from both using selectors:
+
+```ts
+const isVisible = useCharacterStore(
+  (state) => state.characters[activeId]?.visible
+);
+const isScrubbing = useTimelineStore((state) => state.isPlaying);
+```
+
+We also created a thin `stateUtils` layer for cross-cutting logic—like saving a project snapshot that combines data from `projectStore`, `characterStore`, and `timelineStore`. These utilities accept store selectors as arguments, keeping them testable and dependency-free.
+
+Type safety was non-negotiable. We defined shared interfaces in a `types/state.ts` root, but each store extends them with domain-specific refinements. This gave us consistency without rigidity. When the backend API (now fully typed with Prisma) sends a project update, the `projectStore` validates the payload shape at runtime using Zod, then merges it—no more `any`-typed responses from Express.
+
+The result? Zero type-related state bugs in the last two weeks. That’s new for us.
+
+## Performance in the Render Loop: Selectors Over Subscriptions
+
+Here’s where things get spicy: our app runs on React Three Fiber (R3F), where state updates can trigger expensive re-renders in the 3D scene. We learned the hard way that `subscribe` callbacks in Zustand, while powerful, can fire too often and bypass React’s batching—leading to jittery animations and dropped frames.
+
+Our fix? **Prefer selector-based reactivity in components, even in R3F’s `useFrame` loop**.
+
+Instead of this:
+
+```ts
+// ❌ Avoid: Global subscription in render loop
+useEffect(() => {
+  const unsub = useCharacterStore.subscribe((state) => {
+    updateRig(state.characters[playerId]);
+  });
+  return unsub;
+}, []);
+```
+
+We do this:
+
+```ts
+// ✅ Prefer: Selective, batched updates via React
+useFrame(() => {
+  const rig = useCharacterStore((state) => state.characters[playerId]);
+  updateRig(rig);
+});
+```
+
+Why? Because selector-based usage respects React’s concurrent rendering and batching. It also prevents unnecessary calls when only unrelated parts of the store change. We measured a 30% reduction in render-loop callbacks after switching.
+
+We still use `subscribe`—but only for side effects like auto-saving or syncing WebSocket messages, where immediate reaction is needed outside the UI thread.
+
+## One Day, Five Stores, Zero Regrets
+
+On December 29th, we landed five Zustand stores in a single day—each fully typed, tested, and integrated with both the frontend and our newly migrated TypeScript backend. It wasn’t magic. It was incremental, disciplined, and grounded in real user workflows. Artists can now toggle UI panels without freezing the timeline. Characters update independently. Projects save reliably. And we’re not scared to add new features anymore.
+
+If you’re wrestling with state in a complex React app, don’t reach for one big store. Slice it, type it, and let Zustand’s simplicity do the rest.

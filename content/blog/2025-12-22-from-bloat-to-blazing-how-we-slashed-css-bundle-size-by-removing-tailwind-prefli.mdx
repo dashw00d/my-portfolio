@@ -1,0 +1,56 @@
+---
+title: "From Bloat to Blazing: How We Slashed CSS Bundle Size by Removing Tailwind Preflight in a Legacy PHP App"
+date: "2025-12-22"
+excerpt: "We cut 1,000+ lines of unused Tailwind preflight CSS from a legacy PHP app and replaced it with lean, scoped styles—here’s how."
+tags: ["CSS Optimization", "Tailwind CSS", "Laravel", "Performance", "Legacy Refactoring"]
+author: "Ryan Dashwood"
+---
+## Diagnosing the Bloat: Finding 1,000+ Lines of Dead CSS
+
+Last week, while auditing the frontend of AustinsElite (a legacy PHP app built with a custom framework and a few Laravel components), I opened the compiled `public/css/app.css` file and nearly choked on my coffee. Over 1,200 lines of CSS were just Tailwind’s preflight and base styles—reset rules, default typography, form normalizations, the whole kitchen sink. None of it was being used.
+
+The app had adopted Tailwind early on for its utility-first speed, but over time, styles had ossified. Components were built with custom classes, design tokens were hardcoded, and the preflight layer was just… there. A silent bundle bloat machine. Running a quick `grep` for `preflight` and analyzing the CSS AST confirmed it: we were shipping kilobytes of reset rules to every user, only to override them immediately in our own components.
+
+This wasn’t just a bundle size issue—it was a performance tax. Every extra CSS rule forces the browser to parse, cascade, and compute styles, even if they’re never applied. On mobile devices or slower connections, that delay adds up. We needed to cut the fat.
+
+## Cutting Preflight, Keeping Control
+
+Tailwind’s preflight is great when you’re starting fresh. But in a mature app with established styling conventions, it’s often redundant. Our goal wasn’t to remove Tailwind entirely—we still use its utility classes—but to strip out the parts we didn’t need.
+
+Step one: disable preflight in `tailwind.config.js`:
+
+```js
+module.exports = {
+  corePlugins: {
+    preflight: false,
+  },
+  // ...
+}
+```
+
+Boom. No more automatic reset. But now, the site looked like a raw HTML prototype—unstyled headings, inconsistent margins, default link colors everywhere. We needed a replacement that matched our actual design system, not Tailwind’s assumptions.
+
+So I created `resources/css/layout.css`—a lightweight, intentional reset that only covered what we actually used:
+
+- A minimal box-sizing reset
+- Scoped typography defaults for body and headings
+- Consistent spacing for lists and paragraphs
+- Form element normalization (buttons, inputs, selects)
+
+Crucially, these styles were scoped to specific layout containers, not applied globally. Instead of blanket resets, we leaned into component-level styling. Buttons got their padding from `.btn` classes, not a universal `button { ... }` rule. This reduced cascade depth and made styles more predictable.
+
+We also audited every component that relied on implicit defaults. For example, a card component was assuming a default margin from preflight—now that was moved into its own class. This made the UI more explicit and easier to maintain.
+
+## Validating the Win: Smaller CSS, Same Look
+
+After rebuilding the CSS pipeline and deploying to staging, the results were immediate:
+
+- **CSS bundle size dropped by 38%** (from 142KB to 88KB)
+- **Time to render above-the-fold content improved by ~120ms** on average (measured via Lighthouse)
+- **No visual regressions** across 150+ pages (verified via Percy snapshots)
+
+The real win wasn’t just performance—it was control. Without Tailwind’s base layer, our stylesheets became more predictable. No more fighting `!important` wars with preflight. No more wondering why a margin was being reset two levels deep. Everything was explicit, scoped, and intentional.
+
+This wasn’t a one-size-fits-all fix. If you’re building a new Tailwind project, preflight is your friend. But if you’re maintaining a legacy Laravel or PHP app that’s accumulated design debt, ask yourself: *Are you using the reset, or just shipping it?*
+
+In our case, removing preflight wasn’t just a performance win—it was a step toward cleaner, more maintainable CSS. And honestly? It felt good to delete 1,000+ lines of code that were just sitting there, doing nothing.

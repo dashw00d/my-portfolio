@@ -1,0 +1,86 @@
+---
+title: "How We Built a Formal Verification System for Git Automation Pipelines"
+date: "2025-12-23"
+excerpt: "We added lightweight formal verification to Git Context to catch pipeline misconfigurations before they break your Git state."
+tags: ["git", "formal verification", "automation", "pipeline reliability", "tooling"]
+author: "Ryan Dashwood"
+---
+## The Problem: Silent Failures in Git Automation
+
+A few months ago, we started seeing subtle but nasty bugs in Git Context’s automation pipelines—cases where a user would define a sequence of git operations, only to find that the final state was inconsistent or worse, partially applied. These weren’t crashes. They were silent logic errors: a branch created in one step but referenced before it existed, or a commit ID from one context accidentally used in another. Debugging them meant sifting through logs, replaying steps, and guessing where the assumptions broke down.
+
+The root cause? Our pipeline engine trusted the input too much. We treated pipeline definitions as "well-formed by convention," relying on developers to follow patterns and avoid footguns. But as Git Context grew—adding branching strategies, multi-repo sync, and conditional steps—those conventions became harder to enforce. We needed a way to *prove*, at parse time, that a pipeline wouldn’t violate its own invariants.
+
+That’s when we decided to build a formal verification layer.
+
+## The Three Pillars of Pipeline Integrity
+
+We didn’t reach for full-blown theorem provers or dependent types. Instead, we designed a lightweight, static verification system focused on three key guarantees:
+
+1. **Step Preconditions**: Each step must declare what it expects to be true before it runs—like "this branch must exist" or "this working directory must be clean."
+2. **Cross-Step Invariants**: The pipeline as a whole must preserve certain properties across steps—like "no two steps modify the same file without a merge strategy."
+3. **ID Alignment Rules**: All references to commits, branches, or worktrees must point to entities created within the same logical context—no mixing IDs from different repos or orphaned references.
+
+These rules are enforced during pipeline compilation, *before* any git command runs. That means if you try to `git checkout $NEW_BRANCH` two steps before `git branch $NEW_BRANCH` is executed, you’ll get a clear error: `Step 3: Cannot checkout branch 'feature/x'—no prior step creates it.`
+
+Here’s a simplified version of how we model this in code:
+
+```ts
+interface PipelineStep {
+  id: string;
+  requires?: {
+    branchExists?: string;
+    commitExists?: string;
+    workingDirClean?: boolean;
+  };
+}
+
+function verifyPipeline(steps: PipelineStep[]): VerificationResult {
+  const createdBranches = new Set<string>();
+  const createdCommits = new Set<string>();
+
+  for (const step of steps) {
+    if (step.requires?.branchExists && !createdBranches.has(step.requires.branchExists)) {
+      return fail(`Step ${step.id}: branch '${step.requires.branchExists}' is required but not created`);
+    }
+    if (step.requires?.commitExists && !createdCommits.has(step.requires.commitExists)) {
+      return fail(`Step ${step.id}: commit '${step.requires.commitExists}' does not exist`);
+    }
+
+    // Register side effects
+    if (step.type === 'create-branch') {
+      createdBranches.add(step.outputBranch);
+    }
+    if (step.type === 'commit') {
+      createdCommits.add(step.outputCommit);
+    }
+  }
+
+  return success();
+}
+```
+
+This isn’t rocket science—but it’s *systematic*. Every step declares its dependencies and effects, and the verifier walks the chain, building up a model of what’s valid at each point.
+
+## Integrating Verification Into the Lifecycle
+
+We didn’t want to make this feel like a separate, academic exercise. So we baked verification directly into the pipeline execution flow:
+
+1. Parse the pipeline definition
+2. Run static verification (the step above)
+3. If verification passes, proceed to execution
+4. If it fails, return a structured error with step numbers and suggested fixes
+
+We also added a `--dry-run=verify` flag so users can test their pipelines locally before pushing them to CI. It’s been a game-changer for catching typos, copy-paste errors, and logic gaps early.
+
+One trade-off we debated was performance. Running a full verification pass adds a few milliseconds to pipeline startup—negligible for most use cases, but we optimized the checker to short-circuit on first failure and cache results when possible. Correctness won out: we’d rather fail fast than let a pipeline run for 10 minutes only to blow up at step 8.
+
+Developer ergonomics mattered too. We spent time making error messages *actionable*. Instead of "invariant violated," you get "Step 5 modifies 'package.json' but step 3 already modified it without a merge strategy—add a rebase or lock step."
+
+## Why This Matters Now
+
+As Git Context takes on more complex workflows—like automated release branching, PR sync, and cross-repo dependency updates—the cost of a misconfigured pipeline has gone up. What used to be a local hiccup can now cascade across repos and teams. Formal verification gives us a foundation to build more ambitious automation *safely*.
+
+This isn’t about eliminating all bugs—it’s about eliminating the *predictable* ones. The kind that follow patterns, that we can catch with simple rules. And by catching them early, we spend less time debugging and more time shipping.
+
+If you’re building automation tools, especially around Git, I’d encourage you to ask: what are the invariants in your system? And are you checking them *before* things go wrong?

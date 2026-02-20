@@ -1,0 +1,44 @@
+---
+title: "From Zero to Deploy: Building a Personal Portfolio with Modern Frontend Tooling"
+date: "2025-10-06"
+excerpt: "How I built and shipped my personal portfolio using Vercel, tackled CSS quirks, and debugged real deployment edge cases."
+tags: ["frontend", "vercel", "portfolio", "css", "deployment"]
+author: "Ryan Dashwood"
+---
+## Setting Up the Foundation: Tools, Structure, and Intent
+
+I’ve always believed a portfolio should be more than a resume with extra steps—it should reflect how you think, build, and solve problems. So when I sat down to build mine from scratch, I wanted it lean, fast, and fully under my control. No templates. No CMS bloat.
+
+I started simple: a fresh `create-next-app` with TypeScript and Tailwind CSS. Why? Because I wanted type safety, rapid UI iteration, and a clear path to static export. The initial commit laid out the core structure—`/components`, `/lib`, and a basic layout with navigation and a hero section. I opted for a functional approach early, leaning into React Server Components where possible to minimize client-side overhead.
+
+Tailwind was a no-brainer. I’ve used it on side projects and team apps alike, and its utility-first model forces you to think about composition over duplication. But I didn’t go all-in on defaults. I customized the `theme.spacing` scale and defined a minimal color palette to keep visual consistency tight. No design system needed—just constraints that breed creativity.
+
+## Refining the Look: When CSS Fights Back
+
+Here’s the thing: Tailwind makes styling easy, but it doesn’t make *responsive design* automatic. I learned that the hard way when my hero section looked great on desktop but collapsed into a mess on mobile.
+
+The issue? A flex layout that didn’t account for text wrapping on smaller viewports. I’d used `flex-nowrap` to keep the headline and emoji on one line, but that caused horizontal overflow on iPhone SE-sized screens. The fix? A custom breakpoint utility (via `@screen sm`) and a switch to `flex-wrap` with controlled `flex-basis` on child elements. Small change, big impact.
+
+Then came the font loading dance. I wanted to use a custom typeface, so I dropped in `@font-face` with `font-display: swap`. But during Lighthouse audits, I noticed layout shift spikes. The culprit? No `font-display: optional` fallback and missing `ascent-override` descriptors. After tweaking the `@font-face` block and preloading the woff2 file in `_document.tsx`, CLS dropped from 0.25 to under 0.05.
+
+These weren’t framework bugs—they were *edge cases* you only catch when you ship. And they reminded me: polish isn’t in the first draft. It’s in the third round of testing on real devices.
+
+## Deploying to Vercel: When the Build Fails Silently
+
+I’ve used Vercel for years, but it still humbles me. My first `git push` triggered a build that passed CI but served a blank page in production. Locally? Perfect. Vercel? Broken.
+
+The error logs showed nothing. No console errors. No failed requests. Just a white screen and a 200 OK. After downgrading React (nope), clearing cache (nope), and rebuilding with `--no-cache`, I finally checked the browser’s network tab: the `main.js` bundle was loading, but the hydration was failing silently.
+
+Turns out, I’d used `process.env.HOST` in a client-side component to conditionally log analytics. Harmless locally—but Vercel doesn’t expose environment variables to the client unless you prefix them with `NEXT_PUBLIC_`. The build didn’t fail because the syntax was valid; it just injected `undefined`, which later caused a runtime exception during render.
+
+The fix? Rename to `NEXT_PUBLIC_HOST` and rebuild. Boom—site live, hydrated, and fast.
+
+But there was one last hiccup: the custom domain. I’d linked it in the Vercel project settings, but DNS wasn’t propagating. A quick `vercel domains` check revealed a misconfigured CNAME. Fixed the record, waited 10 minutes, and finally saw the green "SECURED" badge.
+
+## Lessons from Launch Day
+
+Shipping this portfolio taught me more than any tutorial could. You can have a perfect local setup, but deployment surfaces realities you can’t simulate: environment isolation, asset loading order, and the subtle differences between `dev` and `prod` hydration.
+
+I also learned to embrace constraints. Tailwind’s class-based approach felt limiting at first, but it kept me from writing overly specific CSS. Next.js’s file-based routing eliminated config noise. And Vercel’s zero-configuration ethos works—until it doesn’t, and then you *have* to understand what’s underneath.
+
+If you’re building your own site, here’s my advice: start small, deploy early, and break things in production *on purpose*. Because the real test isn’t whether it works on your machine. It’s whether it works when the world shows up.

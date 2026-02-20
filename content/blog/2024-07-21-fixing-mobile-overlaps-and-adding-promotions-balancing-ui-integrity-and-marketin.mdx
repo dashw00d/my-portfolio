@@ -1,0 +1,55 @@
+---
+title: "Fixing Mobile Overlaps and Adding Promotions: Balancing UI Integrity and Marketing in Laravel"
+date: "2024-07-21"
+excerpt: "How I added a promo modal to AustinsElite without breaking mobile UX—using Tailwind fixes and z-index debugging."
+tags: ["Laravel", "Tailwind CSS", "Responsive Design", "UI Engineering", "z-index", "Mobile UX"]
+author: "Ryan Dashwood"
+---
+## Adding the ADBORGZ Promo—And the Problems That Followed
+
+Last week, we rolled out a small but critical marketing ask on AustinsElite: a timed promotional modal for ADBORGZ, a new partner brand. The goal was simple—capture attention on desktop and mobile without disrupting core navigation. Business needed visibility; design needed subtlety; engineering needed both to survive a Friday deploy.
+
+The modal itself was straightforward: a centered overlay triggered after a 3-second delay or via a nav link. Built with Alpine.js and styled with Tailwind, it dropped cleanly into our Laravel 12 blade templates. On desktop? Crisp. On mobile? Disaster.
+
+The first reports came in within hours: "Can’t close the menu," "buttons aren’t responding," "the sidebar is stuck behind something." Classic symptom: something had hijacked pointer events, and layout stacking had gone rogue.
+
+## The Mobile Layout Meltdown
+
+Pulling up the site on a real device, I saw it immediately—the promo modal’s backdrop was fixed-positioned at `z-50`, but our mobile sidebar toggle (a hamburger menu that slides in from the left) was getting clipped and unresponsive. Worse, the close button on the modal was tappable, but the rest of the overlay wasn’t. Touch events were being swallowed by a ghost layer.
+
+DevTools revealed the culprit: overlapping fixed-position elements with mismatched z-indices. Our mobile sidebar, meant to sit *on top* of everything when active, was rendered at `z-40`. The modal backdrop, meant to be a passive dimmer, was at `z-50`. Visually, the sidebar appeared above—thanks to some quirky stacking context inheritance—but interaction-wise, the higher z-indexed backdrop was intercepting all touches.
+
+Even worse, a "View Deals" button in the sidebar was partially obscured on medium screens (think iPad portrait or large phones). A previous commit—`fixed mobile size (medium)`—had nudged it down with padding, but that was a band-aid. The real issue was structural: we were layering components without a clear z-index hierarchy.
+
+## Fixing the Stack, One z-10 at a Time
+
+The solution came in two parts: normalize the z-scale and clarify stacking contexts.
+
+First, I standardized our Tailwind z-index scale. We weren’t using a consistent system—some components had `z-10`, others `z-50`, and a rogue tooltip sat at `z-999`. I defined a mental (for now) ladder:
+
+- `z-10`: Base modals and backdrops
+- `z-20`: Active dropdowns, tooltips
+- `z-30`: Mobile navigation panels
+- `z-40`: Toasts, floating actions
+- `z-50+`: Reserved for emergency overrides (and regrets)
+
+The modal backdrop dropped from `z-50` to `z-10`—it’s a background, not a bouncer. The mobile sidebar got bumped to `z-30`. One line change: `fixed z-30` on the sidebar wrapper. Suddenly, the menu slid in cleanly, and touch targets responded.
+
+But the overlap on medium screens remained. The "View Deals" button in the sidebar was still getting clipped by a fixed header bar. This wasn’t a z-index issue—it was a positioning one. The header used `position: fixed` and `top-0`, but no explicit z-layer. I added `z-20` to ensure it stayed beneath the sidebar (`z-30`) while remaining above content (`z-10`).
+
+Then came the Tailwind tweak from the `fixed mobile size (medium)` commit: a conditional padding class (`sm:pt-16 md:pt-20`) to push the button below the fixed header on mid-sized viewports. It wasn’t elegant, but it worked—until we can refactor the sidebar into a proper off-canvas component.
+
+## Lessons from the Z-Index Trenches
+
+This wasn’t just a CSS fix. It was a reminder that every marketing ask has a technical cost—and that cost often shows up in the form of stacking context hell.
+
+Here’s what I now enforce on AustinsElite:
+
+1. **Define a z-index scale early.** Even if it’s just comments in your Tailwind config, agree on what each layer means. Prevents `z-9999` wars.
+2. **Fixed elements create stacking contexts.** A `position: fixed` element with a high z-index doesn’t just sit on top—it becomes a new layer universe. Sibling elements can’t escape it.
+3. **Test touch targets on real devices.** Emulators lie. Real fingers don’t.
+4. **Promotions shouldn’t break navigation.** If a modal blocks core UX, it’s not a feature—it’s tech debt with a coupon code.
+
+Adding the ADBORGZ promo was supposed to take 30 minutes. It took two days. But now we’ve got a cleaner, more predictable UI layer system—and a modal that doesn’t sabotage the mobile experience.
+
+That’s the job: not just shipping features, but making sure they play nice when the screen shrinks.

@@ -1,0 +1,42 @@
+---
+title: "Building a Persistent Preview State in HomeForged: How We Tamed Schema Mocking with Database-Backed Drafts"
+date: "2025-11-17"
+excerpt: "We replaced flaky, in-memory mocks with database-backed drafts to make previews reliable during schema changes."
+tags: ["full-stack", "developer experience", "form previews", "draft state", "database design"]
+author: "Ryan Dashwood"
+---
+## The Problem: Losing Preview Context Was Killing Our Flow
+
+If you’ve ever worked on a form-heavy app where the UI preview depends on mock data, you know the pain: you tweak a schema, refresh the page, and *poof*—your carefully crafted test state is gone. That was HomeForged’s reality before today.
+
+We recently normalized our schema structure to support dynamic form layouts, which was a huge win for flexibility. But it came at a cost: every time we iterated on field types or nesting, the frontend preview would reset. Mock data lived in memory or localStorage—fine for demos, terrible for real development. We needed previews that survived refreshes, deploys, and even team handoffs.
+
+The breaking point? Trying to debug a conditional rendering bug across nested sections. I spent 15 minutes rebuilding the mock state, only to lose it when I accidentally closed the tab. That’s when I decided: no more.
+
+## Designing a Draft Layer That Feels Invisible
+
+The goal was simple: make preview state persistent, but without complicating the core data model or introducing race conditions. We didn’t want developers to think about "saving drafts"—it should just work, like Google Docs.
+
+We started by adding a `drafts` table to our Postgres DB, with three key fields:
+
+- `schema_id`: ties the draft to a specific form configuration
+- `mock_data`: JSONB column storing the current field values and UI state
+- `version_hash`: a checksum of the schema structure to detect drift
+
+The version hash was crucial. When a developer loads a preview, we compare the current schema’s hash with the one stored in the draft. If they don’t match, we don’t auto-apply the old data—we show a prompt: "Your schema changed. Restore previous values?" This prevents silent mismatches when fields are renamed or removed.
+
+On the backend, we exposed a simple `/drafts/:schema_id` endpoint that handles GET and PATCH. On first load, if no draft exists, we generate one with empty values mapped to the current schema’s defaults. From there, every keystroke in the preview triggers a debounced update—nothing realtime, just a 500ms delay to avoid flooding the DB.
+
+Frontend-wise, we wrapped the preview iframe in a React context that syncs with the draft API. The component tree doesn’t care where the data comes from—it just consumes the current state. This separation kept the implementation clean: the preview renderer stayed pure, while the draft logic lived in a dedicated service.
+
+## Lessons Learned: Syncing State Without the Headaches
+
+The first version worked… sort of. We hit two issues fast.
+
+First, race conditions during rapid edits. Two developers on the same schema could overwrite each other’s drafts. Our fix? We added a `last_updated` timestamp and made the frontend check it on every patch response. If the server’s timestamp is newer than the client’s last known version, we trigger a merge—client wins for existing fields, server wins for new ones. It’s not perfect, but for our use case (mostly solo editing), it’s enough.
+
+Second, we underestimated how often schema changes break old mocks. Early on, we tried to auto-migrate data—renaming fields, inferring types—but it was a mess. Instead, we embraced the reset. Now, when version hashes don’t match, we store the old draft as a snapshot and start fresh. Want to recover data? Click a button to inspect and copy-paste. Simpler, safer, more predictable.
+
+The biggest win? Developer trust. Now when I tweak a schema, I *know* my preview will come back the way I left it. No more "rebuilding the universe" just to test a dropdown.
+
+This wasn’t a flashy feature, but it removed a constant friction point. Sometimes the best engineering isn’t about building new things—it’s about making the existing ones stop fighting you. And today, HomeForged finally stopped fighting back.

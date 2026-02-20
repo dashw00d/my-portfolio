@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Mail, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
+import { trackEvent } from "@/lib/gtag";
+
 type ContactState = "idle" | "submitting" | "success" | "error";
 
 interface ContactFormData {
@@ -38,6 +40,10 @@ export default function Contact() {
     if (!formData.name || !formData.email || !formData.project) {
       setErrorMessage("Name, email, and project summary are required.");
       setStatus("error");
+      trackEvent("contact_form_validation_error", {
+        event_category: "engagement",
+        event_label: "missing_required_fields",
+      });
       return;
     }
 
@@ -57,6 +63,18 @@ export default function Contact() {
         throw new Error(result?.message ?? "Something went wrong. Try again.");
       }
 
+      trackEvent("contact_form_submit", {
+        event_category: "engagement",
+        form_name: "contact_form",
+        has_company: Boolean(formData.company),
+        has_timeline: Boolean(formData.timeline),
+      });
+
+      trackEvent("generate_lead", {
+        event_category: "engagement",
+        form_name: "contact_form",
+      });
+
       setStatus("success");
       setFormData(INITIAL_FORM);
     } catch (error) {
@@ -64,6 +82,10 @@ export default function Contact() {
       setErrorMessage(
         error instanceof Error ? error.message : "Unable to send message right now."
       );
+      trackEvent("contact_form_submit_error", {
+        event_category: "engagement",
+        event_label: "contact_form",
+      });
     }
   };
 

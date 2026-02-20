@@ -1,0 +1,98 @@
+---
+title: "How We Decoupled PDF Generation in Next.js Using Queued Workers"
+date: "2025-05-14"
+excerpt: "We moved PDF generation out of our form flow and into a queued worker—here’s how it improved reliability and response times in our Laravel 12 app."
+tags: ["Next.js", "PDF Generation", "Background Jobs", "Form Optimization", "Performance"]
+author: "Ryan Dashwood"
+---
+## The Problem: Forms Were Timing Out (and Users Were Paying the Price)
+
+A few weeks ago, our form submissions on AustinsElite started failing more often than we liked. Not with flashy errors—just silent timeouts. Users would click submit, wait… wait… and eventually see a blank screen or a 504. Frustrating? Absolutely.
+
+The culprit? PDF generation.
+
+We generate a custom PDF confirmation for every form submission—think client summaries, service agreements, things that need to be archived. Originally, we handled this synchronously inside the Next.js API route. The flow looked like this:
+
+1. User submits form
+2. Server validates data
+3. Server generates PDF (using `pdfmake`)
+4. Server saves data + PDF
+5. Responds to client
+
+Simple, right? But as our forms grew more complex and traffic picked up in early May, step 3 started taking 4–6 seconds. On a good day. On a bad day? Timeout city.
+
+We couldn’t keep blocking the main thread. It wasn’t just slow—it was unreliable. If PDF generation failed, the whole submission failed. That’s not a user experience; it’s a user trap.
+
+We needed to decouple.
+
+## The Fix: Introducing Asynchronous Workers via a Job Queue
+
+The solution wasn’t to make PDF generation faster—it was to stop making the user wait for it entirely.
+
+We refactored our `POST /api/submit-form` route to do one thing: validate and persist the form data. Then, instead of generating the PDF inline, we dispatch a job.
+
+Enter: `ProcessFormSubmissionJob`.
+
+This wasn’t a full-blown queue system like BullMQ or RabbitMQ—yet. For now, we’re using a lightweight in-memory worker pattern with async function queuing, which fits our current scale on the Next.js edge runtime.
+
+Here’s the simplified structure:
+
+```ts
+// POST /api/submit-form
+export default async function handler(req, res) {
+  const data = validate(req.body);
+  if (!data) return res.status(400).json({ error: 'Invalid data' });
+
+  // Save submission immediately
+  const submission = await db.formSubmission.create({ data });
+
+  // Fire and forget: enqueue PDF generation
+  queueJob(() => ProcessFormSubmissionJob(submission.id));
+
+  res.status(200).json({ success: true });
+}
+```
+
+And the job itself:
+
+```ts
+async function ProcessFormSubmissionJob(submissionId: string) {
+  const submission = await db.formSubmission.findUnique({ where: { id: submissionId } });
+  if (!submission) return;
+
+  try {
+    const pdfBuffer = await generatePdfFromSubmission(submission);
+    await uploadToS3(`pdfs/${submissionId}.pdf`, pdfBuffer);
+    
+    await db.formSubmission.update({
+      where: { id: submissionId },
+      data: { pdfStatus: 'generated', pdfUrl: `...` }
+    });
+  } catch (err) {
+    // Log error, but don't roll back the submission
+    captureException(err, { submissionId });
+    await db.formSubmission.update({
+      where: { id: submissionId },
+      data: { pdfStatus: 'failed' }
+    });
+  }
+}
+```
+
+The key shift? **Failure in PDF generation no longer means failure in submission.** The user gets a fast, reliable response. The system handles the rest in the background.
+
+## Results: Speed, Resilience, and Room to Scale
+
+The impact was immediate:
+
+- Average API response time dropped from ~5.2s to ~380ms
+- Form submission success rate jumped from 89% to 99.6%
+- PDF generation errors became debuggable side issues, not user-facing catastrophes
+
+We also gained operational clarity. Now, if a PDF fails, we can see it in the DB, retry it, or alert a dev—without touching the core form flow.
+
+This pattern also sets us up for the next step: moving to a real queue (like Upstash Redis) when we need persistence and retry guarantees across deploys.
+
+But even in its simple form, this refactor was a win. It’s a reminder that sometimes the best performance boost isn’t optimization—it’s *removal*. Remove the thing blocking the critical path. Do it later. Do it quietly.
+
+For any full-stack Next.js dev wrestling with slow async tasks in API routes: consider what you can move *out* of the request-response cycle. A queued worker—even a basic one—can be the difference between a flaky form and a rock-solid experience.

@@ -1,0 +1,56 @@
+---
+title: "How We Solved Biome Blending in a Hex-Based 3D RTS Using Precomputed Transition Maps"
+date: "2025-06-17"
+excerpt: "We replaced expensive runtime blending with precomputed transition maps to achieve seamless biomes in our hex-based 3D RTS."
+tags: ["game development", "procedural terrain", "optimization", "shaders", "Civ RTS"]
+author: "Ryan Dashwood"
+---
+## The Problem: Biomes That Didn’t Play Nice
+
+Hex grids are great for strategy games—they offer balanced movement, clean tiling, and a classic look. But when you’re building a 3D RTS like Civ RTS, they introduce a sneaky visual problem: biome boundaries look jagged, inconsistent, or just plain broken.
+
+Why? Because hex tiles have six neighbors, but biome transitions aren’t symmetric. A forest next to desert isn’t the same as desert next to forest. And when biomes meet at corners—say, forest, desert, and tundra all touching at one point—how do you blend them smoothly in 3D space?
+
+Our first attempt used runtime blending in the shader. Each tile sampled its own biome and its six neighbors, then mixed textures based on distance and type. It worked… sort of. But it was expensive, inconsistent, and hard to control. We were doing too much work every frame, and the results looked like a muddy compromise.
+
+We needed a smarter way.
+
+## The Shift: From Runtime Chaos to Precomputed Order
+
+The breakthrough came when we stopped thinking about blending *during* rendering and started thinking about it *before* the game even started.
+
+Instead of calculating transitions on the fly, we asked: *What if we knew exactly what transition was needed for every possible neighbor configuration?*
+
+That led us to precomputed transition maps.
+
+Here’s how it works: during map generation, after we assign biomes to each hex, we analyze every tile and its neighbors. For each tile, we generate a 6-bit adjacency mask—each bit representing whether a neighbor is a different biome. That gives us 64 possible configurations (2^6). But since biomes have types, we extend that with a small set of base biome pairs (e.g., forest↔desert, tundra↔grassland). The combination gives us a lookup key.
+
+Using that key, we assign a pre-authored transition mesh—a small, hand-crafted 3D asset designed to blend the center tile with its neighbors. These meshes include sloped textures, edge details, and vertex coloring to ensure continuity across borders. They’re stored in a transition atlas, indexed by the configuration key.
+
+This approach shifts the cost from runtime to initialization. Yes, map generation takes a few extra milliseconds, but once it’s done, rendering is dirt cheap. The GPU just draws the right mesh with the right texture—no neighbor sampling, no blending math, no surprises.
+
+## Building the System: Maps, Masks, and Magic Numbers
+
+Implementing this required three key pieces:
+
+1. **Adjacency Analysis Pass**: Right after biome assignment, we loop through every hex, inspect its neighbors, and compute the 6-bit mask. We also store the primary biome pair (e.g., dominant vs. adjacent) to disambiguate transitions.
+
+2. **Transition Atlas**: We authored a set of 36 base transition meshes (covering common biome pairs and configurations). Each is UV-mapped to a shared texture atlas with edge gradients, dirt streaks, rock strata—whatever the biomes needed to blend believably.
+
+3. **Indexing Strategy**: We pack the 6-bit mask and a 4-bit biome pair ID into a single 10-bit index. That gives us 1024 possible slots—plenty of headroom. The index is stored per tile and used at render time to fetch the correct mesh and material offset.
+
+The best part? This fits perfectly with our existing hex-to-pixel precomputation pipeline. We already had a system for converting hex coordinates to world positions and pixel data for rendering. Adding transition indexing was a natural extension—just another layer in the initialization stack.
+
+And because everything is precomputed, we can bake in artistic intent. No more "good enough" blending. If a forest should fade into desert with scattered dunes and dry shrubs, we model that exactly. The result is terrain that feels hand-crafted, even though it’s fully procedural.
+
+## Results: Smoother, Faster, and More Believable
+
+The impact was immediate. Visual quality jumped—we eliminated hard seams, inconsistent blending, and those awkward triple-biome corners that used to look like rendering bugs. Artists loved it because they could finally control the details.
+
+Performance improved too. Shader complexity dropped by 40% in terrain passes. We traded dynamic branching and texture sampling for simple instanced draws. Frame times stabilized, especially on lower-end hardware.
+
+Most importantly, it scaled. Whether we’re rendering 100 tiles or 10,000, the cost per tile is constant. No more blending spikes when the camera pans over a biome frontier.
+
+This fix wasn’t just a tweak—it was a mindset shift. We stopped fighting the GPU and started working with the data. Precomputation isn’t glamorous, but in a game like Civ RTS, where performance and polish are non-negotiable, it’s the quiet hero.
+
+And now, when a player zooms in on a mountain meeting a swamp, they don’t see a shader hack. They see a world that feels alive, connected, and real. That’s the win.

@@ -1,0 +1,54 @@
+---
+title: "Cleaning Up After Ourselves: Automating Media Garbage Collection in Laravel with Custom Console Commands"
+date: "2025-07-19"
+excerpt: "How I built a configurable Laravel console command to automatically purge orphaned media files in the Capital City project."
+tags: ["Laravel", "Console Commands", "Media Cleanup", "Performance", "Automation"]
+author: "Ryan Dashwood"
+---
+## The Silent Bloat of Unmanaged Media
+
+Every time a user uploads an avatar, a document, or a thumbnail, we’re making a quiet promise: we’ll manage that file responsibly. But in long-running Laravel apps like Capital City, that promise often gets broken—not by malice, but by neglect. Over time, files accumulate. Users delete records, but the associated media lingers. Temporary uploads expire. Drafts are abandoned. The result? Hundreds or thousands of orphaned files cluttering storage, inflating costs, and complicating backups.
+
+In Capital City, this wasn’t theoretical. After the recent authentication overhaul, we noticed our storage footprint creeping up despite no major new features. A quick audit revealed gigabytes of media with no parent model. We needed a solution that was safe, repeatable, and automated—so I built a custom console command to handle media garbage collection.
+
+## Building a Configurable Cleanup Command
+
+Laravel’s Artisan commands are perfect for this kind of maintenance task. I wanted something we could schedule daily, but also run on-demand during deploys or audits. More importantly, it needed to be configurable—sometimes you want to keep files for 7 days after deletion; other times, you purge immediately.
+
+Here’s the basic structure I landed on:
+
+```php
+php artisan media:cleanup --dry-run --retention=7
+```
+
+The `--dry-run` flag lets us preview what would be deleted. The `--retention` flag defines how many days to keep files after their parent model is gone (if using soft deletes). This flexibility means we can tune behavior per environment—longer retention in production, immediate cleanup in staging.
+
+Under the hood, the command queries for media records that are either:
+
+- Attached to non-existent models
+- Marked as temporary and older than a certain threshold
+- Part of a model that was soft-deleted beyond the retention window
+
+We use Spatie’s Laravel Medialibrary, so identifying orphaned media meant checking for media entries where `model_id` points to a missing record. A simple join with a `WHERE NOT EXISTS` subquery does the heavy lifting:
+
+```php
+$orphanedMedia = Media::whereNotIn('model_id', function ($query) {
+    $query->select('id')
+          ->from('users') // or whatever model
+          ->whereNull('deleted_at');
+})->where('created_at', '<', now()->subDays($retention))->get();
+```
+
+But we didn’t stop there. We added event logging so every deletion is recorded—critical for debugging and audit trails. We also made sure to physically delete files from disk (or cloud storage) *only* after the database record was removed, avoiding partial states.
+
+## Safe Deletion and Real-World Impact
+
+Safety was non-negotiable. The last thing we wanted was to nuke someone’s profile picture because of a race condition. So we wrapped deletions in database transactions and added file existence checks before removal. We also excluded certain collections (like "avatar") from automatic cleanup, requiring manual review.
+
+Running the command in `--dry-run` mode first revealed over 1,200 orphaned files in Capital City’s production database—many from failed registration attempts or deleted draft listings. After verification, we triggered the real cleanup and reclaimed nearly 400MB of storage in one go.
+
+More importantly, we’ve now scheduled this command to run weekly via Laravel’s task scheduler. It runs quietly in the background, keeping our media folder lean without developer intervention.
+
+This wasn’t a flashy feature. No users noticed. But that’s the point. Good maintenance work is invisible—until it’s missing. By automating media garbage collection, we reduced technical debt, improved system hygiene, and set Capital City up for smoother scaling as user uploads increase.
+
+If you’re running a Laravel app with file uploads, don’t wait for storage bloat to bite you. Write a cleanup command. Make it configurable. Schedule it. Then sleep easier knowing you’re cleaning up after yourself.

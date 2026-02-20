@@ -1,0 +1,92 @@
+---
+title: "Unbreaking SEO: How We Fixed Our Sitemap and Robots.txt in Next.js"
+date: "2024-06-21"
+excerpt: "A quick post-mortem on how we caught and fixed a critical sitemap and robots.txt regression before launch."
+tags: ["Next.js", "SEO", "Sitemap", "robots.txt", "Google Search Console"]
+author: "Ryan Dashwood"
+---
+## The Sitemap That Wasn’t There
+
+It was a Friday afternoon — the kind where you’re doing final SEO checks before a major update goes live. I ran a quick audit using Lighthouse, and one failure stood out like a neon sign: *"Does not have a valid sitemap."* That hit a little too close to home.
+
+We’d been making solid progress on AustinsElite’s SEO and analytics stack all month, migrating key infrastructure and tightening up metadata. But somewhere along the way, our XML sitemap stopped generating. And worse — we hadn’t noticed.
+
+I checked `/sitemap.xml` — 404. Dead silence. No errors in the build logs, no warnings in Vercel. It was as if the sitemap had ghosted us.
+
+Digging into the code, I found the culprit in our dynamic route handler. A templating block responsible for generating `<url>` entries had been accidentally commented out during a refactor:
+
+```js
+// .map(post => `
+//   <url>
+//     <loc>${BASE_URL}/blog/${post.slug}</loc>
+//     <lastmod>${post.updatedAt}</lastmod>
+//   </url>`)
+```
+
+Someone (probably me) had commented it out "temporarily" while testing a new data fetcher and never brought it back. Classic.
+
+Without that block, the sitemap template was rendering valid XML structure — just completely empty. No URLs, no content, no SEO value. And because it returned a 200 status with malformed content, basic health checks didn’t catch it.
+
+## Robots.txt: The Silent Gatekeeper
+
+While fixing the sitemap, I realized we had another problem: our `robots.txt` was outdated. It was still allowing all crawlers everywhere — including our `/admin` routes.
+
+That’s a no-go for security and crawl budget. Google doesn’t need to index our internal tools, and frankly, we’d rather not invite unnecessary attention there.
+
+We updated `robots.txt` to be more intentional:
+
+```txt
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api
+
+Sitemap: https://austinselite.com/sitemap.xml
+```
+
+This tells search engines: "Crawl everything on the public site, but stay out of `/admin` and `/api`. Oh, and here’s where to find the sitemap."
+
+In Next.js, we serve this via a simple route handler at `app/robots.txt/route.ts`:
+
+```ts
+export async function GET() {
+  return new Response(`User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api
+
+Sitemap: https://austinselite.com/sitemap.xml`, {
+    headers: {
+      'Content-Type': 'text/plain',
+    },
+  });
+}
+```
+
+It’s low-key how much control you have with just a few lines. But it’s also easy to overlook — especially when you assume `robots.txt` is "set and forget."
+
+## Verifying the Fix: From Theory to Search Console
+
+With both files patched, it was time to test.
+
+I deployed to our staging environment and hit `/sitemap.xml`. Success — a full list of URLs wrapped in proper XML. No missing tags, no syntax errors. Lighthouse passed the sitemap check.
+
+But the real test was Google Search Console.
+
+I navigated to *Sitemaps* under the *Indexing* section and submitted `https://austinselite.com/sitemap.xml`. Within minutes, Google acknowledged receipt and began processing. The *robots.txt Tester* tool confirmed our `/admin` path was properly disallowed.
+
+Then came the best part: watching indexed page count stabilize — and eventually grow. That tiny fix hadn’t just restored functionality; it had unblocked weeks of SEO progress.
+
+It’s wild how much hinges on these small, behind-the-scenes files. One commented block, one misconfigured text file — and suddenly, your site’s visibility is on life support.
+
+But here’s the good news: they’re easy to fix once you know what to look for.
+
+## Lessons Learned
+
+- **Never assume config files are safe.** Even `robots.txt` and sitemaps need code reviews.
+- **Automate detection.** We’ve since added a CI check that verifies `/sitemap.xml` contains at least one `<url>` entry.
+- **Test indexing early.** Use Search Console throughout development, not just at launch.
+
+This wasn’t a flashy refactor or a new feature. But restoring our sitemap and tightening `robots.txt` was one of the highest-impact SEO wins we’ve had all quarter.
+
+Sometimes, the most important code isn’t the code you write — it’s the code you *uncomment*.

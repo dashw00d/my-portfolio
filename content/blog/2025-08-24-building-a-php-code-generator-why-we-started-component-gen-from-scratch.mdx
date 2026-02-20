@@ -1,0 +1,51 @@
+---
+title: "Building a PHP Code Generator: Why We Started Component Gen from Scratch"
+date: "2025-08-24"
+excerpt: "We built Component Gen to automate repetitive Laravel component creation with enums, camelCase, and modern PHP practices."
+tags: ["PHP", "Laravel", "Code Generation", "Developer Tools", "Automation", "Enums"]
+author: "Ryan Dashwood"
+---
+## The Pain of Manual Component Creation
+
+If you’ve ever scaffolded a new Blade component in a Laravel app, you know the drill: create the view, set up the class, register it, maybe add some props. Do it once? Fine. Do it across ten projects with slight variations? That’s where consistency starts to slip.
+
+At my team, we were repeating this process daily—across monoliths, microservices, and admin dashboards. Each time, someone had to remember the right directory structure, naming convention, and registration pattern. Typos crept in. Some devs used kebab-case in filenames, others stuck with PascalCase. Props weren’t always typed. And forget about enforcing a standard for when to use inline vs. class-based components.
+
+We tried snippets. Then scripts. But nothing scaled cleanly across teams or enforced Laravel conventions the way we wanted. That’s when we decided to stop patching and build something purpose-built: **Component Gen**.
+
+## Designing for PHP, Not Just Speed
+
+Most code generators I’ve seen are CLI tools written in Node or Python—fast, flexible, but disconnected from the PHP ecosystem we live in. I wanted something that *felt* like Laravel, not a foreign import.
+
+So we built Component Gen in pure PHP, leveraging Laravel’s own conventions: service providers, artisan commands, and PSR-4 autoloading. No JSON configs that drift out of sync. No external dependencies that break on deploy. Just code that works where our apps live.
+
+One early decision was using **enums** to define component types. Instead of string-based flags like `--type=stateless`, we created a `ComponentType` enum:
+
+```php
+enum ComponentType: string
+{
+    case BLADE = 'blade';
+    case STATELESS = 'stateless';
+    case INTERACTIVE = 'interactive';
+}
+```
+
+This gave us type safety at compile time, IDE autocomplete, and a single source of truth for valid options. No more guessing or validating strings in the command handler.
+
+We also standardized on **camelCase** for method and variable names—consistent with Laravel’s core and our internal style guide. Early versions used snake_case in some templates, but after reviewing the first few PRs, we realized it was creating cognitive friction. Developers expect `render()` and `withProps()`, not `render_component()` or `add_props_array()`.
+
+Refactoring to camelCase across templates wasn’t just cosmetic—it reduced merge conflicts and made diffs meaningful. When a change shows up in version control, it should be *about logic*, not formatting.
+
+## More Than a Generator: Part of a Bigger Push
+
+Component Gen didn’t come out of nowhere. It’s part of a broader push to modernize our stack and reduce technical drag. Over the last quarter, we’ve upgraded multiple apps to Laravel 10+, adopted PHP 8.2+ features like readonly classes, and tightened our CI pipeline with stricter Psalm and PHPStan rules.
+
+This tool fits right into that world. It’s not just about saving time—it’s about **enforcing hygiene**. Every component generated now follows the same structure, uses typed properties, and includes the right docblocks. New hires get it right on day one. Senior devs spend less time reviewing boilerplate.
+
+And because it’s built with extensibility in mind, we’re already adding features: automatic test stubs, optional Livewire integration, and soon—dependency injection scaffolding for complex components.
+
+We’re not trying to replace creativity with automation. We’re trying to **remove the boring parts** so we can focus on the hard problems: performance, UX, architecture.
+
+Component Gen is still young. But in just a few weeks, it’s already generated over 200 components across three active projects—with zero naming inconsistencies. That’s not just efficiency. That’s momentum.
+
+If you’re drowning in repetitive Laravel scaffolding, maybe it’s time to build your own generator. Just make sure it speaks PHP fluently.

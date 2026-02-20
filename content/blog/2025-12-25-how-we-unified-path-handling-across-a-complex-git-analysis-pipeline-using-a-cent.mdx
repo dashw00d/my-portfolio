@@ -1,0 +1,53 @@
+---
+title: "How We Unified Path Handling Across a Complex Git Analysis Pipeline Using a Centralized PathService"
+date: "2025-12-25"
+excerpt: "We eliminated path inconsistency bugs in Git Context with a phased refactor and a centralized PathService."
+tags: ["refactoring", "path handling", "TypeScript", "Git", "software architecture"]
+author: "Ryan Dashwood"
+---
+## The Problem: Paths Gone Wild
+
+If you’ve ever debugged a file resolution issue where `../src/utils` becomes `src\utils` on Windows, or a relative path resolves differently in two parts of your app, you know the pain. In Git Context—a tool that analyzes Git repositories at scale—we hit this hard. Our pipeline touched filesystems, Git trees, and sandboxed execution environments, each layer handling paths its own way. We had `path.join`, `path.relative`, custom sanitizers, and even regex-based fixes scattered across analysis, storage, and service modules.
+
+The result? Bugs. Subtle ones. A file would be detected during analysis but not found during storage. A symlinked directory would resolve correctly locally but break in CI. Paths with double slashes or mixed separators would pass silently in one module and crash in another. Debugging meant tracing through five layers, each normalizing (or not) in its own way. We needed consistency—not just formatting, but semantic alignment across the entire pipeline.
+
+## The Fix: Enter PathService
+
+We designed `PathService` as a single source of truth for all path operations. Its job: normalize, resolve, and enforce sandbox boundaries—every time, everywhere. The API was simple, but the scope was not.
+
+```typescript
+interface PathService {
+  normalize(path: string): string;
+  relative(from: string, to: string): string;
+  resolveInSandbox(base: string, target: string): string;
+  isInSandbox(path: string): boolean;
+}
+```
+
+The key was *behavioral guarantees*: every path passed through `PathService` would be POSIX-compliant (using forward slashes), free of redundant segments (`//`, `..`, `.`), and validated against a configured sandbox root. This wasn’t just about slashes—it was about ensuring that when the storage layer asked, "Is this file inside the repo?", the answer was consistent with what the analysis layer saw.
+
+We built it with testability in mind: injectable, stateless, and with a clear contract. But the real challenge wasn’t the design—it was the rollout.
+
+## Phased Refactor: How We Didn’t Break the Pipeline
+
+Rewriting path logic across a live analysis pipeline isn’t something you do in one PR. We broke it into four phases, each marked by a `conductor(checkpoint)` commit—our way of saying, "This phase is done, verified, and safe to build on."
+
+**Phase 1: Foundation & Shadow Mode**
+We introduced `PathService` alongside the old utilities. Critical path operations were mirrored—both old and new logic ran in parallel, with discrepancies logged. This gave us real-world data on edge cases without risking correctness.
+
+**Phase 2: Analysis Layer Migration**
+We switched the analysis module—the first consumer of raw Git paths—to use `PathService` exclusively. This was high-impact: tree traversal, blob resolution, and diff parsing all went through it. We added strict validation to catch paths escaping the repo root, which caught several previously missed symlink exploits.
+
+**Phase 3: Storage & Service Layers**
+Next, we updated the storage layer to use normalized paths for indexing and retrieval. This fixed the "file found in analysis, missing in storage" bug that had haunted us for weeks. The service layer followed, ensuring API responses returned consistent, sanitized paths.
+
+**Phase 4: Cleanup & Legacy Removal**
+On December 25, 2025, we landed the final checkpoint: deletion of the old `path.ts` utility file. Eleven commits over three weeks, and we’d fully retired the legacy logic. No regressions. No downtime. Just cleaner, more predictable code.
+
+## Results: Simpler, Safer, and Surprisingly Faster
+
+The win wasn’t just bug reduction—though we’ve had zero path-related incidents since. It was about clarity. Debugging is faster because paths are consistent across logs. Testing is easier because we can mock one service instead of patching `path.join` everywhere. And onboarding new developers? They now have one place to look.
+
+We also uncovered performance gains. By centralizing normalization, we reduced redundant path parsing—some workflows saw a 12% improvement in path-heavy operations. Not bad for a refactor that was supposed to just "fix bugs."
+
+If you’re neck-deep in a messy, cross-cutting refactor, here’s the takeaway: design the right abstraction, but *plan the rollout like a deployment*. Use checkpoints. Test incrementally. And don’t be afraid to shadow the old way until you’re sure. We did—and now, every path in Git Context knows exactly where it belongs.

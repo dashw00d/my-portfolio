@@ -1,0 +1,54 @@
+---
+title: "Why We Ditched Third-Party Analytics for Local Lead Tracking in Our Next.js App"
+date: "2026-01-16"
+excerpt: "We replaced Umami with GA4 and custom lead tracking to gain better insights, performance, and control in our SaaS dashboard."
+tags: ["Next.js", "GA4", "analytics", "lead tracking", "data ownership"]
+author: "Ryan Dashwood"
+---
+## The Problem with Umami for Lead-Driven SaaS
+
+We started with Umami on AustinsElite because it felt clean, lightweight, and privacy-conscious — everything a bootstrapped dev dreams of. Open-source, self-hosted, no cookies, no bloat. For basic pageview tracking across our Laravel 12 app, it worked fine. But as our product matured, so did our need for deeper behavioral insights — especially around lead generation.
+
+Umami gave us surface-level metrics: who visited, which pages they hit, maybe a referrer. But it couldn’t answer the questions that really matter to a growth-focused team: *Which users are showing high intent? Who’s filling out forms, hovering over pricing, or clicking contact buttons?* Worse, Umami’s event model was too rigid to scale with our evolving dashboard logic, especially as we began integrating analytics into the Filament dashboard and core analytics service.
+
+We weren’t just building a blog or portfolio — we were running a SaaS with real conversion goals. Umami treated every visit the same. We needed to treat leads like signals.
+
+## Switching to GA4: Not for Tracking, But for Context
+
+Let me be clear: I didn’t jump straight to Google Analytics out of loyalty. In fact, I’ve spent years avoiding GA like the plague — the bloat, the privacy concerns, the overwhelming UI. But GA4, despite its flaws, offers something Umami can’t: deep integration with advertising platforms, funnel visualization, and user-centric event modeling that actually supports growth teams.
+
+Our move wasn’t about abandoning self-hosted tools — it was about choosing the right tool for the right layer. We now use GA4 not as our source of truth, but as a contextual layer. It connects our web traffic to ad campaigns, tracks cross-session behavior, and gives us a unified view of user journeys across devices.
+
+Implementing GA4 in a large Next.js codebase wasn’t trivial. We needed consistency. So we built a thin analytics service that abstracts event tracking behind a simple interface:
+
+```ts
+analytics.track('lead_form_started', {
+  page: router.pathname,
+  engagement_score: calculateEngagement()
+});
+```
+
+This service routes events to GA4 via `gtag` while remaining decoupled — meaning we can swap providers or add new destinations (hello, internal logging) without touching dozens of components. We applied this pattern across AustinsElite and extended it to the Filament dashboard, ensuring every high-value interaction gets captured with uniform naming and parameters.
+
+Yes, GA4’s learning curve is brutal. But once you standardize your event taxonomy, it becomes powerful. We now see not just *what* users do, but *how* they move from curiosity to intent.
+
+## Building Local Lead Tracking: Where the Real Magic Happens
+
+Here’s the truth: GA4 is great for macro trends. But for real-time, high-fidelity lead signals? We needed something faster, leaner, and fully under our control.
+
+So we built a local lead tracking system inside our Next.js backend. No third-party scripts. No cookie banners. Just lightweight API endpoints that log user actions tied to session IDs or email captures when available.
+
+We started by identifying micro-conversions that correlate strongly with sales outreach success:
+
+- Pricing page visits with >30s dwell time
+- Clicks on "Contact Sales" or "Book Demo"
+- Form field interactions (even if not submitted)
+- Repeated visits within 24 hours
+
+Each of these triggers a local event write to our analytics database. We attach metadata like IP-derived location, UTM params (passed from GA4), and device type. Then, in our internal dashboard, we score leads in real time. A user who lands from a LinkedIn ad, views pricing, and clicks “Book Demo”? That’s a hot lead. Our sales team gets notified instantly.
+
+This hybrid model — GA4 for campaign context, local tracking for lead scoring — gives us the best of both worlds. We own the data, control the logic, and keep performance tight. Page loads are faster without Umami’s client-side bundle, and we’ve reduced external requests by 40%.
+
+More importantly, we’ve seen a 22% increase in qualified leads routed to sales since launch. Not because we’re tracking more — but because we’re tracking *smarter*.
+
+If you’re running a Next.js app with conversion goals, don’t default to one-size-fits-all analytics. Think in layers. Use GA4 where it adds value, but don’t outsource your intelligence. The most actionable insights come from the data you own, shape, and act on — not the dashboards you scroll through.

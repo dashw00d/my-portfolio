@@ -1,0 +1,66 @@
+---
+title: "Preserving State Integrity in UI Updates: A Deep Dive into Immutable State Merging"
+date: "2025-12-26"
+excerpt: "How merging state instead of replacing it prevented data loss in Git Context’s high-frequency pipeline UI."
+tags: ["React", "State Management", "Immutability", "UI Engineering", "Frontend"]
+author: "Ryan Dashwood"
+---
+## The Hidden Risk of Overwriting State
+
+Last week, while refactoring the cockpit interface in [Git Context](https://github.com/ryandaswood/git-context), I hit a subtle but critical bug—one that’s bitten me (and probably you) before. We were processing real-time pipeline events: commits, cancellations, throttling signals. The UI needed to stay in sync, so we relied on a `setData` handler to update the component’s state.
+
+Initially, the logic was simple:
+
+```js
+setData(payload);
+```
+
+Clean. Direct. Also dangerous.
+
+The problem? `payload` only contained *partial* updates—say, the latest commit hash or a status flag. But `setData` was *replacing* the entire state object. So if another part of the state—like active cancellation tokens or throttling timers—wasn’t included in that payload, it vanished. Poof. Gone.
+
+This became obvious when a user canceled a pipeline, but the UI briefly flickered back to "running" after the next status update. Why? Because the subsequent payload didn’t include the `canceledAt` timestamp, and our naive assignment wiped it out.
+
+Full state replacement works fine when your payloads are complete snapshots. But in dynamic, event-driven UIs? That’s a fragility bomb.
+
+## Merging, Not Replacing: The Fix
+
+The solution wasn’t to make every payload carry the full state—that’d be wasteful and error-prone. Instead, we shifted to *merging* the payload into the existing state:
+
+```js
+setData(prev => ({ ...prev, ...payload }));
+```
+
+This small change had a big impact. Now, even if `payload` only contains `{ status: 'throttled' }`, the rest of the state—cancellation flags, timestamps, in-flight request IDs—remains intact.
+
+We weren’t just being defensive; we were aligning with how React’s state model is meant to work. Functional updates like `prev => ...` guarantee access to the current state at update time, avoiding race conditions in async flows. And shallow merging with the spread operator keeps things immutable, which React’s diffing algorithm loves.
+
+This became especially important in Git Context’s optimized pipeline, where events arrive rapidly and out of order. Cancellation signals might come in while a throttling update is still propagating. If state updates stomp over each other, you end up with inconsistent UI—like showing "running" when the pipeline was actually canceled 500ms ago.
+
+By merging, we preserved the integrity of concurrent updates without complex coordination logic.
+
+## Immutable Patterns in Practice
+
+You might ask: why not use Immer or another immutability helper? In this case, the spread operator was enough—our state shape is flat and predictable. But the principle matters more than the tool.
+
+Here’s what we enforce now:
+
+- **All state updates are functional** when they depend on previous values.
+- **Payloads are treated as patches**, not snapshots.
+- **Immutability is non-negotiable**—no direct mutations, even in event handlers.
+
+We also added a type guard to catch incomplete assumptions early:
+
+```ts
+function updateData(partial: Partial<GitContextState>) {
+  setData(prev => ({ ...prev, ...partial }));
+}
+```
+
+This makes it explicit that we’re only updating a subset, and TypeScript ensures we don’t accidentally rely on fields that might have been dropped.
+
+The refactor was small—just a few lines—but it eliminated a whole class of race conditions. More importantly, it shifted our mindset: state updates aren’t just about showing the latest data. They’re about preserving truth.
+
+In high-velocity systems like Git Context, where actions cascade and feedback loops are tight, safe state management isn’t optional. It’s the foundation.
+
+So next time you’re tempted to `setData(payload)`, ask: what am I erasing? Because sometimes, the most important data is the data you’re not thinking about.

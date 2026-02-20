@@ -1,0 +1,74 @@
+---
+title: "How We Tamed State Complexity in Git Context with a Dedicated Orchestrator"
+date: "2025-11-25"
+excerpt: "We replaced scattered React state logic with a custom orchestrator to fix race conditions and keep our Git UI in sync across branches."
+tags: ["React", "State Management", "Git", "Frontend Architecture", "TypeScript"]
+author: "Ryan Dashwood"
+---
+## The Problem: State Scattered Across Components
+
+A few months ago, our Git Context app was working—*mostly*. Branch switches would occasionally leave file lists out of date, UI elements in accordions would render stale data, and debugging a misbehaving view felt like forensic archaeology. The root cause? State management sprawl.
+
+We started simple: each React component managed its own slice of Git state—current branch, file tree, commit history—using `useState` and `useEffect`. As features grew, so did the coupling. A branch change had to be manually propagated through props, useEffect dependencies, and context updates. We added more hooks, more memoization, but the real issue wasn’t performance—it was consistency.
+
+Race conditions crept in when async Git operations overlapped. For example, switching branches while a file diff was loading could result in the diff resolving against the *previous* branch’s state. The UI would update, but the data was from the wrong context. Users saw files that didn’t exist on the current branch. Not ideal.
+
+We needed a single source of truth that understood not just *what* the state was, but *when* and *where* it applied.
+
+## Designing the Orchestrator: A State Machine with Awareness
+
+Instead of patching more logic into components, we stepped back and asked: *Who should be responsible for knowing what the current Git context actually is?*
+
+Answer: not a component. Not a hook. A dedicated orchestrator.
+
+We built `GitContextOrchestrator`—a singleton service that owns all Git-related state and transitions. It’s not just a store; it’s an active coordinator. It listens to Git events (via our backend IPC layer), validates state transitions, and emits updates scoped to the current branch.
+
+Key design decisions:
+
+- **Separation of concerns**: The orchestrator handles data fetching, caching, and lifecycle. React components only subscribe and render.
+- **Event-driven updates**: We integrated a lightweight event bus. When a branch changes, the orchestrator emits a `BRANCH_SWITCHED` event with the new branch name and metadata. Subscribers—like file tree loaders or diff viewers—react accordingly.
+- **Branch-scoped state**: Each branch gets its own state namespace. Switching branches doesn’t nuke data—we keep it cached and rehydrate fast. But crucially, the orchestrator ensures that any in-flight async operation binds to the correct branch context.
+
+This wasn’t Redux with more reducers. It was a purpose-built coordinator that speaks Git, not just JSON.
+
+## Implementation: Bridging the Orchestrator and React
+
+The orchestrator runs outside React’s lifecycle, so we needed a clean way to bridge it to our component tree. Enter `useGitContext`—a custom hook that subscribes to orchestrator events and returns stable, branch-aware state.
+
+```typescript
+function useGitContext<T>(
+  selector: (state: GitState) => T
+): T {
+  const [state, setState] = useState(() => 
+    selector(gitOrchestrator.getCurrentState())
+  );
+
+  useEffect(() => {
+    const handler = () => {
+      setState(selector(gitOrchestrator.getCurrentState()));
+    };
+    gitOrchestrator.on('stateChanged', handler);
+    return () => gitOrchestrator.off('stateChanged', handler);
+  }, [selector]);
+
+  return state;
+}
+```
+
+This hook lets any component tap into the orchestrator’s state with minimal overhead. No prop drilling, no context nesting. And because the orchestrator batches updates during rapid state changes (like fast branch switching), we avoid unnecessary re-renders.
+
+For the accordion-based UI—where multiple panels display branch-specific data like staged files, uncommitted changes, and recent commits—this was a game-changer. Each panel uses `useGitContext` to grab its slice of state, and they all stay in sync without explicit coordination.
+
+We also added debug tooling: a `gitOrchestrator.trace()` method that logs state transitions and event flow. When something goes wrong, we can replay the sequence instead of guessing.
+
+## Results: Predictable UI, Faster Debugging
+
+Since deploying the orchestrator, race conditions have dropped to near zero. The accordion views—once prone to glitchy expansions and stale content—now update smoothly and atomically.
+
+More importantly, the code became easier to reason about. New features, like branch comparison views, were faster to build because the orchestrator already handled the hard parts: state scoping, async gating, and event sequencing.
+
+The shift wasn’t just technical—it changed how we think about state. Instead of asking "How do I update this component?", we now ask "What state transition should trigger this update?"
+
+The orchestrator pattern won’t replace Redux or Zustand for every app. But for domains with rich, event-driven state—like Git, real-time editors, or multi-step workflows—it’s a powerful alternative to reactive sprawl.
+
+If your React app is starting to feel like a house of cards when state changes, maybe it’s time to appoint a conductor.

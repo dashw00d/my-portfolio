@@ -1,0 +1,53 @@
+---
+title: "Laying the Groundwork for AI-Powered Social Automation: Building the Core of Social Autopilot"
+date: "2026-02-13"
+excerpt: "How the initial architecture of Social Autopilot set the stage for resilient, AI-driven social media workflows with LangGraph."
+tags: ["AI agents", "LangGraph", "backend architecture", "automation", "Twitter API", "stateful workflows"]
+author: "Ryan Dashwood"
+---
+## Starting with the End in Mind
+
+When I first spun up Social Autopilot, the goal was clear: build an AI-native system that could autonomously grow and manage social presence on Twitter—without breaking stride when things got messy. Not just scheduled posts, but *thinking* workflows: agents that listen, decide, and respond over time, learning from context and recovering from failure. That’s not a cron job. That’s a stateful agent system.
+
+Most social automation tools treat each action as isolated—tweet this, like that, done. But real engagement has memory. A reply matters because of the thread it’s in. A follow-up lands because of what was said yesterday. To do this right, I knew from day one we’d need persistent state, observable execution, and the ability to resume exactly where we left off—even after a crash or timeout.
+
+So the first commit wasn’t about tweeting. It was about structure.
+
+## The First Commit: More Than Just a README
+
+The initial commit of Social Autopilot might look quiet from the outside—basic config files, a `.gitignore`, a `pyproject.toml`, and a skeletal folder layout. No flashy AI models. No API calls. But this was where the real decisions happened.
+
+I set up the project with scalability baked in:
+
+- **Modular agent roles** (`agents/listener.py`, `agents/composer.py`, `agents/publisher.py`) — even if they were empty stubs at first. This forced clean separation of concerns early.
+- **Configuration via environment variables and YAML** — so secrets and behavior could shift between dev, staging, and production without code changes.
+- **Structured logging from day one** — because debugging silent agent failures later is hell without traceability.
+- **Git history as design documentation** — every decision, every dependency, versioned and reviewable.
+
+I also laid out a `state/` directory with a clear intent: this would be where execution history lives. Not as logs, but as *replayable state*. That might’ve seemed premature. But I was already thinking about LangGraph.
+
+Because I wasn’t just building a script. I was building a machine that remembers.
+
+## From Skeleton to State: How Early Design Enabled LangGraph
+
+Fast forward to February 2026. The big win? Integrating LangGraph with persistent storage to make our agent workflows *resilient*. But that wasn’t a pivot—it was a payoff.
+
+LangGraph’s strength is in modeling AI workflows as state machines, where each step can pause, branch, or retry—perfect for social automation where API rate limits, async approvals, or content moderation can interrupt flow. But LangGraph’s real power only shines when you persist the graph state.
+
+Thanks to that initial structure, plugging in `SQLiteSaver` (and later, Postgres) was straightforward. The agent roles we’d defined as placeholders now became nodes in a graph. The `state/` directory evolved into a proper checkpoint system. And because logging and config were already centralized, we could trace every decision, rollback bad generations, and resume workflows after downtime.
+
+Here’s what this enables:
+
+- An agent starts drafting a thread based on trending topics.
+- Twitter’s API throttles the request.
+- System pauses, stores state, retries in 15 minutes.
+- When it resumes, it *remembers* the draft, the context, and the original trigger.
+- No duplicate tweets. No lost context. No manual restarts.
+
+That resilience didn’t come from LangGraph alone—it came from building the foundation to *use* LangGraph effectively.
+
+This is the quiet lesson of early architecture: the first commit isn’t about features. It’s about constraints. The folders you create, the config patterns you choose, the separation of components—those become the rails that guide what your system can become.
+
+Social Autopilot didn’t start with AI. It started with structure. And that’s why it can now run for weeks, think in threads, and recover like it never missed a beat.
+
+If you’re building long-running AI agents—especially on volatile platforms like social media—don’t rush to the flashy part. Start with the skeleton. Make it modular. Design for state. And save yourself the tech debt when you finally plug in the brain.

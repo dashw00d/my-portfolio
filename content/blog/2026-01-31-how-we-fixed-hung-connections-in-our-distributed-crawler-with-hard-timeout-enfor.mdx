@@ -1,0 +1,71 @@
+---
+title: "How We Fixed Hung Connections in Our Distributed Crawler with Hard Timeout Enforcement"
+date: "2026-01-31"
+excerpt: "We stopped silent network hangs in our Python crawler by layering signal-based hard timeouts over curl_cffi and adding IP rotation to preserve throughput."
+tags: ["Python", "Web Scraping", "Distributed Systems", "curl_cffi", "Timeouts", "Debugging"]
+author: "Ryan Dashwood"
+---
+## Diagnosing Silent Hangs in a High-Concurrency Crawler
+
+We run a distributed crawler that pulls structured data from thousands of domains daily. For months, we battled a ghost: workers would randomly freeze, consuming CPU and memory but making zero progress. Logs showed no exceptions—just silence. These weren’t crashes. They were hangs.
+
+Our stack uses `curl_cffi` for browser-like HTTP requests without the overhead of full headless browsers. It’s fast, supports JavaScript rendering, and handles complex TLS fingerprints. But under sustained load, we started seeing 5–10% of workers stall indefinitely—especially on flaky or rate-limited endpoints.
+
+At first, we blamed network jitter or target-site defenses. But after profiling over 155 commits and tracing hundreds of stuck processes, we found the real culprit: **`curl_cffi` wasn’t respecting socket timeouts under certain conditions**. Even with `timeout=10`, requests would sit open for *minutes*. The underlying `curl` handle was getting stuck in a state where no signal was raised, and Python had no way to reclaim control.
+
+This wasn’t just a performance issue—it was a scalability blocker. We couldn’t scale to higher concurrency if every burst left behind zombie workers.
+
+## Enforcing Hard Timeouts with Signal Alarms
+
+Python’s `requests` library has well-documented timeout behavior, but `curl_cffi` operates at a lower level using native bindings. That means standard timeouts can be bypassed by edge cases in the underlying `libcurl` state machine—especially when dealing with slowloris-style partial responses or TLS handshakes that never complete.
+
+Our fix? A hard timeout using `signal.alarm()`.
+
+We wrapped every high-risk request (schema discovery, map data fetches, etc.) in a context that sets a **per-request signal alarm**—a true hard ceiling on execution time. Here’s the core pattern:
+
+```python
+import signal
+from contextlib import contextmanager
+
+class TimeoutError(Exception):
+    pass
+
+@contextmanager
+def timeout(seconds: int):
+    def handler(signum, frame):
+        raise TimeoutError(f"Request timed out after {seconds}s")
+    
+    old_handler = signal.signal(signal.SIGALRM, handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
+```
+
+Now, any request that exceeds its allotted time gets forcibly interrupted, regardless of what `curl_cffi` is doing underneath.
+
+We applied this to our `schema` and `bing_maps` handlers—two of the most common hang sources—using a layered timeout chain:
+
+- **Soft timeout**: 10s via `curl_cffi`’s native timeout
+- **Hard timeout**: 15s via `signal.alarm()`
+
+The soft timeout handles normal cases. The hard timeout is our emergency eject. This gap gives the soft timeout time to fire cleanly, while ensuring we *always* recover control.
+
+Yes, `signal.alarm()` only works on Unix and is process-global—but in our worker-based architecture, each process handles one request at a time. That makes it safe and effective.
+
+## Layering IP Rotation and Retry Logic to Maintain Throughput
+
+Hard timeouts solved the hang problem—but introduced a new one: more abrupt failures. We couldn’t just kill requests and call it a day. We needed resilience.
+
+So we paired the timeout enforcement with two upgrades:
+
+1. **Per-request IP rotation**: When a timeout occurs, we release the worker, rotate to a fresh IP via our Vultr-backed proxy pool, and retry. This avoids getting stuck on a single blocked or throttled exit node.
+2. **Smart retry chaining**: We track failure types (timeout, 429, connection reset) and apply backoff strategies accordingly. Timeouts get faster retries on new IPs; rate limits trigger exponential delays.
+
+This combo turned what used to be dead-end hangs into recoverable errors. Instead of losing a worker for 5+ minutes, we now fail fast, rotate, and retry—often succeeding on the second attempt.
+
+The result? **Near-zero hung workers**, even at 10x our previous concurrency. Our error rate spiked briefly post-deploy—but that was because we were *finally* capturing failures instead of ignoring them. Once we tuned retry logic, success rates stabilized and even improved due to better IP hygiene.
+
+This fix wasn’t glamorous, but it unblocked our entire scaling roadmap. Sometimes the biggest wins come from making sure your system can actually *finish* what it starts.

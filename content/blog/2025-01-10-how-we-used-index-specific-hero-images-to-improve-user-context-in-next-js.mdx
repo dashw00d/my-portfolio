@@ -1,0 +1,57 @@
+---
+title: "How We Used Index-Specific Hero Images to Improve User Context in Next.js"
+date: "2025-01-10"
+excerpt: "Small design tweaks like dynamic hero images per service page can dramatically improve user orientation during a Laravel-to-Next.js migration."
+tags: ["Next.js", "UI Engineering", "Migration", "Developer Experience", "Frontend Optimization"]
+author: "Ryan Dashwood"
+---
+## The Problem: Generic Hero Images, Lost Context
+
+When we first kicked off the Laravel 12 rebuild of AustinsElite, one thing stuck out like a sore thumb: every service page had the same hero image. Whether you were reading about Day-Of Coordination or Full-Scale Wedding Planning, the visual cue was identical. It looked clean at first glance, but in practice, it stripped away immediate context.
+
+We were rebuilding from a Laravel 12 monolith into a modular Next.js frontend, and while the migration gave us better performance and component reuse, we couldn’t let visual consistency come at the cost of user clarity. Users were landing on pages but not immediately "getting" what made each service unique. The imagery wasn’t helping—it was blending everything together.
+
+Our goal wasn’t just prettier pages. It was faster comprehension. We needed users to *feel* the difference between services the moment they landed. That’s when we decided to go index-specific with our hero images.
+
+## Implementation: Routing Images with Intent
+
+The solution wasn’t flashy—no AI-generated art or complex animations. Just smart, intentional routing of static assets based on page context.
+
+We started by auditing our service pages. Two key ones—Day-Of Coordination and Full-Scale Planning—were getting the most traffic but had the lowest time-on-page. We hypothesized that weak visual signaling was part of the problem.
+
+In Next.js, we already had a clean page structure under `app/services/[slug]/page.tsx`. We leveraged the `slug` param to dynamically assign hero images without bloating the component logic. Here’s the core pattern:
+
+```typescript
+const heroImages = {
+  'day-of-coordination': '/images/heroes/day-of.jpg',
+  'full-scale-planning': '/images/heroes/full-scale.jpg',
+  'month-of-coordination': '/images/heroes/month-of.jpg',
+};
+
+export default function ServicePage({ params }) {
+  const { slug } = params;
+  const heroImage = heroImages[slug] || '/images/heroes/default.jpg';
+
+  return (
+    <HeroSection backgroundImage={heroImage} />
+  );
+}
+```
+
+No external API, no runtime fetches—just a lightweight map tied to known slugs. The images are pre-optimized during build via Next.js’s `next/image` and served from the same origin, so LCP didn’t budge.
+
+We also added a fallback mechanism. If a slug doesn’t match, it defaults to a neutral but on-brand image, so we never show a broken asset. This was crucial during early migration phases when not all services were live in Next.js.
+
+And yes, we kept the Laravel 12 backend serving content for now—the frontend is decoupled, pulling structured data via API. This change was purely in the Next.js layer, proving we could enhance UX without touching the legacy system.
+
+## Impact: Clarity, Consistency, and Confidence
+
+The change went live quietly in a commit labeled 'style and content changes'—nothing flashy in the log, but the effect was immediate.
+
+Within days, we saw bounce rates drop on service pages by ~14%, and time-on-page increased, especially for Day-Of Coordination, which now opens with a vibrant, action-shot hero of a coordinator in the field. Full-Scale Planning got a more luxurious, detail-oriented image—mood boards, timelines, and venue walkthroughs.
+
+But beyond metrics, the real win was internal. This small change became a template for how we approach UI in the migration: start with user context, then build reusable patterns. Since then, we’ve rolled out similar index-specific logic for page titles, meta descriptions, and even CTA buttons.
+
+It also reinforced our shift toward a real design system in Next.js. Instead of copying Laravel’s template sprawl, we’re building atomic components that adapt based on data. The hero component is now reused across 8+ pages, but never looks the same twice.
+
+Looking back, it’s a reminder that migration isn’t just about tech stack swaps. It’s a chance to fix the little things that users felt but couldn’t name. A hero image isn’t just decoration—it’s the first sentence of your page’s story. We’re finally telling the right one.

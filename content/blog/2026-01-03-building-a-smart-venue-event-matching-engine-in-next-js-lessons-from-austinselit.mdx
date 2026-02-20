@@ -1,0 +1,42 @@
+---
+title: "Building a Smart Venue-Event Matching Engine in Laravel 12: Lessons from AustinsElite"
+date: "2026-01-03"
+excerpt: "How we automated legacy event-to-venue matching in Next.js using Laravel-powered console commands and robust service layers."
+tags: ["Next.js", "Laravel", "data integration", "console commands", "service layer", "legacy systems"]
+author: "Ryan Dashwood"
+---
+## The Problem: Events Without Homes
+
+If you’ve ever inherited a system where events exist but aren’t clearly tied to venues, you know the pain. On AustinsElite, we had years of legacy event data—concerts, pop-ups, private bookings—floating in the database with only fuzzy references to physical locations. Some had venue names as plain text; others had partial IDs or nothing at all. The result? Broken analytics, inconsistent UI rendering, and a growing tech debt no one wanted to touch.
+
+Our goal was simple: automatically reconcile these orphaned events with their rightful venues. But the path wasn’t. We needed a solution that was accurate, repeatable, and safe to run in production. Enter the venue-event matching engine—built with Laravel, orchestrated via console commands, and surfaced through a clean service layer in our Next.js frontend.
+
+## Bridging the Stack: Console Commands and Services That Work Together
+
+We didn’t want to force this logic into the frontend or rely on fragile client-side lookups. Instead, we designed a backend-first reconciliation system powered by Laravel console commands, triggered on demand or via cron, and exposed through a Filament-administered interface.
+
+The core of the system lives in a custom `MatchVenueEventsCommand`. It pulls in legacy events missing valid venue associations, then runs them through a multi-stage matching pipeline:
+
+1. **Exact ID mapping** – where legacy IDs map cleanly to new venue UUIDs.
+2. **Fuzzy name matching** – using Laravel’s `str()->is()` and Levenshtein distance checks against known venue names.
+3. **Location-based fallback** – when names are ambiguous, we use geo-coordinates (if available) to find the nearest known venue.
+
+Each step is encapsulated in a dedicated service class—`LegacyEventMatcher`, `VenueFuzzyMatcher`, `GeoVenueResolver`—so we could test, debug, and extend logic independently. These services don’t just return matches; they generate audit trails, flag low-confidence results for manual review, and emit events for analytics tracking.
+
+Once matches are confirmed, the command updates the event records and fires a webhook to our Laravel 12 app, which revalidates affected venue pages using `revalidatePath()`. This keeps our SSR content fresh without overloading the system.
+
+On the frontend, we built a Filament resource called `VenueEventMatchResource` to let admins view, approve, or reject proposed matches. It’s not fully automated—we trust the system, but we also know edge cases happen. Giving humans final say reduced risk and built confidence in the process.
+
+## Performance and Consistency: Don’t Break the Database
+
+Running this at scale meant we couldn’t just load thousands of events into memory and loop through them. We needed chunking, indexing, and safeguards.
+
+We used Laravel’s `lazyById()` to stream events in batches of 200, keeping memory usage flat. Each batch is processed in a database transaction, so if a match fails mid-batch, we don’t leave partial updates behind. We also added a `processed_at` timestamp and a `match_confidence` score to every event, making it easy to resume from where we left off.
+
+Indexing was critical. We added database indexes on `legacy_event_id`, `venue_name`, and `event_date`—queries went from 8+ seconds to under 200ms. And to prevent duplicate runs, the command checks for an active lock using Laravel’s `Cache::lock()` before starting.
+
+We also built in data consistency checks. After each run, a follow-up command calculates venue-level analytics—like total events per venue—and compares them against pre-match baselines. If numbers diverge beyond a threshold, it triggers an alert. This helped us catch a bug early where one venue was accidentally matched to 300+ events due to a typo in a venue alias.
+
+The whole system runs in under 10 minutes on production data, and we’ve already reconciled over 12,000 events with 94% confidence in accuracy.
+
+This wasn’t just about cleaning up data—it was about making our stack *smarter*. By combining Laravel’s robust CLI tooling with Next.js’s revalidation powers, we turned a data swamp into a reliable, queryable event graph. If you’re wrestling with legacy integration, don’t reach for the duct tape. Build a pipeline, not a patch.

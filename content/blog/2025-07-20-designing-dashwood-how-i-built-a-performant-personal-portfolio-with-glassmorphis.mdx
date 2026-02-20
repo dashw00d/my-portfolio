@@ -1,0 +1,46 @@
+---
+title: "Designing Dashwood: How I Built a Performant Personal Portfolio with Glassmorphism and Clean Asset Structure"
+date: "2025-07-20"
+excerpt: "How I built a fast, modern portfolio using CSS glassmorphism and smart asset organization from day one."
+tags: ["frontend", "css", "portfolio", "web development", "design"]
+author: "Ryan Dashwood"
+---
+## Laying the Groundwork: Structure Before Style
+
+Every solid build starts with a clean foundation. When I kicked off the Dashwood project, my first move wasn’t reaching for flashy CSS or animations—it was setting up a folder structure that wouldn’t bite me later. I’ve learned the hard way that disorganized assets slow you down fast, especially when you’re iterating on visuals.
+
+From the initial commit, I structured the project with clear separation: `/images`, `/css`, and `/js` directories right in the root. Simple, yes—but intentional. I dropped the favicon into `/images` early, not just for consistency, but because I knew I’d be referencing it across multiple pages and wanted a single source of truth. That small decision saved me from path chaos later, especially as I added responsive meta tags and theme-color tweaks for mobile.
+
+This might sound basic, but naming conventions matter. I used `profile.jpg`, `favicon.svg`, and `favicon.png` with clear prefixes, so I could instantly tell what each file was for. No `img1.png` or `final_v2.svg` nonsense. When you’re the only developer (and designer, and content writer), clarity is your best friend.
+
+## Glassmorphism: Modern UI Without the Bloat
+
+Once the structure was solid, I wanted the site to *feel* modern—without reaching for a framework or kilobytes of JavaScript. That’s where glassmorphism came in. I’ve seen it overdone with blur-heavy designs that tank performance, but used sparingly, it adds just enough visual interest to make a portfolio feel polished.
+
+I applied it to two key areas: the main navigation and project cards. The effect is built entirely in CSS using `backdrop-filter: blur(8px)`, layered over semi-transparent backgrounds with subtle borders. Here’s the core pattern I used:
+
+```css
+.glass-card {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+```
+
+The trick? Performance. I limited `backdrop-filter` to elements that aren’t constantly animating or repainting. The nav bar is static, and the cards only gain the effect on hover after initial load. I also added a CSS toggle to respect `prefers-reduced-motion` and `prefers-contrast`, because cool effects shouldn’t come at the cost of accessibility.
+
+This wasn’t just about looks—it was about signaling. A little glassmorphism says, "I pay attention to detail," without needing a design system or animation library.
+
+## Optimizing Assets: From Favicon to Face
+
+With the visual tone set, I turned to personalization. A portfolio isn’t complete without *you* in it—literally. I added my profile image early, not as a hero banner, but as a small circular element next to the headline. It’s `72px`, `jpg` with moderate compression, and loaded synchronously. Why? Because it’s critical to the identity of the page, and I didn’t want a layout shift or lazy-load delay.
+
+More importantly, I made sure all image references were path-clean and relative. When I moved `favicon.svg` into `/images`, I updated every reference in `index.html` and `about.html` in one commit. No hardcoded roots, no `../` guesswork. This made local development and eventual deployment smoother—especially when I tested the site on a subpath during staging.
+
+I also added the SVG favicon alongside the traditional `.ico` format. SVG favicons scale perfectly, support themes (via `currentColor`), and are just one file instead of multiple resolutions. Not all browsers support them yet, so I kept the `.ico` as fallback, but it’s a small win for future-proofing.
+
+Looking back at those early Dashwood commits, what stands out isn’t any single line of code—it’s the intentionality. Every file, every class, every pixel tweak was made with scalability and performance in mind. I didn’t build a template; I built a home base for my work that can grow without groaning.
+
+If you’re building your own portfolio, start with structure. Then add style—sparingly. And always, *always* make it look like you.

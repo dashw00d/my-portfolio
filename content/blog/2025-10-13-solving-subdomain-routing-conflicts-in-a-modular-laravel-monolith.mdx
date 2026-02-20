@@ -1,0 +1,77 @@
+---
+title: "Solving Subdomain Routing Conflicts in a Modular Laravel Monolith"
+date: "2025-10-13"
+excerpt: "How scoping module routes to the main domain fixed subdomain conflicts in HomeForged's Laravel monolith."
+tags: ["Laravel", "modular-monolith", "routing", "subdomain-routing", "PHP"]
+author: "Ryan Dashwood"
+---
+## The Problem: Routes Colliding on Subdomains
+
+As HomeForged evolved into a more modular Laravel monolith, we started isolating features into self-contained modules—each with its own routes, views, and logic. It made development faster and testing easier. But when we introduced Nginx-based subdomain routing for multi-tenancy, things got messy.
+
+Suddenly, routes from our modules—meant only for the main domain—were unexpectedly matching on tenant subdomains. A `/dashboard` route in a module would respond not just on `homeforged.app/dashboard`, but also on `tenant.homeforged.app/dashboard`, even though that path wasn’t supposed to exist there.
+
+At first, it seemed like a minor routing quirk. But it quickly became a real problem: conflicting controller logic, unexpected redirects, and broken tenant isolation. We needed clean separation—modules should only bind to the root domain, not leak into subdomain space.
+
+The root cause? Laravel’s route registration doesn’t automatically scope by host unless you tell it to. When modules register routes via service providers, they’re added globally—host-agnostic. So if a tenant subdomain hits a path that happens to match a module route, Laravel happily serves it. No questions asked.
+
+## The Fix: Scoping Routes and Cleaning Up Path Logic
+
+The solution had two parts: first, enforce domain scoping at the route level; second, ensure our internal path generation wasn’t accidentally including subdomain parameters where they didn’t belong.
+
+We started by wrapping all module route registrations with a `domain` constraint. Instead of this:
+
+```php
+Route::prefix('tools')
+    ->group(base_path('modules/Tools/routes.php'));
+```
+
+We changed it to:
+
+```php
+Route::domain('{account}.homeforged.app')
+    ->group(function () {
+        // tenant-specific routes
+});
+
+Route::domain('homeforged.app')
+    ->group(function () {
+        Route::prefix('tools')
+            ->group(base_path('modules/Tools/routes.php'));
+    });
+```
+
+This ensured that module routes only respond on the main domain. Tenant subdomains could no longer accidentally match them. We applied this pattern across all modules—centralizing the logic in a base module loader to avoid repetition.
+
+But we weren’t done.
+
+We noticed another subtle bug: some page paths were being generated with `{account}` stuck in them, like `/tools/create?account=tenant`. That `account` parameter was meant for subdomain routing only—it shouldn’t appear in URLs on the main domain.
+
+Turns out, Laravel’s `URL::to()` and `route()` helpers were including the `{account}` parameter from the current route context, even when generating links outside subdomain routes. This happened because the parameter was still in the request’s bound parameters, even when not actively used.
+
+The fix? Filter it out explicitly when building paths. We overrode the default URL generator behavior in a service provider:
+
+```php
+URL::withoutScopedParameters();
+
+// Or, more surgically:
+URL::defaults([
+    'account' => null,
+]);
+```
+
+We also added a middleware that clears the `account` parameter from the request attributes when on the main domain, preventing accidental leakage into route generation.
+
+## Why This Matters for the Future
+
+This might sound like a niche fix, but it’s foundational for where we’re headed with HomeForged.
+
+By strictly scoping module routes and cleaning up parameter pollution, we’ve made the system more predictable. Developers can now add new modules without fear of accidentally breaking tenant isolation. It also sets us up for future module extraction—whether into microservices or standalone apps—because each module’s routing contract is now clearly bounded.
+
+It also improved test reliability. Before, some feature tests would fail depending on whether a subdomain was set in the request. Now, route resolution is consistent and deterministic.
+
+And from an operational standpoint, cleaner routing means fewer edge cases in logs, analytics, and monitoring. We’re no longer seeing ghost hits on tenant subdomains for admin-only paths.
+
+Modular monoliths are powerful, but they demand discipline. Without explicit boundaries, modules bleed into each other. This fix was a small code change with a big impact—exactly the kind of quiet infrastructure work that keeps complex apps running smoothly.
+
+If you’re building a Laravel app with subdomains and modules, don’t assume routes stay where you put them. Be explicit. Scope them. And always audit how parameters flow through your URL generation.

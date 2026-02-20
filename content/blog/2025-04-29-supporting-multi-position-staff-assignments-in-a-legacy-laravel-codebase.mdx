@@ -1,0 +1,65 @@
+---
+title: "Supporting Multi-Position Staff Assignments in a Legacy Laravel Codebase"
+date: "2025-04-29"
+excerpt: "How we extended a 15-year-old PHP app to let staff hold multiple roles per event—without rewriting the whole system."
+tags: ["Laravel", "Legacy PHP", "Refactoring", "Event Systems", "Incremental Modernization"]
+author: "Ryan Dashwood"
+---
+## The Business Need: One Staff, Multiple Hats
+
+Last month, our operations team came back with a simple request: let one staff member hold more than one position at the same event. At first glance, it sounded trivial. In practice? We were dealing with a 15-year-old PHP application—AustinsElite (Legacy)—where staffing assignments were hardcoded to a single role per event.
+
+For years, the system assumed a staff member was either a "Lead" or a "Runner" at any given event—not both. But reality didn’t care about our assumptions. Staff were already juggling multiple responsibilities, and the admin team was stuck manually documenting these overlaps outside the system. That meant inconsistent records, missed communications, and extra work during event audits.
+
+So we had to evolve. But rewriting the entire staffing module wasn’t on the table. We needed a surgical fix—one that delivered value fast without destabilizing a system that’s been running events since 2009.
+
+## Technical Constraints: Tight Coupling in an Old Codebase
+
+The core issue lived in how assignments were modeled. Originally, the `staff_assignments` table had a `role_id` column tied directly to the `event_positions` table. Each staff member could only be assigned once per event, and that single record locked them into one role.
+
+```php
+// Legacy schema (simplified)
+staff_assignments
+  - id
+  - staff_id
+  - event_id
+  - role_id  // Single role, no flexibility
+```
+
+The logic was scattered across views, controllers, and background jobs—all assuming one-to-one relationships. Even validation rules in forms rejected attempts to assign the same person twice. And because this was a legacy PHP app (using a custom framework with Laravel components, not a modern Laravel full-stack), we couldn’t lean on Eloquent polymorphism or API resources out of the box.
+
+Worse, this module was entangled with email triggers, reporting exports, and check-in workflows. Any change had to be invisible to downstream systems.
+
+We needed backward compatibility, zero data loss, and no breaking changes to existing assignments—all while enabling a new capability.
+
+## Implementation: Small Change, Big Impact
+
+The solution had to be minimal but scalable. We decided to shift responsibility from the assignment record to a new pivot table that would support multiple positions per assignment.
+
+Here’s what we did:
+
+1. **Created a new `assignment_positions` pivot table** with `assignment_id` and `position_id`. This allowed one assignment to link to many roles.
+2. **Migrated existing `role_id` values** into the new table during deployment, preserving all current data.
+3. **Updated the assignment form** to use a multi-select for positions instead of a dropdown, with JavaScript handling dynamic role addition.
+4. **Modified the backend validation** to accept arrays of positions and process them in a transaction.
+5. **Left the `role_id` column in place** but marked it as deprecated in the codebase. We’ll remove it in v2.
+
+The commit—'adjusted for multi-position event assignments'—was deceptively small. But behind it was careful coordination: ensuring exports still worked, that role-based permissions didn’t break, and that the UI didn’t confuse long-time users.
+
+We also added feature flags so we could test with a single event type before rolling out globally. That saved us when we caught a bug in the shift scheduling logic—turns out, double-booked staff were being scheduled at the same time. We added a client-side warning, and ops loved it.
+
+## Lessons Learned: Pragmatism Over Purity
+
+This wasn’t a glamorous refactor. No shiny new framework. No microservices. Just a few lines of SQL, some careful PHP, and a lot of respect for the existing system.
+
+But it taught me three things:
+
+- **Incremental change beats big rewrites** in legacy systems. Users don’t care if your code is "modern"—they care if it works. We delivered value in two weeks instead of six months.
+
+- **Data migration is the real work**. The schema change was easy. Writing the migration that handled 12,000+ existing assignments without dropping a single role? That’s where the time went.
+
+- **Backward compatibility is a feature**. By keeping the old `role_id` in place and layering new behavior on top, we avoided a cascade of breaking changes across reports and integrations.
+
+This update was the final piece of a month-long push to unify form handling and staffing logic across our legacy and modern systems. It wasn’t flashy, but it closed a major gap in how we support real-world operations.
+
+And honestly? That’s the kind of work that keeps old systems alive—and useful—without burning out the team maintaining them.

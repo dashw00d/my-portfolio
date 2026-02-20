@@ -1,0 +1,44 @@
+---
+title: "How We Scaled Our Web Crawler to 50 Instances Using Camoufox and Fleet Orchestration"
+date: "2026-02-09"
+excerpt: "We replaced Chrome with Camoufox, added IPv6 rotation, and scaled to 50 Vultr instances—here’s how we stayed stealthy and stable."
+tags: ["web crawling", "Camoufox", "IPv6 rotation", "browser automation", "Vultr", "scaling"]
+author: "Ryan Dashwood"
+---
+## The Chrome Ceiling: Why We Had to Move Beyond Standard Headless Browsers
+
+We hit a wall trying to scale our web crawler beyond 20 Chrome instances. Not because of performance—our Vultr VMs handled the load just fine—but because sites started detecting and blocking us. CAPTCHAs, 403s, and outright bans piled up. Chrome’s fingerprint was too consistent, too recognizable. Even with randomized user agents and proxy rotation, the browser’s underlying behavior screamed 'automation.' We needed a stealthier browser, one that didn’t leave such a clean trail.
+
+That’s when we started experimenting with Camoufox—a privacy-hardened, anti-detection fork of Firefox, designed to mimic real user behavior. Unlike Chrome, Camoufox comes with built-in protections against fingerprinting: canvas noise, randomized WebGL hashes, and subtle timing jitter. It’s not marketed for scraping, but for privacy-conscious users. Which, ironically, makes it perfect for us. We patched it into our crawler with Puppeteer-compatible bindings, and within hours, detection rates dropped by over 70%. The browser just… blended in.
+
+But swapping browsers wasn’t enough. We still needed to scale—our goal was 50 concurrent instances across multiple Vultr regions. And scaling meant rethinking how we handled IP diversity.
+
+## IPv6 Rotation: Hiding in Plain Sight with Source Address Randomization
+
+Our old proxy setup used a mix of residential and datacenter IPv4 proxies. It worked—until it didn’t. As we added more instances, we noticed clusters of blocks tied to specific /24 ranges. The sites weren’t just looking at individual IPs; they were analyzing network topology. That’s when we pivoted to IPv6.
+
+Vultr gives each instance a massive /64 IPv6 subnet—more than enough addresses to rotate on every request. But most tools don’t support IPv6 source address binding out of the box. So we had to force it.
+
+We modified our browser launch config to bind Camoufox to a randomly selected IPv6 address from the instance’s pool on startup. This wasn’t just rotating exit IPs—it was rotating the source address at the socket level. Each page load appeared to come from a different 'device' on the same network, making it nearly impossible to tie requests together.
+
+```bash
+# Example: bind curl to a random IPv6 addr (we did this for browser traffic)
+IP6=$(shuf -n1 <(ip -6 addr show dev eth0 | grep inet6 | awk '{print $2}' | cut -d'/' -f1))
+curl --interface $IP6 https://example.com
+```
+
+We applied the same logic to our browser instances using custom network namespaces and `ip` rules. The result? A single Vultr instance could simulate dozens of unique users, each with a distinct IP and browser fingerprint. Detection rates plummeted further. We were flying under the radar.
+
+## Managing 50 Instances Without Losing Our Minds
+
+Scaling to 50 instances introduced a new problem: visibility. We couldn’t SSH into each machine every time we needed to check status. Logs were scattered. Failures went unnoticed. We needed a centralized way to monitor fleet health.
+
+Our solution was two-fold. First, we built a lightweight fleet-status API that pulls real-time data from each instance via SSH—things like CPU, memory, active browser count, and error rates. It runs a tight loop over our instance list, aggregates the output, and serves a JSON dashboard. No agents, no overhead—just shell scripts and `cron`.
+
+Second, we added automated log inspection. Every instance ships logs to a central bucket, but instead of dumping them into a SIEM, we wrote a parser that scans for key patterns: browser crashes, proxy failures, and HTTP 429s. When anomalies spike, it triggers alerts. More importantly, it feeds into our fleet activity report—a daily digest that shows success rates, IP rotation stats, and instance uptime.
+
+This combo gave us what we needed: operational clarity at scale. We could spot a dying instance in seconds, detect a new blocking pattern across regions, or confirm that our Camoufox rollout was behaving as expected.
+
+## What’s Next?
+
+We’re not done. 50 instances is a milestone, but we’re already testing 100. Next up: fine-tuning Camoufox’s fingerprint jitter, adding DNS leak protection, and experimenting with mixed browser fleets (Camoufox + undetected Chrome). The cat-and-mouse game never ends—but now, we’re faster, quieter, and harder to catch.

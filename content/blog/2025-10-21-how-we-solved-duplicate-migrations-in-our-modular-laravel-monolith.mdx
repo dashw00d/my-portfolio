@@ -1,0 +1,56 @@
+---
+title: "How We Solved Duplicate Migrations in Our Modular Laravel Monolith"
+date: "2025-10-21"
+excerpt: "We fixed a critical bug in HomeForged’s module generator that was creating duplicate Laravel migrations by adding file hashing and manifest tracking."
+tags: ["Laravel", "modular-monolith", "code-generation", "migrations", "PHP"]
+author: "Ryan Dashwood"
+---
+## The Problem: Silent Failures from Duplicate Migrations
+
+Last week, while scaffolding a new module in HomeForged, I ran into a nasty surprise: a failed deployment due to a duplicate migration. The error was subtle—Laravel didn’t crash immediately—but when the CI pipeline hit the migration step, it choked on identical class names. This wasn’t the first time, but it was the first time it cost us a production deploy. 
+
+HomeForged uses a modular monolith architecture, where each domain (like `portal`, `automation`, or `inventory`) lives in its own directory with self-contained migrations, routes, and service providers. We rely heavily on a custom `BuildModuleCommand` to scaffold these modules quickly. But after a recent refactor to support hybrid automation workflows, we started seeing repeated migration files—same timestamp, same class, slightly different content. It was maddening.
+
+The root cause? Our generator was stateless. Every time you ran `php artisan make:module Portal`, it blindly wrote new migration files without checking whether equivalent ones already existed. And because Laravel uses timestamps in migration filenames, even minor re-runs created conflicts. We needed idempotency—fast.
+
+## The Fix: Hashing + Manifests for Safe Regeneration
+
+We couldn’t just compare filenames. Two migrations could have different names but identical schema changes. We also couldn’t rely on class existence checks—Laravel’s autoloader doesn’t help if the file exists but hasn’t been dumped. So we went lower: content hashing and manifest tracking.
+
+Here’s what changed in the `BuildModuleCommand`:
+
+1. **File Hashing**: Before writing any migration, the generator computes an MD5 hash of the generated migration content (after stub interpolation).
+2. **Manifest Lookup**: Each module now maintains a `module.json` manifest that logs previously created files and their hashes.
+3. **Skip Logic**: If a migration with the same hash already exists in the manifest, the generator skips it. If the filename exists but the hash differs, it treats it as an intentional update and overwrites—logging the change.
+
+```php
+protected function shouldWriteMigration(string $path, string $content): bool
+{
+    if (! file_exists($path)) return true;
+
+    $existingHash = $this->manifest->getHash('migrations', basename($path));
+    $newHash = md5($content);
+
+    return $existingHash !== $newHash;
+}
+```
+
+We also retrofitted the existing `portal` module with a corrected manifest, since earlier versions had drifted. That was a one-off, but it ensured consistency across dev, staging, and prod.
+
+The real win? Now developers can re-run the module generator safely—whether they’re adding new features or recovering from a botched local setup. The system self-corrects.
+
+## Lessons Learned: Building Idempotent Generators in Laravel
+
+This bug taught us three things about code generation in Laravel:
+
+First, **assume every generator will be run twice**. Even if your docs say "run once," someone will run it again. Whether it’s CI/CD, onboarding, or disaster recovery, regeneration is inevitable. Design for it.
+
+Second, **use content hashes, not just filenames**. Two files with different names can do the same thing. Two files with the same name can do different things. The hash of the actual schema change is the single source of truth.
+
+Third, **manifests are cheap and powerful**. We were hesitant to add JSON metadata files at first—they felt like overhead. But they’ve become our audit trail. Now we track not just migrations, but seeders, policies, and even route registrations. When someone asks, "What did this module deploy?", the manifest answers.
+
+We’ve already extended this pattern to our kit installation system, where HomeForged users can pull in pre-built automation modules. Each kit now verifies file integrity on install and upgrade using the same hashing logic.
+
+This fix landed in 21 commits over two days—mostly refactoring test assertions and tightening up the manifest interface. But it closed a critical gap in our developer experience. No more "migration already exists" surprises. Just clean, predictable scaffolding.
+
+If you’re building modular Laravel apps, don’t wait for the duplicate migration error to strike. Add checksums. Keep manifests. Make your generators boringly reliable.

@@ -1,0 +1,91 @@
+---
+title: "Building a Resilient UI with Worker-Powered Parsing: Lessons from Git Context's Refactor Report Overhaul"
+date: "2025-11-30"
+excerpt: "How offloading Git diff parsing to a web worker eliminated UI freezes in Git Context’s Refactor Report."
+tags: ["web workers", "performance", "React", "Git", "frontend architecture"]
+author: "Ryan Dashwood"
+---
+## The UI Was Freezing — And It Was All My Fault
+
+A few weeks ago, I shipped a new version of the Refactor Report in [Git Context](https://github.com/ryandaswood/git-context), a tool I built to visualize codebase evolution through Git history. The feature worked — technically. But every time a user loaded a large repository, the entire interface locked up for seconds, sometimes over ten. Tabs became unresponsive. Clicks went unanswered. The dreaded "Uh oh, this page isn’t responding" dialog started showing up more than I’d like to admit.
+
+The culprit? Synchronous parsing of large Git diff outputs directly on the main thread. I was taking raw `git log` output, parsing thousands of file changes, extracting refactor patterns, and rendering summaries — all before the UI could respond to a single click. It didn’t scale, and it definitely didn’t respect the user’s time.
+
+This wasn’t just a performance issue. It was a reliability problem. A frozen UI erodes trust. Users don’t know if the app is working or broken. So I made a call: no more heavy lifting on the main thread. It was time to move parsing into a web worker.
+
+## Migrating Parsing to a Web Worker: Strategy and Structure
+
+The goal was simple: keep the main thread free for rendering and interaction, while parsing happens in the background. But the execution required careful design.
+
+I started by isolating the parsing logic into a standalone module — a pure function that takes raw Git log text and returns structured data about file changes, refactor types, and metadata. This module had no dependencies on React, the DOM, or any UI concerns. That separation made it easy to import into a worker context.
+
+Here’s how the worker setup looks:
+
+```js
+// worker.js
+self.onmessage = async (e) => {
+  const { rawGitLog, id } = e.data;
+  try {
+    const result = parseGitLog(rawGitLog); // CPU-heavy
+    self.postMessage({ id, result, error: null });
+  } catch (error) {
+    self.postMessage({
+      id,
+      result: null,
+      error: error.message
+    });
+  }
+};
+```
+
+Back in the React component, I used a hook to manage the worker lifecycle:
+
+```js
+const useGitLogParser = () => {
+  const [results, setResults] = useState({});
+  const worker = useRef(null);
+
+  useEffect(() => {
+    worker.current = new Worker(new URL('./worker.js', import.meta.url));
+    
+    worker.current.onmessage = (e) => {
+      const { id, result, error } = e.data;
+      if (error) {
+        console.error(`Worker error for ${id}:`, error);
+      } else {
+        setResults(prev => ({ ...prev, [id]: result }));
+      }
+    };
+
+    return () => worker.current?.terminate();
+  }, []);
+
+  const parse = (rawGitLog, id) => {
+    worker.current?.postMessage({ rawGitLog, id });
+  };
+
+  return { results, parse };
+};
+```
+
+Each parsing job is tagged with an `id`, so the UI can track progress or display results per repository or branch. Errors are caught in the worker and sent back gracefully — no unhandled exceptions crashing the thread.
+
+This pattern turned a fragile, blocking operation into a resilient async workflow. Even if parsing takes 15 seconds, the UI stays responsive. Users can cancel, switch tabs, or start another analysis without penalty.
+
+## Measurable Gains and Reusable Patterns
+
+The impact was immediate. Before the change, loading a large repo like `rails/rails` would freeze the UI for 12–18 seconds. After the refactor? Main thread jank dropped to near zero. Parsing still takes time, but now it’s *non-blocking* time. The Refactor Report displays a progress indicator, and users can interact with other parts of the app while waiting.
+
+Beyond performance, this shift improved error isolation. A malformed diff line no longer crashes the UI — it’s caught in the worker and reported cleanly. This reliability was a game-changer for debugging real-world Git histories, which are often messy.
+
+If you’re building a data-heavy cockpit interface in React (or any framework), here are the patterns I’d recommend:
+
+- **Isolate parsing logic** from UI components. Make it a pure function.
+- **Use message IDs** to correlate async responses with requests.
+- **Handle errors inside the worker** and send structured error payloads back.
+- **Terminate workers on unmount** to avoid memory leaks.
+- **Show meaningful loading states** — users should know something’s happening.
+
+This refactor wasn’t just about speed. It was about building a UI that feels trustworthy, even under load. In tools like Git Context, where users analyze complex codebases, resilience matters as much as features.
+
+Moving forward, I’m applying this worker-first mindset to other heavy operations — diff comparisons, file clustering, and timeline generation. The main thread isn’t a dumping ground for CPU work. It’s the user’s interface to your app. Keep it free, keep it fast, and keep it responsive.

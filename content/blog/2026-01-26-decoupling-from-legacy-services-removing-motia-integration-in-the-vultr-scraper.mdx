@@ -1,0 +1,60 @@
+---
+title: "Decoupling from Legacy Services: Removing Motia Integration in the Vultr Scraper"
+date: "2026-01-26"
+excerpt: "How we ripped out a brittle third-party integration and replaced it with a unified, maintainable worker model."
+tags: ["python", "refactoring", "legacy-code", "system-design", "backend-engineering"]
+author: "Ryan Dashwood"
+---
+## The Warning Signs: When Integration Becomes Technical Debt
+
+We didn’t wake up one day and decide to gut a core integration. The Motia service had been part of our Vultr scraper for years—quiet, mostly reliable, and buried deep in the provisioning pipeline. But over time, the cracks started showing.
+
+First, error logs spiked during Motia’s occasional outages. Then came the debugging hell: tracing a failed scrape through our system only to hit a black box API call with vague responses. We couldn’t fix it, couldn’t retry intelligently, and couldn’t test it locally. Every change near that codepath felt risky.
+
+Worse, Motia’s provisioning logic was duplicated across multiple entry points—some triggered via webhooks, others through scheduled jobs, all wired through inconsistent clients. We had *three* different ways to call the same service, each with its own error handling quirks and retry logic. It wasn’t just fragile; it was a maintenance tax.
+
+That’s when we decided: Motia had to go. Not just replaced—but fully decoupled and removed, with zero residual dependencies.
+
+## Strategy: Incremental Decoupling Without Breaking the Pipeline
+
+We didn’t yank it out overnight. This was a live scraper processing thousands of jobs daily. Our goal was zero downtime, no regression, and full observability throughout.
+
+The plan had three phases:
+
+1. **Isolate and wrap** – We wrapped all Motia client calls behind a single interface, even if they were doing slightly different things. This gave us a seam to work against.
+2. **Shadow and verify** – We built a new Python-based worker that mirrored Motia’s output using local logic and direct API calls to Vultr. Then, we ran it in parallel, comparing results.
+3. **Redirect and remove** – Once confidence was high, we flipped the switch: all provisioning requests went to the new worker. Then, we deleted.
+
+The key was making each commit small and reversible. We removed one client at a time, killed one endpoint, then another. We leaned heavily on logging diffs and monitoring job success rates. After each step, we checked: did success rates hold? Did latency improve? Were errors shifting from "Motia timeout" to actionable failures?
+
+One commit that stands out: `[Vultr Scraper] refactor: Remove Motia integration services`. That wasn’t just deleting code—it was deleting *responsibility*. No more tracking Motia’s API docs, no more Slack pings to their team. The diff was 800 lines gone, and it felt like shedding armor.
+
+## Building the Unified Worker: One Path to Provisioning
+
+The replacement wasn’t just a drop-in—it was a redesign. Instead of mirroring Motia’s scattered logic, we built a single, stateless Python worker that handled all provisioning decisions:
+
+- Accepts a scrape task
+- Determines if a new Vultr instance is needed
+- Spins it up with standardized tags, regions, and boot scripts
+- Returns instance metadata synchronously
+- Handles cleanup on failure
+
+All of this in one clean, testable function. No queues, no external round-trips, no hidden side effects.
+
+The real win? Consistency. Whether the job came from a webhook, a retry, or a manual trigger, the path was the same. We replaced `[Vultr Scraper] refactor: Replace all Motia provisioner calls with unified worker` in one focused PR that tied everything together.
+
+Testing became easier, too. We could mock Vultr’s API at the HTTP layer and validate provisioning logic in isolation. No more relying on Motia’s sandbox environment that was always out of sync.
+
+And performance? Cold start latency dropped by 30%. No more waiting on an external service to respond before we could even begin scraping.
+
+## Lessons Learned: Delete Fear, Not Just Code
+
+This wasn’t just a technical refactor—it was a mindset shift. We stopped treating third-party integrations as permanent fixtures. If it’s not core to our value, and it’s making us less agile, it’s a candidate for removal.
+
+The biggest lesson? **Decoupling starts with visibility.** If you can’t draw a clear boundary around a service, you can’t remove it. Wrapping Motia’s chaos behind a single interface was the most important step—we couldn’t have deleted what we couldn’t see.
+
+We also learned that "working" doesn’t mean "healthy." Motia worked 95% of the time, but that 5% was costing us more in debugging, latency, and fear of change than building the replacement.
+
+Today, the scraper is leaner, faster, and fully in our control. The Motia folder is gone. Its name appears nowhere in the codebase. And for the first time in years, I can change provisioning logic without holding my breath.
+
+That’s not just progress. That’s peace of mind.

@@ -1,0 +1,64 @@
+---
+title: "How We Synchronized Laravel Dependencies Across 4 Projects Without Breaking Anything"
+date: "2025-10-30"
+excerpt: "Upgrading Laravel across multiple projects? Here’s how we coordinated dependency changes safely using lockfile diffs and automated guardrails."
+tags: ["Laravel", "Dependency Management", "PHP", "CI/CD", "Composer"]
+author: "Ryan Dashwood"
+---
+## The Upgrade That Almost Broke Everything
+
+Today, we pushed Laravel 12.36.1 across four active projects: HomeForged, Subscription Platform, Component Gen, and DataAnno Fil Starter. On the surface, it’s just a version bump in `composer.json`. In reality, it triggered over 120 lockfile changes across the ecosystem — some expected, many not. One missing subdependency would’ve taken down our staging environments. Instead, everything deployed cleanly. Here’s how.
+
+The challenge wasn’t just upgrading Laravel — it was ensuring that every package in every `composer.lock` remained compatible, especially across shared tooling. We’ve been burned before: a minor `illuminate/support` mismatch once caused silent data truncation in a background job. So this time, we treated the upgrade like a distributed systems problem — because it is.
+
+## Diffing Lockfiles Like a Detective
+
+Our first move? Stop treating `composer.lock` as opaque. We pulled fresh clones of each project at their pre-upgrade state, then ran `composer require laravel/framework:^12.36.1` in a feature branch. After each install, we committed the changes and generated a structured diff:
+
+```bash
+git diff HEAD~1 composer.lock | tail -n +5 > /tmp/lockdiff.txt
+```
+
+We didn’t trust Composer’s output alone. Instead, we parsed the diffs to isolate which packages changed *indirectly* — the real danger zone. For example, in [Subscription Platform], upgrading Laravel pulled in a new version of `brick/math` (v0.11 → v0.12), which we didn’t directly require but Laravel now depended on. Same in [DataAnno Fil Starter], where the same cascade forced us to update downstream packages that relied on `brick/math` internals.
+
+We built a quick script to flag any package that changed version without being in our `require` block. That gave us a shortlist of "passive updates" to audit. For each, we checked:
+
+- Is this a breaking change per the package’s changelog?
+- Does our code (or any direct dependency) use any deprecated methods?
+- Does our test suite cover usage of this package?
+
+Spoiler: `brick/math` v0.12 dropped support for PHP 8.1 — but we’d already standardized on 8.2+ across all projects. Green light.
+
+## CI as a Safety Net, Not an Afterthought
+
+We didn’t run the upgrade locally and call it a day. Instead, we baked validation into CI with three new checks:
+
+1. **Lockfile Consistency Scan**: Ensures no `composer.lock` is out of sync with `composer.json` — a common CI pitfall.
+2. **Version Pinning Audit**: Flags any package in `require-dev` or `require` that uses `*` or `dev-master`.
+3. **Cross-Project Version Check**: Compares versions of shared packages (like `laravel/framework`, `spatie/laravel-package-tools`) across all four repos. If HomeForged uses Laravel 12.36.1 but Component Gen is on 12.4.1? Fail the build.
+
+This last check caught a real issue: one project hadn’t merged the latest base config from our shared template, so it was still allowing outdated constraints in `composer.json`. CI blocked it before it became tech debt.
+
+We also ran our full test suite in parallel across all projects using GitHub Actions matrix jobs. Any test failure in any project would block promotion to staging. We treat test pass rates as a contract.
+
+## Our Rollback Playbook (And Why We Didn’t Need It)
+
+Even with safeguards, we prepared to roll back in under 5 minutes if needed. Our strategy:
+
+- **Tag every pre-upgrade commit** with `laravel-12.4.1-fallback`
+- **Pre-bake rollback PRs** that revert only the Laravel line in `composer.json` and restore the old `composer.lock`
+- **Monitor logs and metrics** for 15 minutes post-deploy: error rates, queue latency, DB query patterns
+
+We didn’t need it. But having the rollback ready changed how we shipped — we were calm, not frantic. Confidence isn’t luck; it’s preparation.
+
+## The Long Game: Version Alignment as a Practice
+
+This wasn’t a one-off. We’re now treating Laravel version alignment like API versioning: planned, documented, and coordinated. Our roadmap includes:
+
+- A shared `platform-composer` package that locks core dependencies and gets pulled into all projects
+- Monthly "dependency sync" windows where we batch updates
+- Automated alerts when a project falls more than 10 minor versions behind
+
+Keeping four projects in sync isn’t about avoiding change — it’s about controlling its rhythm. Laravel evolves fast. Our job isn’t to resist it, but to ride the wave without wiping out.
+
+If you’re juggling multiple Laravel apps, don’t wing the upgrade. Diff your lockfiles, test the edges, and make CI your co-pilot. Because the next big bump is already coming — and you’ll want to be ready.

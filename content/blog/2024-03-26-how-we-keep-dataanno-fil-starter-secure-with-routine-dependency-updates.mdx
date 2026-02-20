@@ -1,0 +1,51 @@
+---
+title: "How We Keep DataAnno Fil Starter Secure with Routine Dependency Updates"
+date: "2024-03-26"
+excerpt: "Small, consistent dependency updates in our Laravel-based tool prevent security risks and technical debt before they start."
+tags: ["Laravel", "PHP", "Dependency Management", "Security", "Technical Debt"]
+author: "Ryan Dashwood"
+---
+## Keeping the Foundation Strong
+
+DataAnno Fil Starter isn’t flashy—it’s a Laravel-based PHP tool we built to streamline data annotation for internal research projects. It doesn’t need to scale to millions of users, but it *does* need to be reliable, secure, and easy to maintain. That’s why one of our quietest but most critical practices is routine dependency maintenance.
+
+We’re not talking about rearchitecting features or shipping new UIs. We’re talking about the kind of work that rarely makes it into standups: updating packages, checking version constraints, and making sure our `composer.json` isn’t quietly accumulating risk. Last week, that meant a small commit titled simply: *'Upgrade dependencies'*. But behind that unassuming message is a habit that keeps our tools alive and trustworthy.
+
+## What We Updated (And Why It Matters)
+
+On March 26, 2024, we ran a controlled update across several dependencies in DataAnno Fil Starter. Nothing major jumped from v1 to v3—this wasn’t a breaking change blitz. Instead, we bumped a handful of packages to their latest minor and patch versions: Laravel Framework itself, a few service providers, and some underlying Symfony components that Laravel relies on.
+
+One update caught my eye: a patch release in a HTTP foundation package that included a fix for a potential timing attack on session regeneration. Not something we’d likely face in our low-exposure research environment—but it was patched in the upstream Laravel release, and we wanted that fix in our tree.
+
+The upgrade process was straightforward:
+
+1. Pull latest changes
+2. Run `composer update` with explicit version constraints
+3. Verify tests pass (we have solid feature coverage on auth and data submission flows)
+4. Smoke test the app locally
+5. Commit and deploy
+
+No drama. No last-minute hotfixes. Just a 20-minute maintenance window that took place during a quiet afternoon.
+
+But here’s the thing: if we’d waited six months to do this—like we might’ve in past years—this would’ve been a much riskier operation. We’d be juggling multiple version jumps, deprecation warnings, and possibly conflicting service provider registrations. Instead, because we do this every few weeks, each update is small, predictable, and reversible.
+
+## Preventing Debt, One Patch at a Time
+
+Let’s be honest: dependency updates are easy to deprioritize. There’s no user-facing win. No stakeholder demo moment. It feels like maintenance work in the purest sense—something you do when everything else is "done."
+
+But in reality, *not* doing them is how technical debt compounds.
+
+I’ve been on teams where we let dependencies rot for over a year. When we finally tried to upgrade Laravel from 8 to 9, it took three sprints. We had to refactor custom middleware, rewrite pagination logic, and debug obscure container binding issues—all because we’d ignored the small, routine work.
+
+With DataAnno Fil Starter, we’re taking a different approach. We treat dependency hygiene like brushing your teeth: boring, non-negotiable, and way worse if you skip it. By upgrading frequently, we:
+
+- **Reduce blast radius**: Smaller changes mean fewer things break at once.
+- **Stay secure**: We’re not exposed to known CVEs for long windows.
+- **Preserve developer sanity**: No one dreads "the big upgrade."
+- **Keep onboarding smooth**: New devs aren’t greeted with "Oh, don’t touch `composer.json`—it’ll break everything."
+
+And let’s talk security for a second. Open-source supply chain attacks are no longer theoretical. A malicious package, or even a compromised maintainer, can slip something nasty into a widely-used library. By staying current, we minimize our exposure window. If a vulnerability is disclosed and patched, we can roll the fix out in hours, not weeks.
+
+This isn’t about perfection. We’re not running automated dependency bots (yet). But we *are* building a culture where maintenance isn’t an afterthought—it’s part of the rhythm.
+
+DataAnno Fil Starter may never win a design award. But I sleep better knowing its foundation is solid, up-to-date, and not quietly accumulating risk. And that’s a win worth writing about.

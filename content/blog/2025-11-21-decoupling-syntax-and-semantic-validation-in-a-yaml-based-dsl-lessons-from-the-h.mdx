@@ -1,0 +1,42 @@
+---
+title: "Decoupling Syntax and Semantic Validation in a YAML-Based DSL: Lessons from the HomeForged Refactor"
+date: "2025-11-21"
+excerpt: "How splitting syntax and semantic validation in HomeForged improved error resilience and developer experience in a YAML-based DSL."
+tags: ["YAML", "DSL", "Validation", "Developer Experience", "TypeScript", "HomeForged"]
+author: "Ryan Dashwood"
+---
+## The Problem with Blended Errors in YAML DSLs
+
+If you’ve ever debugged a configuration file that just… didn’t work—without a clear reason—you know the pain of conflated validation. In HomeForged, our YAML-based domain-specific language lets developers define complex local dev environments with services, mounts, and AI agent hooks. But early on, a single misplaced colon or incorrect field name would cascade into a tangle of ambiguous errors: was it malformed YAML, or a semantic misstep like referencing a non-existent service?
+
+We were mixing syntax and semantic validation at parse time. That meant a typo in a service name (`dbase` instead of `db`) looked the same to the user as invalid YAML structure. Both triggered the same error handler, both dumped raw messages, and both left developers guessing. Worse, partial configurations—perfectly valid as YAML but incomplete in meaning—were rejected outright instead of being flagged with actionable feedback.
+
+This wasn’t just noisy—it was fragile. As we prepared to integrate AI agents that generate and modify these configs autonomously, we needed a system that could tolerate incomplete input, recover gracefully, and report *what kind* of problem existed, not just *that* one did.
+
+## Building a Two-Phase Validation Pipeline
+
+The fix? A clean split: **syntax first, semantics later**.
+
+We refactored the entire schema pipeline in HomeForged to enforce a two-phase validation process, orchestrated through a new `SchemaAnalysisContext` that caches intermediate results and enables reuse across IDE integrations, CLI feedback, and AI agent loops.
+
+Phase one is pure syntax: does this YAML parse? Are the required top-level keys present? Are data types (strings, arrays, objects) structurally sound? This runs immediately on load, using `js-yaml` with strict mode and a lightweight schema pass. If this fails, we stop—no point checking semantics on garbage. But instead of crashing, we return a structured `SyntaxErrorSet` with line numbers, expected types, and recovery hints.
+
+Only when syntax passes do we enter phase two: semantic validation. This is where we ask domain-specific questions: does every `depends_on` reference a real service? Are mount paths within allowed boundaries? Do AI agent roles map to defined permissions? These checks now live in the `BuilderStateService`, which hydrates a `SchemaAnalysisContext` from the parsed YAML and runs a series of decoupled validators.
+
+The context is key. It holds the AST, the parsed object graph, and accumulated diagnostics. It’s cached per document version, so when the user tweaks a field, we don’t re-parse from scratch. IDE plugins and the CLI can query it independently, and AI agents use it to inspect the *current valid state* before proposing changes—critical when generating patches.
+
+This refactor touched 14 commits, from extracting validation rules to overhauling error serialization. But the payoff was immediate: configs with minor typos could still be partially loaded, visualized, and corrected—not discarded.
+
+## Trade-Offs: Precision, Performance, and DX
+
+Separating concerns gave us clarity, but not without trade-offs.
+
+First, error precision improved dramatically. We now emit distinct diagnostics: `YAML_PARSE_ERROR`, `MISSING_REQUIRED_FIELD`, `UNKNOWN_SERVICE_REFERENCE`, etc. Each carries metadata for tooling to render context-aware messages. A syntax error highlights the exact line in the editor; a semantic error links to documentation or suggests valid alternatives.
+
+Performance also benefited. By caching the parsed syntax tree and only re-running semantic checks when relevant fields change, we cut validation latency by ~60% in large configs. The `SchemaAnalysisContext` acts as a shared ledger—no redundant parsing across services.
+
+But we did lose some early bailout speed. Previously, a single function would fail fast on any issue. Now, we sometimes complete syntax parsing only to fail immediately in semantics. We mitigated this by making syntax checks extremely lightweight and deferring expensive semantic rules until explicit validation requests (e.g., on save, not on every keystroke).
+
+Most importantly, developer experience improved. Users aren’t blocked by perfect syntax to see their config’s structure. AI agents can work with partially valid states, proposing fixes instead of failing silently. And because JSON schemas are now committed to Git and used to generate TypeScript types, we’ve created a single source of truth across backend, frontend, and AI logic.
+
+This refactor wasn’t just about cleaner code—it was about building a foundation for resilience. As we plug in Grok and Claude to auto-generate HomeForged configs, knowing that syntax and semantics are decoupled gives us confidence in the pipeline. Errors are contained, feedback is precise, and the system stays usable even when things are broken. Which, let’s be honest, is most of the time in development.

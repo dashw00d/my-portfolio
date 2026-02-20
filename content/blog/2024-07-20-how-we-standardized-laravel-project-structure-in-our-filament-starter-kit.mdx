@@ -1,0 +1,41 @@
+---
+title: "How We Standardized Laravel Project Structure in Our Filament Starter Kit"
+date: "2024-07-20"
+excerpt: "We aligned our Laravel Filament starter with framework conventions to improve consistency, maintainability, and onboarding for developers."
+tags: ["Laravel", "Filament", "Starter Kit", "Best Practices", "Developer Experience"]
+author: "Ryan Dashwood"
+---
+## Why Starter Kits Should Mirror the Skeleton
+
+When you're spinning up a new admin panel with Filament, the last thing you want is to fight with inconsistent configs or outdated patterns. That’s why we recently took a hard look at our [DataAnno Fil Starter](https://github.com/ryandaswood/dataanno-fil) and brought it into strict alignment with Laravel’s official skeleton. The goal? Make it feel less like a third-party template and more like `laravel/laravel`—but with Filament baked in.
+
+Starter kits are powerful, but they can quietly drift from framework norms. A missed config update here, a custom `.env` key there, and suddenly you’re debugging why your middleware doesn’t behave like the docs say. We wanted to eliminate that friction. By mirroring Laravel’s structure and defaults, we ensure developers aren’t learning a forked dialect of Laravel—they’re working with the real thing, day one.
+
+## Key Changes: Config, Environment, and Controller Hygiene
+
+We audited nine recent commits and focused on three core areas: configuration files, `.env.example`, and base controller inheritance. Each was updated to reflect current Laravel conventions.
+
+First, the config files. Laravel’s skeleton includes opinionated defaults for `app.php`, `auth.php`, `logging.php`, and more. Our starter had slight deviations—custom cache prefixes, tweaked session drivers, and outdated debug settings. We reset them. Now, `config/app.php` matches the upstream exactly, except where Filament integration requires it not to. This means cache tags, session handlers, and logging channels behave predictably, especially when onboarding new team members or deploying to shared environments.
+
+Next, `.env.example`. This file is often overlooked, but it’s the blueprint for onboarding. We cleaned up deprecated keys, added missing ones (like `SESSION_SECURE_COOKIE` and `LOG_CHANNEL`), and ordered them logically: database, cache, session, services. No more guessing which variables are required or how they should be named. Just `cp .env.example .env`, fill in the blanks, and go.
+
+Finally, the base `Controller` class. Our starter previously extended a custom base controller with scattered middleware and helpers. We simplified it: now `app/Http/Controllers/Controller.php` extends `Illuminate\Routing\Controller` and uses `Illuminate\Foundation\Bus\DispatchesJobs`, just like Laravel’s skeleton. All middleware is registered via constructor injection or route-level assignment, using modern syntax:
+
+```php
+public function __construct()
+{
+    $this->middleware(['auth', 'verified']);
+}
+```
+
+No magic. No hidden inheritance chains. Just clear, readable code that follows the Laravel style guide.
+
+## Reducing Drift, Speeding Up Onboarding
+
+These changes might seem minor in isolation, but together they create a stronger foundation. When your starter kit mirrors `laravel/laravel`, you reduce cognitive load. Developers don’t need to unlearn patterns or memorize project-specific quirks. They can lean on Laravel’s documentation, Stack Overflow answers, and community knowledge without second-guessing.
+
+We also fixed related inconsistencies: admin provider formatting now matches Laravel’s Auth scaffold, and middleware groups are defined using the latest array syntax. These tweaks ensure that when you run `php artisan make:auth` or add a new guard, everything slots in cleanly.
+
+The result? A starter that feels familiar, scales predictably, and avoids the "configuration drift" that plagues long-lived projects. Whether you’re building a small internal tool or a full SaaS admin, starting from a standardized base means you spend less time debugging and more time shipping.
+
+If you’re using Filament and want a starter that stays in sync with Laravel’s evolution, check out [DataAnno Fil Starter](https://github.com/ryandaswood/dataanno-fil). It’s not just pre-loaded with Filament—it’s built like Laravel intends.

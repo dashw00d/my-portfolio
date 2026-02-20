@@ -1,0 +1,122 @@
+---
+title: "Why We Upgraded Vite in a Laravel Project — And What Broke Along the Way"
+date: "2025-11-10"
+excerpt: "Upgrading Vite to v7 in a Laravel starter kit exposed hidden dependency traps, HMR failures, and manifest quirks — here's how we fixed it."
+tags: ["Vite", "Laravel", "JavaScript", "Build Tools", "Dependency Management"]
+author: "Ryan Dashwood"
+---
+## The Upgrade That Seemed Routine
+
+We run a Laravel-based starter kit called DataAnno Fil Starter — a lean, opinionated foundation for full-stack apps with modern tooling. When Vite 7 dropped, we figured: "Just bump the version, run the tests, ship it." Famous last words.
+
+The upgrade wasn’t just about new features. We wanted better tree-shaking, improved TypeScript support, and faster cold starts. But more than that, we needed to stay current. Outdated tooling becomes tech debt fast, especially in starter kits where hygiene sets the tone for downstream projects.
+
+So we ran the numbers:
+
+```bash
+npm install vite@^7 laravel-vite-plugin@^1.0
+```
+
+Simple, right? Wrong.
+
+The build passed. The dev server started. But HMR stopped working. Assets 404’d in dev. And the production manifest was missing half its entries. We were flying blind — until we dug deeper.
+
+## What Actually Broke (And Why)
+
+### HMR Died Silently
+
+The first red flag: editing a Vue component no longer triggered hot reloads. The browser didn’t refresh. No errors in the console. Vite’s terminal log showed file changes, but no updates pushed.
+
+Turns out, Vite 7 tightened how it handles server origins and WebSocket connections. Our `vite.config.js` was using an older pattern:
+
+```js
+export default defineConfig({
+  plugins: [
+    laravel([/* ... */]),
+  ],
+  server: {
+    host: 'localhost',
+    hmr: {
+      host: 'localhost'
+    }
+  }
+})
+```
+
+But with Laravel’s dev server typically running on `http://localhost:8000`, and Vite serving assets on `http://localhost:5173`, the HMR client was trying to connect to `ws://localhost:5173` — which got blocked by mixed-content policies or CORS-like restrictions in the browser's WebSocket handshake.
+
+The fix? Explicitly set the HMR client protocol to match Laravel’s server:
+
+```js
+server: {
+  host: 'localhost',
+  hmr: {
+    protocol: 'ws',
+    host: 'localhost',
+    port: 5173
+  }
+}
+```
+
+This forced the client to use `ws://` instead of inferring `wss://`, aligning with our local dev setup.
+
+### Manifest Generation Went Quiet
+
+Next: production builds. The `manifest.json` was generated, but only half the chunks were listed. Critical CSS and async JS bundles were missing. This meant Laravel’s `@vite` directive couldn’t resolve them — resulting in broken asset links in production.
+
+After isolating the config, we realized the issue wasn’t with our code — it was a breaking change in how `laravel-vite-plugin` v1 handles dynamic imports and entry points. The plugin now respects Vite’s internal chunking logic more strictly, but that meant dynamically imported modules weren’t being registered as top-level entries.
+
+We had two options:
+
+1. Manually declare all dynamic imports as entries (not scalable)
+2. Re-architect how we split bundles
+
+We chose door #2. We consolidated lazy-loaded chunks into named entry points and updated the plugin config:
+
+```js
+laravel({
+  input: [
+    'resources/js/app.js',
+    'resources/js/admin.js',
+    'resources/css/app.css'
+  ],
+  refresh: true,
+})
+```
+
+This gave Vite clearer boundaries and ensured every entry was tracked in the manifest.
+
+## Lessons Learned (And How We’ll Avoid This Next Time)
+
+### 1. Never Assume Minor = Safe
+
+Vite 6 to 7 is a minor version bump, but it included architectural shifts in asset handling and HMR. The `laravel-vite-plugin` also moved from v0 to v1 — which *should’ve* been a hint. Major version jumps in ecosystem plugins are rarely just marketing.
+
+### 2. Test HMR Like You Test Builds
+
+We had CI check for successful builds and lint passes — but nothing verifying HMR actually works. Now, we run a smoke test that spins up the dev server, edits a file via script, and checks for a WebSocket update event. It’s not perfect, but it catches 80% of HMR regressions.
+
+### 3. Lock Down Dependency Pairs
+
+Vite and `laravel-vite-plugin` are tightly coupled. Going forward, we treat them like a single unit. Our `package.json` now includes a comment:
+
+```json
+"devDependencies": {
+  "vite": "^7.0.0",
+  "laravel-vite-plugin": "^1.0.0" // Must match Vite v7
+}
+```
+
+And we use `npm audit`-style checks in CI to flag mismatched pairs.
+
+### 4. Fall Back to Mix Patterns When Stuck
+
+When debugging, we borrowed a trick from Laravel Mix: isolate the asset pipeline. We temporarily hardcoded asset URLs in Blade templates and bypassed `@vite` to confirm the issue was tooling, not routing. That clarity saved hours.
+
+## Final Thoughts
+
+Upgrading Vite 6 to 7 in a Laravel project wasn’t just a version bump — it was a stress test of our assumptions. HMR, asset resolution, and manifest integrity all broke in subtle ways. But the payoff? Faster builds, cleaner output, and a more maintainable foundation for HomeForged and other tools in the pipeline.
+
+If you’re running Laravel with Vite, don’t delay the upgrade — but don’t rush it either. Test HMR. Verify your manifest. And treat `laravel-vite-plugin` like the critical dependency it is.
+
+Because in full-stack PHP/JS projects, the build tool isn’t just plumbing — it’s the bridge between worlds.

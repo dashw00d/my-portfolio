@@ -1,0 +1,36 @@
+---
+title: "How We Modernized Our Laravel Starter Kit for Laravel 11 and PHP 8.2"
+date: "2024-04-01"
+excerpt: "Upgrading our Laravel starter kit to Laravel 11 and PHP 8.2 streamlined configuration, removed legacy code, and aligned with modern framework standards."
+tags: ["Laravel", "PHP 8.2", "Starter Kit", "Upgrade Guide", "Modern PHP"]
+author: "Ryan Dashwood"
+---
+## Aligning with Laravel 11’s New Skeleton Standards
+
+When Laravel 11 dropped, it didn’t just bring new features—it redefined expectations for how starter projects should be structured. Our DataAnno Fil Starter kit was due for a refresh, and this felt like the perfect moment to get lean, modern, and opinionated in the right places.
+
+The first step? Aligning with the new Laravel skeleton. Laravel 11’s default project structure removes a lot of the optional scaffolding that used to clutter fresh installs. We followed suit by auditing every file and dependency. Outdated service providers? Gone. Legacy middleware stacks? Trimmed. We even revisited our `composer.json` to ensure we were pulling in the exact versions Laravel 11 expects, especially around `illuminate/*` packages and `laravel/framework` itself.
+
+One of the most visible changes was updating our config files and `.env.example` to reflect Laravel 11’s defaults. For example, we standardized cache, session, and queue drivers to `database` instead of `file` or `sync`—not just for consistency, but because it reflects real-world usage. We also removed config overrides that no longer made sense in the new ecosystem, like custom view or translation paths that Laravel now handles more elegantly out of the box.
+
+## Raising the Bar: PHP 8.2 as a Hard Requirement
+
+We made the call early: this updated starter would require PHP 8.2. No more dancing around version compatibility. This wasn’t just about keeping up—it was about leveraging what modern PHP offers.
+
+PHP 8.2 brings more than performance. It gives us readonly classes, improved type system behavior, and deprecation of legacy patterns we no longer want in our codebase. By locking to 8.2, we could confidently use these features across the board, knowing every dev onboarding would have the right environment.
+
+The impact was immediate. We replaced several array-based config structures with typed, readonly DTOs for things like mail settings and API integrations. This reduced runtime errors and made configuration intent clearer. We also cleaned up conditional logic that existed solely to support older PHP versions—code that once checked for `??` support or `match` expression availability is now gone. Less code, fewer edge cases.
+
+In `composer.json`, we updated the PHP constraint and ran `composer update --with-dependencies` to ensure all packages supported 8.2. A few dev dependencies needed patching or replacing, but the trade-off was worth it: a tighter, more secure, and more expressive foundation.
+
+## Cutting the Boilerplate: Less Noise, More Signal
+
+One of the most satisfying parts of this upgrade was removing boilerplate that no longer served a purpose. Laravel 11 assumes a more opinionated setup, and we leaned into that.
+
+We removed several service providers that Laravel now registers automatically or that belonged to packages we no longer use. The `AppServiceProvider` shrank dramatically—no more binding interfaces to implementations that could be auto-discovered, no more manual event listener registrations that `Event::discover()` now handles. Same with `RouteServiceProvider`: we moved route group logic into route files directly and simplified kernel registration.
+
+We also revisited our middleware stack. The default web middleware in Laravel 11 is leaner, and we followed suit. We removed redundant CSRF exclusions, consolidated auth checks, and eliminated custom middleware that had become obsolete thanks to Laravel’s built-in features like `throttle:api` and `verified`.
+
+The result? A starter kit that feels faster to navigate, easier to understand, and quicker to customize. New developers can jump in and grasp the structure within minutes—not hours.
+
+This wasn’t just a version bump. It was a chance to re-evaluate what a Laravel starter should be in 2024: minimal, modern, and built for velocity. If you’re maintaining a boilerplate or kicking off a new project, consider this your nudge to upgrade, clean up, and align with where Laravel is headed—not where it’s been.

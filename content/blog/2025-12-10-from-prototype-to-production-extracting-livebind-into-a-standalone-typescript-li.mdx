@@ -1,0 +1,85 @@
+---
+title: "From Prototype to Production: Extracting LiveBind into a Standalone TypeScript Library"
+date: "2025-12-10"
+excerpt: "How I extracted a tightly-coupled JavaScript utility from a legacy PHP app into a modular, type-safe TypeScript library."
+tags: ["TypeScript", "Legacy PHP", "Library Design", "JavaScript", "Modularization"]
+author: "Ryan Dashwood"
+---
+## The Birth of LiveBind in a Legacy PHP App
+
+It started with a simple need: make staff search and reassignment dynamic in AustinsElite, a legacy PHP application built on a custom framework with Laravel components. No modern frontend framework—just Blade templates, jQuery sprinkles, and a growing pile of unstructured JavaScript.
+
+I needed something lightweight but powerful enough to handle real-time DOM updates without rewriting the entire frontend. So I built LiveBind: a small utility that bound form-like behavior to arbitrary DOM containers, synced inputs, and triggered AJAX updates on change. It worked—*too* well. What began as a 100-line script quickly grew into something others wanted to reuse. That’s when I realized: this wasn’t just a script anymore. It was a framework in the making.
+
+But keeping it embedded in the monolith meant tight coupling, no types, and zero reusability. So I made a call: extract LiveBind into a standalone TypeScript library.
+
+## Extracting Order from Chaos: Building the Core
+
+The first step? Rip it out cleanly. I created a new repo, initialized it with TypeScript, and started porting the core logic. This wasn’t a rewrite—it was a *refactoring under constraints*. The original LiveBind had no types, relied on global DOM selectors, and assumed form-like structures even when none existed.
+
+My goals were clear:
+
+- Type safety from day one
+- Zero dependencies (or as close as possible)
+- Plugin-friendly architecture
+- Backward compatibility for existing use cases
+
+Setting up the TypeScript project was straightforward: `tsc --init`, strict mode enabled, targeting ES2020. I structured it around three core modules: `Binder` (the main orchestrator), `Collector` (input gathering), and `Plugin` (extension interface). The `Collector` turned out to be the trickiest part.
+
+Originally, LiveBind assumed all inputs lived inside `<form>` elements. But in practice, we were binding to `<div class="staff-row">` containers with scattered inputs. So I had to generalize input collection—walking DOM subtrees, filtering by `name` attributes, and handling dynamic additions. I landed on a recursive strategy that respected container boundaries and ignored excluded elements:
+
+```ts
+function collectInputs(container: Element): Record<string, any> {
+  const inputs: Record<string, any> = {};
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT);
+  let node = walker.currentNode;
+
+  while (node) {
+    const el = node as HTMLInputElement;
+    if (el.name && isValidInput(el)) {
+      inputs[el.name] = getInputValue(el);
+    }
+    node = walker.nextNode();
+  }
+
+  return inputs;
+}
+```
+
+This became the `InputCollector` class in the library, now decoupled from any Laravel or Blade assumptions.
+
+## Challenges: Types, Tests, and Not Breaking Production
+
+Migrating to TypeScript exposed a mess of implicit assumptions. What was a `string`? What could be `null`? How did plugins interact with internal state?
+
+I introduced interfaces early:
+
+```ts
+type LiveBindPlugin = {
+  init: (binder: Binder) => void;
+  destroy: () => void;
+};
+```
+
+This forced clarity. Plugins had to conform, and the core didn’t have to guess what they’d do. I also added a basic event bus using `CustomEvent` so plugins could react to input changes without reaching into private methods.
+
+But the real test was backward compatibility. The original LiveBind was already in use. I couldn’t break it.
+
+So I built a compatibility layer: a UMD build that exposed `window.LiveBind` just like the old script. It wrapped the new `Binder` class and mimicked the old API. That way, the legacy app could keep calling `LiveBind.init('.staff-search')` while I worked toward a cleaner integration.
+
+One medium-sized headache? Non-form containers. The old code assumed `form` elements, but we were binding to generic divs. I fixed this by decoupling container type from functionality—now any element with `data-live-bind` works. This was a small change, but it unlocked reuse across the app.
+
+## What’s Next: Publishing and Letting Go
+
+LiveBind is now a standalone project with a CI pipeline, typed API, and plugin architecture. My next steps:
+
+- Publish to npm under a scoped package (`@ryandaswood/livebind`)
+- Version with semantic release
+- Add basic docs and examples for Laravel/Blade use cases
+- Support community plugins (e.g., debounce, validation)
+
+But here’s the twist: even as I extract it, I’m also *removing* it from parts of AustinsElite. Why? Because sometimes the best outcome of a prototype isn’t adoption—it’s learning. In some cases, we realized a simpler Blade + Alpine.js combo worked better. In others, server-side rendering with Turbo-like patterns was overkill.
+
+So LiveBind isn’t about replacing everything. It’s about having the right tool for the job—and knowing when to walk away.
+
+Extracting it taught me that modularity isn’t just technical. It’s cultural. It means writing code that can *leave* your project and still thrive. And that’s a win, whether it stays or goes.

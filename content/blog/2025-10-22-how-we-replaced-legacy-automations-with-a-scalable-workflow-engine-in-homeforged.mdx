@@ -1,0 +1,63 @@
+---
+title: "How We Replaced Legacy Automations with a Scalable Workflow Engine in HomeForged"
+date: "2025-10-22"
+excerpt: "We rebuilt HomeForged's rigid automation system from the ground up with a dynamic, skill-driven workflow engine in Laravel."
+tags: ["Laravel", "Workflow Engine", "PHP", "Backend Engineering", "System Design"]
+author: "Ryan Dashwood"
+---
+## The Problem with Our Old Automation System
+
+A year ago, HomeForged’s automation system was a tangled web of hardcoded conditionals, cron-driven scripts, and one-off event listeners. It worked—until it didn’t. What started as a simple "send email when user completes profile" grew into a brittle network of state checks scattered across controllers, jobs, and listeners. Each new automation required touching multiple files, and testing meant spinning up entire user journeys just to verify a single trigger.
+
+Worse, visibility was a nightmare. Admins couldn’t see which automations were active, why they fired, or where they failed. Debugging meant grepping logs and hoping you caught the right exception. We hit a wall: the system couldn’t support the complexity we needed for personalized onboarding, skill-based task routing, or conditional content delivery.
+
+The final straw? A silent failure that skipped 200+ welcome emails because a timestamp comparison used `<=` instead of `<`. No alert. No retry. Just dead silence.
+
+We needed a real workflow engine—not just automations, but workflows with state, visibility, and resilience.
+
+## Building a Skill-Driven Workflow Engine
+
+Our goal was simple: replace rigid scripts with dynamic, composable workflows that could adapt to user behavior, scale across thousands of users, and be fully observable from the admin side.
+
+We started by defining **skills** as first-class citizens. Instead of hardcoding logic like "if user uploads file, mark task complete," we introduced a `Skill` model that represented capabilities—like `UploadDocument`, `CompleteProfile`, or `VerifyEmail`. Each skill could be granted, revoked, or checked across contexts.
+
+Workflows were then built around these skills. A workflow definition now looks like:
+
+```php
+Workflow::define('onboarding')
+    ->startIf(fn($user) => $user->hasSkill('StartedOnboarding'))
+    ->then('SendWelcomeEmail')
+    ->then('WaitForSkill:UploadDocument')
+    ->then('GrantSkill:BasicAccess')
+    ->onFailure('NotifyAdmin');
+```
+
+This trait-based approach made workflows declarative and reusable. We could define a single workflow and apply it across user segments, with visibility controlled by skill gates. Admins could now see, in real time, which users were stuck waiting for which skills—and intervene manually if needed.
+
+We also built a Filament-powered admin dashboard that rendered workflow instances as interactive timelines. Clicking a user showed exactly where they were in each workflow, which skills were pending, and whether any steps had failed.
+
+## Making Workflows Resilient (Not Just Functional)
+
+The real test wasn’t whether workflows ran—it was whether they *recovered* when things went wrong.
+
+We added three layers of robustness:
+
+1. **Failure detection**: Every workflow step now runs inside a monitored job. If it throws, we catch it, log context, and mark the step as failed—without killing the entire chain.
+2. **Retry hooks**: Failed steps can be retried manually via the admin UI or automatically after a delay. We use Laravel’s native retry mechanism but wrap it with workflow-aware logic so state stays consistent.
+3. **Recovery actions**: Workflows can define `onFailure` callbacks—like sending an alert, reverting a skill grant, or switching to a fallback path.
+
+We also introduced a `WorkflowMonitor` service that runs hourly to detect stalled workflows (e.g., users stuck in "waiting for skill" for more than 7 days). These are flagged in the admin panel and can trigger manual review or automated nudges.
+
+During rollout, we ran both systems in parallel for two weeks, mirroring triggers and comparing outcomes. Once we hit 100% consistency across 10K+ events, we cut over—removing all legacy automation code on October 22, 2025.
+
+## Lessons from the Trenches
+
+Rewriting core logic in a live system is never clean. Here’s what we learned:
+
+- **Start with observability**: We built the dashboard *before* the engine was fully done. Seeing workflows in the UI made it obvious where the UX was confusing.
+- **Don’t underestimate state management**: We initially stored workflow state in JSON columns. Bad idea. We migrated to a dedicated `workflow_instances` and `workflow_steps` table for querying and debugging.
+- **Test failure modes, not just success**: Our test suite now includes "zombie workflow" scenarios, skill revocation during execution, and clock skew in scheduled waits.
+
+The new engine isn’t just faster or cleaner—it’s *understandable*. New team members can read a workflow definition and instantly grasp the user journey. Admins can debug without SSH. And we can now build features like conditional branching and A/B testing paths in days, not weeks.
+
+If you’re wrestling with legacy automations in Laravel, don’t patch it—replace it. Build workflows that are visible, composable, and resilient from day one. Your future self (and your on-call rotation) will thank you.

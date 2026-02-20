@@ -1,0 +1,73 @@
+---
+title: "Building Lockline AI from Scratch: Docker, SQLite, and htmx in Action on Day One"
+date: "2025-08-01"
+excerpt: "How I kicked off Lockline AI with Docker, SQLite, and htmx for fast, clean, production-ready development from the first commit."
+tags: ["Docker", "htmx", "SQLite", "AI SaaS", "full-stack", "developer tooling"]
+author: "Ryan Dashwood"
+---
+## The First Commit That Started It All
+
+August 1st, 2025. I didn’t know it at the time, but this was the day Lockline AI went from idea to executable. The mission? Build an AI-powered lead generation system that helps B2B companies turn website visitors into qualified leads—automatically. No fluff, no bloated dashboards. Just smart, real-time engagement.
+
+But before any AI model could whisper a greeting to a visitor, I had to solve a more immediate problem: how to build fast without painting myself into a technical corner. The answer? Start simple, but not dumb. The initial commit wasn’t about flashy features—it was about laying a foundation that could scale *with* the product, not against it.
+
+I reached for tools that let me move quickly but still sleep at night: Docker for environment consistency, SQLite for lightweight local data, and htmx to keep the frontend lean and reactive. Here’s how they came together from day one.
+
+## Docker + SQLite: Local Simplicity, Production Peace of Mind
+
+Let’s be honest—nothing kills momentum faster than "it works on my machine." So the first thing I did was wrap the entire backend in a Docker container. Not for production scaling. Not for Kubernetes orchestration. Just to make sure that when I spun up the project tomorrow, next week, or six months from now, it worked exactly the same.
+
+The backend is Python-based (Flask, to be precise), and the Docker setup was minimal:
+
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+CMD ["python", "app.py"]
+```
+
+Paired with a simple `docker-compose.yml`, this gave me a self-contained environment with zero setup friction. But here’s the real win: I chose SQLite as the default local database.
+
+Yes, SQLite. Not PostgreSQL. Not MongoDB. The little database engine that could.
+
+Why? Because at this stage, I didn’t need replication, complex joins, or gigabytes of data. I needed something that’s zero-config, file-based, and version-control-friendly for local dev. With SQLite, I could commit a sample `dev.db` file, share it with a teammate, and have them up and running in seconds. No migrations, no cloud instances, no waiting.
+
+And here’s the kicker: this doesn’t mean technical debt. The app abstracts the database behind a clean interface, so swapping in PostgreSQL later (for production) is a config change, not a rewrite. Docker makes that transition seamless—same app, same behavior, different backend.
+
+This combo—Docker + SQLite—gave me consistency, speed, and confidence. New contributors can `git clone`, `docker-compose up`, and be in the code within a minute. That’s the kind of onboarding that keeps momentum alive.
+
+## htmx: Dynamic UIs Without the JavaScript Overhead
+
+Now, let’s talk admin. Every SaaS needs one, and Lockline AI is no different. I needed an interface where I could view leads, tweak AI prompts, and monitor engagement—all in real time. But I didn’t want to spin up a React monolith just to render a table.
+
+Enter htmx.
+
+From the very first admin page, I used htmx to inject interactivity directly into HTML. No client-side routing. No state management libraries. Just standard server-rendered templates that could update parts of the page via AJAX, triggered by regular HTML attributes.
+
+For example, when I wanted to filter leads by date range, I didn’t write a fetch call. I did this:
+
+```html
+<input 
+  type="date" 
+  name="start_date" 
+  hx-get="/admin/leads" 
+  hx-target="#leads-table" 
+  hx-trigger="change"
+>
+```
+
+The server returns a new `<table>` fragment, and htmx swaps it in. That’s it. No JSON API boilerplate. No frontend-backend disconnect.
+
+This approach kept the frontend light and the backend in control—perfect for an app where the AI logic lives on the server anyway. It also meant I could prototype admin features fast, using plain old Flask routes and Jinja templates, while still delivering a smooth, app-like experience.
+
+And let’s be real: for early-stage SaaS apps, velocity wins. htmx let me build an interactive admin panel in a fraction of the time it would’ve taken with a full frontend framework—without sacrificing maintainability.
+
+## Final Thoughts: Start Fast, Stay Sane
+
+The first commit of Lockline AI wasn’t about perfection. It was about pragmatism. Docker ensured consistency. SQLite removed friction. htmx kept the UI alive without complexity. Together, they formed a starter stack that’s fast to build on and easy to scale up.
+
+If you’re launching an AI-driven SaaS, don’t over-engineer day one. Pick tools that let you focus on your core value—your AI, your workflow, your users—while still building on a foundation that won’t collapse under growth.
+
+Sometimes, the most powerful tech isn’t the shiniest. It’s the one that gets out of your way.

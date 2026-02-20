@@ -1,0 +1,77 @@
+---
+title: "How I Fixed the Favicon and Other Seemingly Small Frontend Wins That Actually Matter"
+date: "2025-10-07"
+excerpt: "A deep dive into the surprisingly complex world of favicon routing, anchor offsets, and email schema updates—and why they matter more than you think."
+tags: ["frontend", "web development", "portfolio", "ux", "seo", "developer tips"]
+author: "Ryan Dashwood"
+---
+## The Favicon Fix That Wasn’t So Tiny
+
+You know that tiny icon that shows up in your browser tab? Yeah, the favicon. I thought updating mine would take five minutes. It took me down a rabbit hole of path resolution, caching headers, and manifest debugging that ended up teaching me more about frontend deployment quirks than I have in months.
+
+My first mistake? Assuming a relative path like `/favicon.ico` would just work. It *should*, right? But when I moved my portfolio to a new static hosting setup, the favicon vanished. No errors. No warnings. Just a blank space where my brand should’ve been.
+
+Turns out, even if you name your file `favicon.ico` and put it in the root, some servers don’t serve it by default. Worse, browsers aggressively cache it—so even after fixing the path, I had to hard-refresh across devices to see the change. The real fix? Explicitly linking it in the `<head>`:
+
+```html
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
+```
+
+And for modern browsers, I added a `manifest.json` with proper icon references:
+
+```json
+{
+  "icons": [
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    }
+  ]
+}
+```
+
+That extra effort? It pays off. A working favicon signals technical attention to detail. It shows you didn’t just slap something together. And for recruiters or collaborators landing on your site, that tiny visual cue builds trust before they even read your first line of code.
+
+## Why My Anchor Links Were Missing the Mark
+
+Next up: anchor links. I’d set up smooth scrolling to sections like #projects and #contact, but every time, the top of the content got buried under my fixed header. Frustrating? Absolutely. More importantly, it made the site feel broken—even if only for a second.
+
+The issue is classic: when you use `scroll-behavior: smooth` and jump to an anchor, the browser aligns the top of the target element with the top of the viewport. But if you’ve got a 60px navbar glued to the top? That element gets hidden.
+
+I tried a bunch of solutions—negative margins, spacer divs, JavaScript offsets—but the cleanest fix was CSS-only and surprisingly elegant:
+
+```css
+#contact::before {
+  content: "";
+  display: block;
+  height: 80px;
+  margin-top: -80px;
+  visibility: hidden;
+}
+```
+
+This creates an invisible anchor buffer that pushes the real element down just enough so that when the browser scrolls to the ID, the content sits perfectly below the fixed nav. No JavaScript, no layout shifts, no jank.
+
+It’s a small tweak, but it transforms the experience from “almost smooth” to “feels polished.” And in a portfolio, that polish is the difference between looking like someone who codes and someone who *crafts* code.
+
+## The Email Link That Upgraded My Credibility
+
+Last but not least: my contact email. I used to use a generic `@gmail.com` address in the footer. Nothing wrong with that—except it subtly undercuts your professional image.
+
+So I switched to a custom domain email (hello@ryandaswood.dev) and updated the `mailto:` link. Simple change. But the impact? Huge.
+
+First, it looks more serious. Second, it signals ownership—this is *my* space, *my* brand. And third, it actually improves email deliverability. Many inbox providers treat emails from personal domains with more suspicion than established business addresses, but the reverse is also true: using a custom domain in outreach signals legitimacy.
+
+I also made sure the link was properly formatted:
+
+```html
+<a href="mailto:hello@ryandaswood.dev">Say hello</a>
+```
+
+No spaces, no special characters, no encoding issues. Just clean, functional intent.
+
+These kinds of details don’t show up on a resume. But they’re visible the second someone visits your site. And in a world where engineers are judged by their output—including their online presence—getting the small things right is how you stand out.
+
+So yeah, I spent a day fixing a favicon, tweaking anchor offsets, and updating an email link. And honestly? Best time investment I’ve made in my portfolio all month.

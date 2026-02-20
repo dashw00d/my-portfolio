@@ -1,0 +1,71 @@
+---
+title: "How We Stabilized a Legacy Admin Panel by Swapping Out a Toxic Rich Text Editor"
+date: "2025-02-05"
+excerpt: "We replaced TinyMCE with NicEdit in a legacy PHP admin panel to stop DOM leaks and jQuery conflicts—here’s how we made it stick."
+tags: ["legacy-php", "wysiwyg", "tech-debt", "dom-bugs", "editor-migration"]
+author: "Ryan Dashwood"
+---
+## Diagnosing Why TinyMCE Was Melting Our Admin Panel
+
+Three weeks ago, we rolled out a minor feature update in AustinsElite (Legacy)—a PHP-based admin panel built on a custom framework with selective Laravel components. Nothing flashy. But within hours, reports flooded in: forms were freezing, dropdowns stopped responding, and in some cases, entire pages failed to render after saving content.
+
+The culprit? TinyMCE, our long-time WYSIWYG editor.
+
+At first glance, it seemed stable. But under the hood, TinyMCE was choking on our older PHP environment. Event bindings weren’t being cleaned up properly, especially on form resets. We started seeing orphaned listeners piling up—particularly in IE11 and older Chrome versions still used by some clients. Worse, TinyMCE’s jQuery integration was clashing with our legacy scripts. The editor would initialize, but then hijack global $ references, breaking unrelated UI components like training module radios (more on that later).
+
+The final straw was a subtle but critical DOM leak: every time a user opened an edit modal, TinyMCE injected iframe content that never got removed. After a few cycles, the page slowed to a crawl. We had to act.
+
+## Why We Picked NicEdit (And Not Another "Modern" Editor)
+
+Our instinct was to reach for something "better"—maybe CKEditor 5 or even a lightweight ProseMirror wrapper. But after two failed migrations already that month, we realized we weren’t solving for features. We were solving for survival.
+
+We needed something that:
+
+- Weighed under 20KB
+- Didn’t require a build pipeline
+- Played nice with raw DOM manipulation
+- Didn’t assume modern JS or a clean global scope
+
+That’s how we landed on NicEdit.
+
+Yes, it’s old. Yes, the last major update was over a decade ago. But that’s also why it worked. NicEdit doesn’t fight the DOM—it works *with* it. No iframes. No shadow roots. No event proxy layers. It simply enhances a textarea with execCommand(), and gets out of the way.
+
+We tested it across IE11, Chrome 60+, and even mobile Safari on older iOS versions. No lag. No memory creep. And crucially, no jQuery collisions. When we removed TinyMCE and dropped in NicEdit with a few lines of config, the radio button bug (which had been blamed on "training module logic" for weeks) vanished instantly. That follow-up commit—'fixed training radio bug'—wasn’t a fix at all. It was a side effect of removing the real offender.
+
+## Future-Proofing With a Simple Abstraction
+
+We knew we couldn’t afford another editor migration anytime soon. So instead of hardcoding NicEdit everywhere, we wrapped the initialization in a thin abstraction:
+
+```php
+function create_html_editor($element_id) {
+    // Abstracts editor logic
+    // Swappable backend—today NicEdit, tomorrow something else
+    echo "<script type='text/javascript'>\n";
+    echo "bkLib.onDomLoaded(function() {\n";
+    echo "  new nicEditor({fullPanel: true}).panelInstance('$element_id');\n";
+    echo "});\n";
+    echo "</script>\n";
+}
+```
+
+This function now lives in our shared admin helpers. Any template that needs a rich text field calls `create_html_editor('my-field')`—no knowledge of which editor powers it. If we ever need to swap again, we change one file, not fifty.
+
+We also added a lightweight destroy method for modals:
+
+```js
+if (typeof nicEditors !== 'undefined') {
+  nicEditors.findEditor(elementId)?.remove();
+}
+```
+
+This ensures clean teardown and prevents any potential memory hold (even if NicEdit doesn’t really have them).
+
+## Lessons From the Trenches
+
+This wasn’t a glamorous refactor. No shiny new framework. No CI/CD overhaul. But it stabilized a critical admin panel that was on the verge of becoming unusable.
+
+The big takeaway? In legacy systems, "better" tools often make things worse. TinyMCE isn’t bad—it’s just built for environments with modern hygiene, module bundlers, and clean scopes. Ours has none of those.
+
+Sometimes, the right upgrade is a downgrade in features but a massive upgrade in reliability.
+
+And always—*always*—abstract your third-party integrations, even in legacy code. That single `create_html_editor()` function may be the reason we never have to do this again.

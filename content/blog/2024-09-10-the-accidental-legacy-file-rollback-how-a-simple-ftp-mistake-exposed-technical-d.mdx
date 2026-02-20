@@ -1,0 +1,50 @@
+---
+title: "The Accidental Legacy File Rollback: How a Simple FTP Mistake Exposed Technical Debt in AustinsElite"
+date: "2024-09-10"
+excerpt: "A careless FTP file move revealed deep technical debt in a legacy PHP app during its Laravel modernization."
+tags: ["PHP", "Laravel", "legacy code", "deployment", "technical debt", "modernization"]
+author: "Ryan Dashwood"
+---
+## The Mistake That Started It All
+
+It started with a lazy Tuesday and a bad habit. I was poking around AustinsElite — a legacy PHP monolith we’ve been slowly modernizing — and decided to pull some old assets from our FTP server. No big deal, right? Just grabbing a few images and config files we thought were lost to time.
+
+But somewhere between `cd` and `cp`, muscle memory betrayed me. Instead of pulling files *from* FTP, I accidentally pushed a directory *back* into the project root — overwriting parts of our current codebase with a stale, months-old snapshot. The commit message? A shamefully honest: `moved clutter back from FTP on accident, will clean later`.
+
+At first, it seemed like a minor oops. A quick `git reset`, a few restores from version control, and we’d be back on track. But as I dug through the overwritten files, I realized something worse: the clutter wasn’t just outdated code. It was a fossil record of how we used to deploy — and how little we’d cleaned up since.
+
+## What the Clutter Revealed
+
+AustinsElite was never built with modern tooling. It’s a custom PHP framework with sprinkles of Laravel packages, duct-taped together over years of feature churn and developer turnover. We’re now migrating toward a proper Laravel architecture, but the old ways still linger — especially in deployment.
+
+The files I’d accidentally restored exposed this rot. There were `config.php` files with hardcoded production credentials. Duplicated `index.php` bootstraps in multiple directories. Half-migrated routing logic that bypassed our new service layers. And — somehow — a `deploy.sh` script that still ran `scp` commands to production.
+
+This wasn’t just clutter. It was *active debt*. Some of these files were still being referenced in cron jobs. Others were symlinked into production paths outside version control. The worst part? None of this was documented. We’d assumed the new Laravel-style deployment pipeline had made the old ways obsolete. But without explicit cleanup, they’d just… kept running.
+
+The real danger wasn’t the rollback — it was that the rollback *worked at all*. That meant our infrastructure was still coupled to undocumented, untested workflows. One misplaced file sync later, and we could’ve had a staging environment quietly using a 6-month-old config with the wrong database host.
+
+## Cleaning Up — And Locking the Doors
+
+So we cleaned. Hard.
+
+First, we restored the correct state from git, verified checksums on all core files, and ran a full diff across the entire project tree. Then came the audit: every file touched by the rollback was traced to its source. Was it in version control? Was it actively used? Did it have a modern replacement?
+
+We found three "zombie" configs that hadn’t been touched in over a year — but were still being loaded in background workers. One of them had a deprecated API key that, if rotated, would’ve broken reporting jobs without anyone noticing.
+
+The fix wasn’t just deletion. It was enforcement.
+
+We locked down FTP access — it’s read-only now, and only for media assets. All code deployment goes through GitHub Actions, with mandatory review and stage-gate checks. We added file integrity monitoring on deploy: if a file exists in the repo but not in the build artifact, it fails. Same if a file exists outside version control in the target directory.
+
+We also started a `legacy-debt` log — a living document that tracks every technical shortcut we find, why it exists, and when we’ll kill it. That FTP rollback didn’t just break our code — it gave us a roadmap.
+
+## Lessons from the Trenches
+
+Here’s what I’ll take from this:
+
+1. **Your deployment pipeline is only as strong as its weakest link.** Even if you’re using Laravel Mix and queued jobs, one rogue `scp` can undo years of progress.
+
+2. **Clutter is a smell.** If you’ve got files you’re not sure about, they’re not harmless — they’re landmines. Audit them. Delete them. Document the decision.
+
+3. **Modernization isn’t just code — it’s discipline.** Migrating to Laravel packages was the easy part. The hard part is killing the old habits that let technical debt take root.
+
+AustinsElite isn’t going to be a greenfield app anytime soon. But thanks to one dumb FTP move, it’s a little cleaner, a little safer, and a lot more honest about its past. And that’s progress.

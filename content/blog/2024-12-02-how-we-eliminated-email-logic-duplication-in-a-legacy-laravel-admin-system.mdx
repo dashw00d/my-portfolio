@@ -1,0 +1,67 @@
+---
+title: "How We Eliminated Email Logic Duplication in a Legacy Laravel Admin System"
+date: "2024-12-02"
+excerpt: "We cleaned up duplicated email logic in a legacy PHP app by centralizing it into a single, reliable function—here's how we did it safely."
+tags: ["Laravel", "Legacy Code", "Refactoring", "PHP", "Code Maintenance"]
+author: "Ryan Dashwood"
+---
+## The Problem: Email Logic Sprawl in a Legacy Admin Panel
+
+Working on the AustinsElite (Legacy) project, I kept running into the same chunk of email-sending code in multiple places—especially around admin actions like deleting events. It wasn’t just ugly; it was dangerous. Every time an event was removed, the system notified relevant parties, but that notification was hardcoded in at least three different controller methods and view templates. Each copy had slight differences: some used `Mail::send()`, others used `Mail::to()`, and error handling? Forget it.
+
+This kind of duplication is a classic symptom of organic growth in legacy PHP apps—especially ones built with a mix of custom framework logic and Laravel components. We’re not talking full Laravel from day one; AustinsElite (Legacy) uses a homegrown foundation with Laravel packages pulled in over time. That hybrid setup means you get Laravel’s powerful tools, but without the structure that enforces clean patterns. So, when a business rule changes—like adding a new recipient or modifying the subject line—you’re playing whack-a-mole across files.
+
+The breaking point came when a client reported missing deletion notifications. After digging, I found one path used a deprecated mail function, another didn’t catch exceptions, and a third hardcoded the sender email. Three copies, three bugs. It was time to fix this once and for all.
+
+## Building a Single Source of Truth
+
+The goal was simple: one function, one behavior, zero surprises. I created a centralized `send_event_deletion_notification()` function inside a shared service class that’s autoloaded across the admin system. This wasn’t about rewriting the entire mail system—just isolating the duplication with minimal disruption.
+
+Here’s the core of what the function does:
+
+```php
+function send_event_deletion_notification($event, $deletedBy) {
+    try {
+        $recipients = config('mail.deletion_notification_recipients');
+        
+        foreach ($recipients as $email => $name) {
+            Mail::to($email, $name)->send(new EventDeleted($event, $deletedBy));
+        }
+        
+        Log::info('Deletion email sent successfully', [
+            'event_id' => $event->id,
+            'deleted_by' => $deletedBy->id
+        ]);
+        
+    } catch (Exception $e) {
+        Log::error('Failed to send deletion email', [
+            'event_id' => $event->id,
+            'error' => $e->getMessage()
+        ]);
+        
+        // Don't throw—admin action should succeed even if email fails
+        report($e);
+    }
+}
+```
+
+Key decisions:
+
+- **Use of Laravel’s Mailable class**: Instead of raw `Mail::send()` with inline views, I wrapped the email in a proper `EventDeleted` mailable. This gives us testability, queue support, and cleaner template handling.
+- **Config-driven recipients**: Hardcoded emails moved to `config/mail.php`. Now, changing who gets notified doesn’t require touching code.
+- **Graceful failure**: The function logs errors but doesn’t halt the deletion process. Admins shouldn’t be blocked because SMTP is down.
+- **Consistent logging**: Every send attempt is logged with context, making audits and debugging way easier.
+
+I then went through each of the three identified duplication points—two controller actions and one legacy template hook—and replaced them with calls to this function. The commit message? *'Details added event deletion email, changed to function'*. Boring title, big impact.
+
+## Testing and Deploying Without Breaking the Admin
+
+With a live admin system, you can’t just swap things out and hope. I followed a three-step rollout:
+
+1. **Local testing with Mailtrap**: Verified the mailable rendered correctly and all data passed through.
+2. **Staging with log monitoring**: Deployed to staging, triggered deletions, and confirmed logs showed successful sends (and proper error logs when I mocked failures).
+3. **Gradual rollout via feature flag (sort of)**: Since this was a legacy app without formal feature flags, I kept the old logic in place but commented out, with a quick revert plan if alerts fired.
+
+Thankfully, nothing blew up. The change was invisible to users—but now, when we need to modify the notification (and we will), it’s a one-line config tweak or a single file edit.
+
+This refactor was part of a broader push to reduce technical debt in AustinsElite (Legacy). We’re not rebuilding in Laravel 12 or jumping to Laravel 11 yet—but small, surgical improvements like this make the system safer, more predictable, and ready for whatever comes next. If you're neck-deep in a messy PHP admin panel, don’t underestimate the power of one well-placed function. It might just save your next release.

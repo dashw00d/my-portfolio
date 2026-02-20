@@ -1,0 +1,58 @@
+---
+title: "From Spaghetti to Structure: Refactoring File Uploads in a Legacy PHP App"
+date: "2025-12-13"
+excerpt: "How consolidating messy file upload logic into a single helper class tamed chaos in a 15-year-old PHP codebase."
+tags: ["PHP", "Laravel", "Legacy Code", "Refactoring", "File Uploads", "Code Maintenance"]
+author: "Ryan Dashwood"
+---
+## The Mess We Inherited
+
+Fifteen years of feature churn, tech debt, and well-meaning patches had left AustinsElite’s file handling logic scattered like confetti. Uploading a profile picture? That lived in `UserService`. Processing event banners? Handled in `EventService`. Adding certifications or client attachments? More copy-pasted logic, each with slight variations in validation, naming, and storage paths. It wasn’t just ugly — it was brittle. A bug fix in one place wouldn’t propagate. New requirements meant hunting down every upload instance. And forget consistent error messages or security checks.
+
+The worst part? We weren’t even using Laravel’s full ecosystem effectively. The app is a legacy PHP monolith — custom framework, yes — but with Laravel components sprinkled throughout, including Illuminate packages we could leverage. Yet file uploads were raw, procedural, and duplicated. Every new feature that needed uploads slowed us down. We needed a way out.
+
+## Building a Single Source of Truth
+
+Enter `UploadHelper::handleFileUpload()` — our attempt to stop the madness.
+
+The goal was simple: one method, config-driven, reusable across the entire app. No more reinventing the wheel for every model or context. We leaned into Laravel’s `Illuminate\Support\Arr` and `Storage` facades, even though the app isn’t full Laravel, because they were already in use and battle-tested.
+
+Here’s the signature:
+
+```php
+public static function handleFileUpload(
+    UploadedFile $file,
+    array $config = []
+): array
+```
+
+The magic is in `$config`. Need a max file size? Pass it. Specific MIME types? Define them. Want a custom upload path or filename prefix? Configurable. Missing? We fall back to sane defaults defined in `config/uploads.php` — yes, we finally added a real config file for this.
+
+We wrapped everything: validation (via Laravel’s `Validator`), sanitization (clean filenames, no double extensions), storage (using `Storage::putFileAs`), and even optional post-upload hooks like image resizing or virus scanning (via external services).
+
+But the real win was consistency. Every upload now returns the same structured array:
+
+```php
+[
+    'success' => true|false,
+    'path' => 'storage/uploads/...',
+    'filename' => 'clean_name.jpg',
+    'error' => 'Invalid MIME type' // if failed
+]
+```
+
+No more guessing how errors are formatted. No more hunting for where the file actually landed.
+
+## Ripple Effects: Stability, Speed, and New Features
+
+Once `UploadHelper` was in place, the downstream wins piled up fast.
+
+First, bug count dropped. We fixed validation gaps that existed in one service but not another. File path injections? Squashed. Inconsistent error handling across forms? Gone. With one place to log, monitor, and test, we caught edge cases we’d missed for years.
+
+Second, velocity increased. When we added certification uploads for trainers, it took 20 minutes — not because we’re geniuses, but because the heavy lifting was already done. Same for client document attachments. We stopped writing upload logic and started composing configs.
+
+Third, we integrated FilePond on the frontend — not just because it’s slick, but because its structured API pairs perfectly with a predictable backend handler. Multiple uploads, resume support, and metadata tracking all became easier because `UploadHelper` could handle each file the same way, every time.
+
+And let’s not overlook maintainability. New team members don’t need to learn five different upload patterns. They learn one. They see one test suite. One place to add logging or analytics.
+
+Refactoring a 15-year-old app isn’t about big rewrites. It’s about finding these high-leverage chokepoints — the duplicated, fragile, high-touch code — and replacing them with something durable. The `UploadHelper` didn’t modernize the whole stack, but it made the app easier to change, safer to run, and faster to build on. That’s what incremental progress looks like in the trenches.

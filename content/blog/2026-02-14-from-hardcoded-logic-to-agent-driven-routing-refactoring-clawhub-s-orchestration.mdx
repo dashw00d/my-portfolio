@@ -1,0 +1,40 @@
+---
+title: "From Hardcoded Logic to Agent-Driven Routing: Refactoring ClawHub’s Orchestration Layer"
+date: "2026-02-14"
+excerpt: "How I replaced ClawHub’s monolithic routing node with agent self-determination to improve scalability and reduce coupling."
+tags: ["agent architecture", "system design", "refactoring", "scalability", "ClawHub", "distributed systems"]
+author: "Ryan Dashwood"
+---
+## The Problem with Centralized Categorization
+
+A few months ago, ClawHub’s orchestration layer relied on a single, hardcoded categorize node to route incoming requests to the right agent. It seemed simple at first: parse the input, match it against a set of rigid rules, and forward it to a specialized agent pool—research, content, automation, etc. But as we added more agent types and use cases, this node became a bottleneck.
+
+The categorize node wasn’t just a router—it was a decision-maker with growing responsibilities. It needed to understand the semantics of every possible request, maintain mapping logic for agent types, and evolve every time we introduced a new capability. That meant every new agent required changes to the core routing logic. Tight coupling crept in fast. Deployments got riskier. Debugging became a game of tracing through nested conditionals.
+
+Worse, it didn’t scale horizontally. All routing decisions went through one place, creating a single point of failure and a ceiling on throughput. We were building a system meant to handle dynamic, AI-driven workflows, but our architecture was rigid and centralized.
+
+## Introducing Agent-Driven Routing
+
+The shift started with a simple question: *Why should the orchestrator know what each agent can do?*
+
+Instead of forcing every request through a central categorizer, we flipped the model. Now, all agents register their capabilities with a generic oagent pool. When a request comes in, it’s broadcast to this pool—not to specific agent queues. Each agent then evaluates the request against its own self-categorization logic. If it claims ownership, it processes the task. If not, it passes.
+
+This change replaced hardcoded routing rules with agent self-determination. Agents now carry lightweight metadata about their domains (e.g., `handles: ['social', 'scheduling']`) and use a simple matching function to decide if they should act. The orchestrator doesn’t need to understand the nuances of each agent’s role—it just needs to distribute.
+
+Under the hood, this was powered by a pub/sub model with acknowledgment-based claiming. When a request hits the pool, it’s published as a message. Agents listen, evaluate, and if they accept the task, they send a claim. The first agent to claim it wins. This avoids race conditions while keeping the system decentralized.
+
+The refactor also cleaned up our deployment model. Instead of managing separate services for each agent type, we now have a unified agent runtime. New agents can be spun up with minimal configuration—just declare your capabilities and plug into the pool. No orchestration layer changes required.
+
+## Why This Matters: Scalability, Debugging, and What’s Next
+
+The benefits were immediate. First, scalability improved. We’re no longer bottlenecked by a single routing node. The generic oagent pool distributes load dynamically, and we can scale agent instances independently based on demand.
+
+Debugging got easier too. With the old system, tracing a misrouted request meant digging through the categorize node’s logic. Now, each agent logs its evaluation decision—whether it claimed a task or passed. That visibility makes it trivial to see *why* a request was handled (or ignored) by a particular agent.
+
+But the biggest win is future-proofing. We’re already experimenting with dynamic capability discovery, where agents can update their profiles at runtime based on learned behaviors or external signals. Because the orchestrator doesn’t hardcode logic, these changes require zero downtime.
+
+We’re also exploring performance optimizations—like scoring functions to prioritize agent claims or weighted routing based on load. None of this would be feasible with the old monolithic router.
+
+This refactor wasn’t just about removing a bottleneck. It was about aligning ClawHub’s architecture with the reality of agent-based systems: autonomy matters. Centralized control might feel safe, but it doesn’t scale. Real resilience comes from distributing intelligence—not concentrating it.
+
+The move from hardcoded routing to agent-driven determination has made ClawHub more flexible, easier to maintain, and ready for the next wave of agent specialization. And honestly? It feels a lot more like how distributed systems should work.

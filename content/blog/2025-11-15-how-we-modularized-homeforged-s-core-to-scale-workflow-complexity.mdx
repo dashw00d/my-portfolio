@@ -1,0 +1,64 @@
+---
+title: "How We Modularized HomeForged’s Core to Scale Workflow Complexity"
+date: "2025-11-15"
+excerpt: "We broke down HomeForged's monolithic workflow logic with adapters and clean module interfaces to support scalable node integration."
+tags: ["modular architecture", "adapter pattern", "frontend engineering", "react", "workflow systems"]
+author: "Ryan Dashwood"
+---
+## The Monolith That Couldn’t Scale
+
+A few weeks ago, HomeForged’s workflow engine was a tightly coupled beast. Every new node type—whether it was a conditional branch, a data fetcher, or an approval step—had to be wired directly into the core logic. That worked fine when we had three node types. But as we added more, the central workflow handler started looking like a bowl of spaghetti with extra meatballs.
+
+The biggest pain point? Adding a new node wasn’t just about writing its logic—it meant touching shared state handlers, validation routines, and rendering paths scattered across the codebase. We’d made a dozen attempts to isolate concerns with folders-by-type, but that was just lipstick on a stateful pig. The real issue was architectural: no clear contracts, no consistent interfaces, and zero test isolation.
+
+We hit a breaking point when we tried to plug in a dynamic form node that needed async resolution and client-side validation. The changes bled into unrelated modules, broke existing edge-case handling, and took three days to stabilize. That’s when we decided: if HomeForged was going to support real-world complexity, the core had to change.
+
+## Adapters to the Rescue
+
+Our solution? Rip out the hardcoded logic and replace it with an adapter pattern that decouples node behavior from workflow orchestration.
+
+Instead of the engine knowing how each node works, we now define a small adapter interface that any node module must implement:
+
+```ts
+interface NodeAdapter {
+  validate(config: unknown): ValidationResult;
+  execute(state: WorkflowState): Promise<ExecutionResult>;
+  render(props: NodeRenderProps): React.ReactNode;
+}
+```
+
+Each node type—like `ConditionNodeAdapter` or `ApiCallNodeAdapter`—lives in its own module and exports its adapter. The core engine doesn’t import them directly. Instead, it uses a registry:
+
+```ts
+const nodeRegistry = new Map<string, NodeAdapter>();
+nodeRegistry.set('condition', new ConditionNodeAdapter());
+nodeRegistry.set('api-call', new ApiCallNodeAdapter());
+```
+
+Now, when the workflow engine encounters a node, it looks up the adapter by type and calls the expected methods. No special logic. No instanceof checks. Just polymorphism via contracts.
+
+This wasn’t just about cleanliness—it made hot-swapping implementations trivial. We used it to stub out a legacy webhook node during testing without touching a single line of core code. The adapter pattern gave us runtime flexibility and compile-time safety, all while keeping bundle size in check thanks to lazy registration.
+
+## Contracts, Clarity, and Testability
+
+The real win wasn’t just modularity—it was the discipline of defining clear module interfaces. Before, testing a node meant rendering half the app. Now, each adapter is a standalone unit. We can import it directly and write focused tests:
+
+```ts
+describe('ConditionNodeAdapter', () => {
+  it('validates simple boolean expressions', () => {
+    const adapter = new ConditionNodeAdapter();
+    const result = adapter.validate({ expression: 'user.age > 18' });
+    expect(result.valid).toBe(true);
+  });
+});
+```
+
+No mocks of global state. No wrapper components. Just pure input and output.
+
+We also standardized how nodes declare their config schema and required context, which became a contract enforced at registration time. This caught misconfigurations early—like a node expecting user auth data that wasn’t declared in its metadata.
+
+As a result, on November 15th, we merged support for two new node types—a scheduled trigger and a data transformer—without a single regression in existing workflows. The PR was smaller, review time was cut in half, and QA signed off in one pass.
+
+That doesn’t happen by accident. It happens when your architecture stops fighting you.
+
+Modularization isn’t just a refactor—it’s a force multiplier. For HomeForged, it means we can now add domain-specific nodes faster, test them reliably, and let contributors build extensions without knowing the guts of the system. The core stays lean. The edges stay wild. And the workflow engine? It finally scales like it should.

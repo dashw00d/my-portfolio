@@ -1,0 +1,49 @@
+---
+title: "How We Scaled AI Lead Scoring with Generic XAI Prompts in Lockline AI"
+date: "2025-08-12"
+excerpt: "We replaced hardcoded AI explanations with reusable XAI prompts, boosting transparency and maintainability across Lockline AI's lead scoring pipeline."
+tags: ["AI Engineering", "Explainable AI", "Prompt Design", "Lead Scoring", "Full-Stack Development"]
+author: "Ryan Dashwood"
+---
+## The Problem with Opaque Lead Scores
+
+When we first shipped AI-driven lead scoring in Lockline AI, the model worked—mostly. It ranked incoming locksmith leads by conversion likelihood, routing hot prospects to the right providers. But when a lead scored high (or low) for unclear reasons, our team was flying blind.
+
+Debugging was a nightmare. We’d see a score of 0.92 and ask: *Why?* Was it the user’s location? The time of day? The phrasing of their request? Without transparent reasoning, our customers (and internal teams) couldn’t trust the system. Worse, every AI provider we integrated—whether it was a fine-tuned LLM or a third-party API—had its own quirks, making consistency impossible.
+
+We needed more than accuracy. We needed explainability.
+
+## From Hardcoded Prompts to Reusable XAI Templates
+
+Our first attempt at explanations was naive: we tacked on hardcoded prompts like *"Explain why this lead is high-priority in one sentence"* directly in the scoring logic. It worked—until it didn’t.
+
+As we added more providers and scoring models, we found ourselves copy-pasting and tweaking prompts across services. A change in tone or structure in one prompt meant updating five different files. Worse, the explanations varied wildly in format: some were verbose, others cryptic. Auditability? Forget it.
+
+The real turning point came when we reviewed a batch of low-scoring leads and realized the explanations contradicted each other. One said *"User didn’t specify urgency,"* another *"Urgency implied by 'immediately.'"*—same signal, opposite interpretations. That’s when we knew: our XAI logic had to be as rigorous as our scoring logic.
+
+So we refactored. We replaced hardcoded strings with a parameterized XAI prompt system. Instead of embedding prompts in service code, we defined a generic template:
+
+```
+Given a lead with attributes {attrs}, and a predicted score {score},
+provide a concise, consistent explanation that:
+- Uses neutral, professional tone
+- References exactly one decisive factor
+- Avoids speculation beyond input data
+- Outputs in plain English (1 sentence)
+```
+
+This template wasn’t tied to locksmithing—it was designed to work across verticals. We injected context (like service type or regional demand) at runtime, keeping the core logic stable.
+
+The change wasn’t just cosmetic. By decoupling *what* we explained from *how* we prompted, we made the system more maintainable and predictable. A single prompt update now propagates across all providers, not just one.
+
+## Reuse, Auditability, and the Hidden Win: Debugging at Scale
+
+The real payoff came when we onboarded a second service vertical—emergency plumbing. We expected to rewrite most of the XAI logic. Instead, we plugged in the same generic prompt, swapped the attribute schema, and got coherent explanations out of the box.
+
+That reusability wasn’t just convenient—it exposed a deeper benefit: auditability. With every explanation following the same structure, we could log, compare, and validate them programmatically. We built a simple dashboard that sampled explanations over time, flagging outliers or inconsistencies. When a model started citing "unknown factors" too often, we caught it before it reached customers.
+
+But the biggest win? Debugging got faster. Instead of reverse-engineering why a lead scored poorly, we could read the explanation and trace it back to input features. One recent fix—correcting a timezone parsing bug that misclassified "after-hours" requests—was identified in minutes thanks to a cluster of explanations all citing "non-urgent timing" incorrectly.
+
+Looking back, it’s clear: in B2B AI systems, the prompt isn’t just an interface—it’s part of the architecture. Treating it as a first-class, versioned component made Lockline AI more transparent, scalable, and trustworthy.
+
+If you’re building AI into your pipeline, don’t treat explanations as an afterthought. Design them like code: reusable, testable, and central to your system’s integrity.

@@ -1,0 +1,96 @@
+---
+title: "Trimming the Fat: How Removing a Single Form Field Improved Clarity in Our Lead Flow"
+date: "2024-08-21"
+excerpt: "Sometimes the best UX improvement is removing a field—here’s how cutting 'delivery time window' boosted form conversions in our Laravel app."
+tags: ["Laravel", "Livewire", "UX", "Forms", "Conversion"]
+author: "Ryan Dashwood"
+---
+## The Field That Made Sense—Until It Didn’t
+
+A few months ago, we added a field to our lead capture form in AustinsElite: "Preferred Equipment Delivery Time Window." It seemed logical at the time. We were collecting lead details for fitness equipment installations, and delivery timing felt like a natural part of the conversation. We figured, "Let’s get ahead of scheduling now so the sales team can follow up faster."
+
+The field lived in a multi-step Livewire-powered form built on Laravel 12, rendered through Blade templates. It was a dropdown with options like "Morning (8–12)", "Afternoon (12–5)", and "No Preference." Technically, it was solid—validated, persisted, and passed cleanly to our CRM. On paper, it was a win.
+
+In practice? It was noise.
+
+Users either ignored it, selected "No Preference" by default, or reached out to support confused about why they were picking delivery times before even speaking to a sales rep. We were asking for commitment too early—and it was costing us.
+
+## What the Data (and Support Tickets) Told Us
+
+We started noticing a pattern in our August form analytics: drop-off rates spiked at the step containing the delivery time window. Not dramatically, but consistently—about 7% more users abandoned the flow there compared to other steps. That’s not catastrophic, but in a high-volume lead funnel, even small friction adds up.
+
+Then came the support notes. We began seeing internal messages like:
+
+> "User called asking if they picked the right time—can they change it later?"
+
+> "Customer skipped the field and wants to know if that’ll delay their install."
+
+These weren’t angry complaints, but they were signals. Users didn’t understand the field’s purpose, and they felt pressure to get it right—even though it wasn’t binding.
+
+We dug into CRM data and found that over 80% of leads either left the field blank (despite it being technically required) or selected "No Preference." Worse, the sales team told us they never used the data. They reconfirmed timing later in the process, after the customer committed.
+
+So we had a field that:
+
+- Users didn’t understand
+- Most didn’t fill out meaningfully
+- Our team didn’t use
+- And was actively increasing friction
+
+It was a classic case of over-engineering a step in the user journey. The solution? Kill it with fire.
+
+## Cutting the Cord: Removing the Field in Laravel + Livewire
+
+The actual removal was straightforward—but not trivial. Because this was a Livewire component managing multi-step state, we had to be careful about validation rules, data binding, and session persistence.
+
+First, we located the component: `CreateLeadForm.php`. The field was tied to a `delivery_time_window` property on the component’s state. We removed the property default from the `$rules` array:
+
+```php
+// Before
+protected $rules = [
+    'delivery_time_window' => 'nullable|string|in:morning,afternoon,no_preference',
+    // ...
+];
+
+// After
+protected $rules = [
+    // delivery_time_window removed—no longer needed
+    // ...
+];
+```
+
+We also purged any references to the field in the `submitStep()` and `validateStep()` methods. Since the form stored partial state in the session between steps, we added a quick cleanup in the component’s `mount()` method to prevent stale data from resurfacing:
+
+```php
+public function mount()
+{
+    // Clear outdated keys that might linger in session
+    $this->reset(['delivery_time_window']);
+}
+```
+
+On the frontend, the Blade template was updated to remove the entire form group:
+
+```blade
+<!-- Gone for good -->
+<!--
+<div class="form-group">
+    <label>Preferred Delivery Time</label>
+    <select wire:model="delivery_time_window">
+        <option value="">Choose...</option>
+        <option value="morning">Morning (8–12)</option>
+        <option value="afternoon">Afternoon (12–5)</option>
+        <option value="no_preference">No Preference</option>
+    </select>
+</div>
+-->
+```
+
+We deployed the change quietly and monitored the funnel. Within 48 hours, we saw a 4.2% increase in completed form submissions. More telling? Support queries about delivery timing dropped to zero.
+
+## Less Can Be More
+
+This wasn’t a flashy refactor. No new libraries, no AI integration, no UI overhaul. Just one field—removed.
+
+But it reminded me of a truth we often forget as builders: **clarity beats completeness**. Just because we *can* collect a piece of data doesn’t mean we *should*—especially if it interrupts the user’s momentum.
+
+If you’re working on form-heavy apps in Laravel or any stack, ask yourself: what fields are we keeping out of habit, not value? What’s the cost of each extra question? Sometimes the best feature you can ship is deletion.

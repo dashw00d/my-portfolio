@@ -1,0 +1,47 @@
+---
+title: "The Hidden Impact of Default Sorts and Code Formatting in Developer Experience"
+date: "2025-02-10"
+excerpt: "How small tweaks like default sorting and code formatting dramatically improved maintainability in our Laravel/Filament backend."
+tags: ["Laravel", "Filament", "Developer Experience", "Code Quality", "Pint", "Backend"]
+author: "Ryan Dashwood"
+---
+## The Admin Panel Annoyance That Slowed Us Down
+
+We’ve all been there—clicking the same column header every time you open an admin panel because the list isn’t sorted by default. At AustinsElite, our content team was doing exactly that, manually sorting posts by *created_at* descending every single time they logged into the Filament dashboard. It wasn’t broken, but it was *annoying*. And in developer terms, that kind of friction adds up.
+
+Our PostResource in Filament was returning records in no guaranteed order. While Laravel defaults to ascending primary key order, that doesn’t always match user expectations—especially when you’re dealing with time-sensitive content. The fix seemed trivial, but the impact was immediate: we added a default sort so the newest posts appear first. No more clicks. No more complaints.
+
+This wasn’t a flashy refactor. No architecture diagrams, no new packages. Just one line:
+
+```php
+public static function getEloquentQuery(): Builder
+{
+    return parent::getEloquentQuery()->orderBy('created_at', 'desc');
+}
+```
+
+But don’t underestimate the power of getting defaults right. When your tools behave the way users expect, you free up mental bandwidth for real problems.
+
+## Why Code Formatting Isn’t Just About Vanity
+
+Around the same time, I ran `pint` across the project. That’s Laravel’s built-in code style fixer—think `prettier` for PHP. The commit message? Just *'ran pint'*. No drama. But the effect was more profound than you’d think.
+
+We’re working on AustinsElite, a Laravel 12 monolith with deep Filament integration for admin workflows. As more developers touched the codebase, inconsistencies crept in: mixed indentation, random spacing around control structures, inconsistent brace placement. None of it broke anything. But those tiny visual hiccups make code *harder to read*, and hard-to-read code is hard-to-change code.
+
+After running Pint, the entire codebase snapped into alignment. Control structures looked uniform. Arrays were consistently formatted. Even the whitespace in nested conditionals felt… peaceful. It’s not about perfection—it’s about reducing cognitive load. When every file follows the same rhythm, you stop *parsing* syntax and start *understanding* logic.
+
+We’ve since added Pint to our pre-commit hook. It runs silently, automatically, and ensures that no stylistic debate ever slows down a PR review again.
+
+## Small Tweaks, Big ROI in Developer Experience
+
+On the surface, these changes look like maintenance noise. "Low effort," some might say. But I’d argue they’re some of the highest-ROI tasks we did all week.
+
+Default sorting fixed a papercut that was eroding trust in the admin panel. Code formatting reduced friction in code reviews and made onboarding smoother. Neither required deep technical digging, but both made the system feel *intentional*—like it was built with care.
+
+Too often, we glorify the big rewrites and overlook the quiet polish that makes a codebase livable. But in reality, developer experience isn’t shaped by one massive decision. It’s the sum of a hundred small ones: where the sort order lives, how the braces align, whether you have to click that damn column header *again*.
+
+At AustinsElite, we’re doubling down on this mindset. We’re tracking papercuts. We’re automating consistency. And we’re treating code hygiene not as tech debt cleanup, but as first-class feature work.
+
+Because here’s the truth: clean code isn’t slower. It’s faster. It’s safer. And it’s way more fun to work in.
+
+So next time you’re tempted to skip the "small stuff," ask yourself: who are you building this for? If the answer is *other developers*, then those details aren’t small at all.

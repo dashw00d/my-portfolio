@@ -1,0 +1,76 @@
+---
+title: "How We Fixed Z-Index Chaos in Our Laravel 12 App (And Built a Layering System That Scales)"
+date: "2025-02-21"
+excerpt: "How we tamed z-index madness in our Laravel 12 frontend overhaul with a token-based layering system that prevents stacking wars."
+tags: ["CSS", "Laravel", "Frontend Architecture", "Design Tokens", "Debugging"]
+author: "Ryan Dashwood"
+---
+## The Breadcrumb That Got Buried
+
+We were deep in the final stretch of stabilizing the AustinsElite frontend—yes, it’s Laravel 12, not Next.js (old labels die hard)—and a subtle but jarring bug surfaced: the breadcrumb navigation on article pages was rendering *behind* the main content. Not beside it. Not above it. Behind. As if it had something to hide.
+
+At first glance, it looked like a simple z-index fix. Toss a `z-index: 10` on the breadcrumbs, call it a day. But that’s how technical debt starts. We’d already seen random popovers, modals, and tooltips fighting for dominance across the UI. This wasn’t an isolated bug—it was a symptom of a much bigger problem: uncontrolled layering.
+
+So we dug in. Not just to fix the breadcrumb, but to kill the z-index hydra for good.
+
+## Peeling Back the Stacking Context Onion
+
+For the uninitiated, z-index doesn’t work in a vacuum. It only applies within a *stacking context*, which gets created by elements with certain properties—like `position: relative` or `transform`. If a parent element creates a new stacking context, no amount of z-index inside it will make it rise above something outside.
+
+Our first move? Inspect the breadcrumbs and article container in DevTools. Sure enough, the article component had a `transform: translateY(0)`—a common hack to trigger hardware acceleration—which silently created a new stacking context. Anything inside that article, no matter how high its z-index, was now trapped below siblings outside the container.
+
+The fix? Remove the unnecessary transform. But we didn’t stop there. We audited the entire page. How many other silent stacking contexts were lurking? We found three more—on cards, modals, and a sticky header—all using `transform` or `will-change` in ways that fractured our layering assumptions.
+
+We cleaned up what we could, but some transforms were necessary. So instead of fighting the browser’s rules, we decided to build a system that worked *with* them.
+
+## Building a Z-Index System That Doesn’t Suck
+
+Hardcoded z-index values like `9999` are the duct tape of CSS. They work until they don’t. We wanted something scalable, predictable, and team-friendly.
+
+Enter CSS custom properties and design tokens.
+
+We introduced a `_z-index.css` file that defines named layers:
+
+```css
+:root {
+  --z-tooltip: 1000;
+  --z-dropdown: 900;
+  --z-sticky-header: 800;
+  --z-breadcrumb: 700;
+  --z-article: 600;
+  --z-modal-overlay: 500;
+  --z-drawer: 400;
+}
+```
+
+Then, in our components:
+
+```css
+.breadcrumb {
+  position: relative;
+  z-index: var(--z-breadcrumb);
+}
+
+.article-content {
+  position: relative;
+  z-index: var(--z-article);
+}
+```
+
+This might seem like overkill for one bug, but the payoff was immediate:
+
+- **No more guessing**: Developers no longer had to inspect other components to pick a “high enough” number.
+- **Consistency across the app**: Every modal, tooltip, and overlay now follows the same hierarchy.
+- **Team alignment**: Designers and frontend engineers could reference the same layer names in Figma and code.
+
+We also documented the system in our internal frontend guide, explaining not just *what* the tokens are, but *why* they matter—especially when stacking contexts come into play.
+
+## Lessons from the Trenches
+
+This wasn’t just about making breadcrumbs visible again. It was a microcosm of what happens in large rewrites: you refactor one thing, and visual regressions bubble up in places you didn’t touch. Without a solid CSS architecture, these become time sinks.
+
+The commit that started it all—'fixed z heights'—was small. But the thinking behind it changed how we approach layout in the entire AustinsElite frontend. We now treat z-index like any other design system primitive: it’s not a number, it’s a token. Not a hack, but a contract.
+
+If you’re working on a complex Laravel or PHP-based frontend (yes, they exist, and they’re alive and kicking), don’t underestimate the power of systematic CSS. Whether you’re using Blade templates or Alpine.js, uncontrolled layering will catch up with you. Build your z-index strategy early. Use custom properties. Name your layers. And for the love of stacking contexts, audit your `transform` usage.
+
+Because the next time a breadcrumb goes missing, you’ll know exactly where to look—and how to fix it for good.

@@ -1,0 +1,38 @@
+---
+title: "Laying the Foundation: Architecting a Scalable PHP Subscription Platform from Day One"
+date: "2025-03-31"
+excerpt: "How I structured a Laravel-based subscription platform from the ground up for scalability, maintainability, and clean billing logic."
+tags: ["Laravel", "PHP", "Subscription Billing", "Software Architecture", "SaaS", "Service Layer"]
+author: "Ryan Dashwood"
+---
+## Starting with Structure: More Than Just Folders
+
+When I made the initial commit on March 31 for the new Subscription Platform, I didn’t jump straight into models or migrations. I started where every serious Laravel app should—by thinking hard about structure. Not just *what* folders to create, but *why*.
+
+The default Laravel layout is great for small apps, but it falls apart fast when you’re juggling recurring billing, webhook handling, plan tiers, trial periods, and payment provider integrations. If you don’t isolate concerns early, you’ll end up with `SubscriptionController` methods that span 200 lines, sprinkled with Stripe API calls, state checks, and business logic.
+
+So here’s what I did instead: I carved out a `Services` directory under `App\Services` and grouped everything billing-related under `Billing`. Inside, you’ll find dedicated classes like `SubscriptionManager`, `PaymentGateway`, and `WebhookHandler`. This isn’t overengineering—it’s *preventative*. It forces me to think in terms of contracts and boundaries from day one.
+
+For example, instead of calling `Stripe::createCustomer()` directly in a controller, I route it through a `PaymentGateway` interface. That way, if we ever need to support multiple providers (Stripe *and* Paddle, for instance), the switch becomes configuration, not a rewrite.
+
+## Designing for State, Not Just Code
+
+One of the trickiest parts of subscription systems isn’t the payment flow—it’s managing state. A user can be active, trialing, past_due, canceled, or paused. Transitions between these states aren’t arbitrary; they follow rules. Do they get a prorated refund? Can they resume a canceled plan? What happens when a webhook says payment failed?
+
+To handle this cleanly, I reached for a state machine pattern—specifically, the `spatie/laravel-model-states` package. It’s lightweight, Laravel-native, and lets me define state transitions with guard clauses and callbacks. I applied it to the `Subscription` model so that calling `$subscription->cancel()` doesn’t just flip a boolean—it triggers a chain: cancellation date set, proration calculated, customer notified, and downstream systems updated.
+
+Webhooks? They go through a dedicated `WebhookRouter` service that validates the payload, maps the event type (e.g., `invoice.payment_failed`), and dispatches to a handler class. Each handler is responsible for one thing: updating state, sending alerts, or retrying failed jobs. No logic duplication. No giant switch statements.
+
+This approach also makes testing way easier. I can simulate a `customer.subscription.deleted` event from Stripe and assert that the local subscription status changes *without* hitting the database in a messy way or mocking the entire HTTP layer.
+
+## Dependencies and Debuggability: Boring Now, Brilliant Later
+
+The initial commit also locked in a few key dependencies—not just Stripe’s SDK, but tools like Laravel Telescope, `spatie/laravel-ignition`, and proper logging channels. I know it’s tempting to skip this stuff early on, but I’ve burned too many hours chasing silent webhook failures to make that mistake again.
+
+I also set up config files for billing-specific settings: grace periods, retry policies, default plan IDs. These aren’t hardcoded. They’re configurable per environment, which means staging can use test modes and mock plans without touching production logic.
+
+And here’s a small but critical detail: I added a `Billing` service provider to register bindings and boot any billing-related middleware or event listeners. It keeps the `AppServiceProvider` clean and makes it obvious where billing behavior is initialized.
+
+This attention to dependency hygiene isn’t flashy, but it pays off the moment something goes wrong. When a subscription doesn’t renew, I want answers fast—not a grep through ten files trying to find where Stripe was called.
+
+Building a subscription platform is a marathon, not a sprint. But by investing in structure, state management, and debuggability from the first commit, I’m setting this project up to evolve without collapsing under its own complexity. Because the best code isn’t the cleverest—it’s the kind you can still understand six months later when the business demands a new pricing model at 5 PM on a Friday.

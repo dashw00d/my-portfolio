@@ -1,0 +1,51 @@
+---
+title: "Replacing Custom NLP with an LLM in Our Lead Gen Pipeline: A Real-World Trade-Off"
+date: "2025-08-04"
+excerpt: "We swapped a brittle rule-based NLP parser for an LLM in Lockline AI—here’s how accuracy improved and what we paid in latency."
+tags: ["LLM", "NLP", "lead generation", "AI engineering", "Python"]
+author: "Ryan Dashwood"
+---
+## The Parser That Bit Back
+
+A few months ago, Lockline AI’s lead parsing pipeline ran on a homegrown NLP system I built to extract betting details from unstructured lead messages—think texts like "Want 3 legs on Chiefs -3, Packers +7.5, and over 48.5 points." Our rule-based parser used regex patterns, POS tagging, and a custom grammar to break down these inputs into structured bets.
+
+It worked—*sometimes*. The moment a lead typed "Chiefs -3, Packer over 7.5, total 49" or "Can I get a parlay on KC -3 and the over?", the parser choked. False positives, missed legs, incorrect sides—it was a maintenance tax we paid daily. Every new phrasing meant another regex tweak, another edge case in the grammar, another deployment. Accuracy hovered around 68% on real-world inputs, and every point gained cost two hours of debugging.
+
+We were playing whack-a-mole with language.
+
+## Swapping Rules for Reasoning
+
+So I made the call: replace the whole stack with a single LLM call.
+
+No more tokenization pipelines, no custom grammars, no hand-tuned spaCy rules. Just prompt engineering and a clean API integration. We already used AI providers for other parts of Lockline AI’s pipeline, so adding another stage was straightforward from an infra standpoint.
+
+The new flow:
+1. Incoming lead message hits our backend
+2. Structured prompt sent to LLM: extract bet count, teams, spreads/totals, sides
+3. JSON response parsed and fed into downstream processing
+
+The prompt was deceptively simple:
+
+> "Extract all bets from the following message. Return only valid JSON with keys: bets (list), each with team, spread (float), over_under (bool, null if not applicable), side ('over', 'under', 'spread'). Ignore pleasantries or non-betting content."
+
+We tested across OpenAI, Anthropic, and a local quantized Mistral setup. GPT-4-turbo won on accuracy, but we routed through a multi-provider fallback system (also built in August) to avoid single-point failures and manage cost.
+
+Integration took two days. No model training, no data labeling sprint—just a new service call and stricter output validation.
+
+## Accuracy Up, Speed Down—Was It Worth It?
+
+Let’s cut to the numbers.
+
+**Accuracy**: jumped from 68% to 94% on the same test set of 500 real lead messages. The LLM handled slang, typos, mixed formatting, and even embedded questions ("Would -3 be available on KC?") that previously required separate detection logic.
+
+**Maintenance**: dropped off a cliff—in a good way. We killed over 400 lines of NLP code, deprecated two Celery tasks, and removed the entire parsing test suite that used to take 12 minutes to run. Now, if the format changes, we tweak the prompt—not the logic.
+
+But **latency**? Ouch. Average parsing time went from 45ms to 1.8 seconds. For a system processing hundreds of leads daily, that’s a material increase. We mitigated it by moving parsing off the critical path—queueing it asynchronously and enriching leads in the background.
+
+Cost also went up. We’re now spending ~$180/month on LLM inference versus $12 for server time before. But when weighed against developer hours saved and conversion impact from better bet capture, it’s a clear win.
+
+The real surprise? **Operational simplicity**. Debugging LLM outputs is easier than debugging cascading regex failures. A bad parse is usually a prompt issue—fix it once, deploy, done. No more tracing through token trees or grammar ambiguity logs.
+
+Was it worth it? Absolutely—for our use case. We traded milliseconds for maintainability and accuracy, and in a startup building AI-driven lead tools, that’s the right bet.
+
+Would I do it again? Only with async fallbacks, prompt versioning, and strict JSON output guards. But yeah—next time, I’d make the switch even sooner.

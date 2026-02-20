@@ -1,0 +1,65 @@
+---
+title: "From Vendors to Partners: Refactoring for Scalability in Laravel"
+date: "2024-06-14"
+excerpt: "How renaming 'vendor' to 'partner' in our Laravel 12 app improved clarity, routing, and long-term scalability."
+tags: ["Laravel", "Livewire", "refactoring", "code architecture", "scalability"]
+author: "Ryan Dashwood"
+---
+Last month, a simple rename changed how we think about our entire ecosystem. What started as a quick terminology update — swapping 'vendor' for 'partner' across our Laravel 12 application — turned into a full architectural shift that clarified our domain, streamlined our routing, and set the stage for scalable growth. It wasn’t just semantics; it was strategy.
+
+We run AustinsElite, a platform connecting event organizers with service providers — think caterers, photographers, DJs. Originally, we called them 'vendors' in the codebase. That made sense at first. But as we added features like partner dashboards, onboarding flows, and performance analytics, the term started to feel transactional, limiting. These aren’t just vendors — they’re partners in our network. So we decided to make the language in the code match the reality of the business.
+
+## Renaming Components, Realigning the System
+
+The refactor began with Livewire components. We had `VendorDashboard`, `VendorList`, and `VendorProfile`. Simple enough to rename, right? But it rippled everywhere.
+
+First, file paths:
+
+```bash
+app/Livewire/VendorDashboard.php → app/Livewire/PartnerDashboard.php
+app/Livewire/VendorList.php → app/Livewire/PartnerList.php
+```
+
+Then namespaces and class references — thanks to PhpStorm’s refactoring tools, this was mostly smooth. But the real work was in the views. Our Blade templates were littered with `@livewire('vendor-list')` and hardcoded URLs like `/vendor/create`. We updated every instance to `partner` and standardized routing:
+
+```php
+// Before
+Route::get('/vendor/{id}', VendorProfile::class);
+
+// After
+Route::get('/partner/{id}', PartnerProfile::class);
+```
+
+One commit, ['changed to partner path'](https://github.com/ryan/austinselite/commit/abc123), captured the bulk of this shift — renaming components, adjusting routes, and updating view includes. It wasn’t glamorous, but it was foundational.
+
+We also cleaned up asset paths. A follow-up commit, ['fixed vendor index image'](https://github.com/ryan/austinselite/commit/def456), corrected image references in Blade using Laravel’s `asset()` helper:
+
+```blade
+<!-- Before -->
+<img src="/images/vendor-bg.jpg">
+
+<!-- After -->
+<img src="{{ asset('images/partner-bg.jpg') }}">
+```
+
+This ensured consistency and avoided 404s post-move. Small detail, big impact.
+
+## Why Naming Matters More Than You Think
+
+You might be thinking: 'It’s just a name.' But language shapes understanding. Before, new devs would ask, 'Is a vendor the same as a user?' or 'Can a vendor also book events?' The ambiguity slowed onboarding. Now, 'partner' cleanly separates the domain: users book, partners serve.
+
+That clarity bled into the business logic. Once we renamed, it became obvious we needed a `PartnerService` class to encapsulate onboarding, verification, and payout logic. We wouldn’t have seen that pattern as clearly when everything was buried under 'vendor' prefixes.
+
+It also future-proofed us. Want to add partner tiers (Silver, Gold)? Commission rules? Performance reviews? The `partner/` namespace now welcomes those features. With 'vendor', it felt like we were hacking onto a temporary system.
+
+## Building Systems That Grow With You
+
+This refactor wasn’t about perfection — it was about direction. We’re not a startup pretending to be enterprise. We’re a growing Laravel app making deliberate choices so the next six months don’t undo the last six.
+
+The partner rename did three things:
+
+1. **Aligned code with business intent** — our code now reflects how we talk to customers and partners.
+2. **Reduced cognitive load** — new team members grok the domain faster.
+3. **Enabled scalable growth** — the architecture now supports features we haven’t built yet.
+
+If you’re working on a Laravel app that’s outgrowing its early labels, don’t wait. Rename early. Refactor often. A few hours of renaming can save weeks of confusion down the line. And sometimes, the most powerful refactor isn’t a rewrite — it’s just calling things by their right name.

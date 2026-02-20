@@ -1,0 +1,79 @@
+---
+title: "How We Structured Marketing Data in Laravel Using Filament Clusters"
+date: "2025-02-11"
+excerpt: "We grouped related marketing resources in Filament to improve clarity, permissions, and scalability in our Laravel 12 backend."
+tags: ["Laravel", "Filament", "Backend Architecture", "Developer Experience", "Code Organization"]
+author: "Ryan Dashwood"
+---
+## The Messy Reality of Growing Laravel Admin Panels
+
+When you're building a full-stack app like AustinsElite—where the frontend runs on Laravel 12 but the backend logic and content management live in Laravel—admin panel hygiene becomes critical. Early on, we treated our Laravel admin as a side concern: resources were dumped into the Filament dashboard with little structure. As the marketing team started relying on it to manage forms, products, and campaign data, chaos followed.
+
+Suddenly, finding `FormSubmission` meant scrolling past `User`, `Order`, `BlogPost`, and five other unrelated resources. Onboarding new developers? "Yeah, good luck figuring out what goes where." We had a sprawl problem—and it was slowing us down.
+
+The frontend was clean, modern, and component-driven. The backend dashboard felt like a junk drawer.
+
+## Introducing the MarketingResources Cluster in Filament
+
+The fix wasn’t more documentation or better naming—it was *structure*. With Filament’s support for resource clusters, we created a dedicated `MarketingResources` cluster to group all marketing-related admin functionality under one logical umbrella.
+
+Here’s how we set it up:
+
+```php
+// app/Filament/Clusters/MarketingResources.php
+use Filament\Clusters\Cluster;
+
+class MarketingResources extends Cluster
+{
+    protected static ?string $icon = 'heroicon-o-megaphone';
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Marketing';
+    }
+}
+```
+
+Then, we moved four key resources into it:
+
+- `FormSubmission`
+- `ProductCategory`
+- `Product`
+- `Req` (short for "Request," used for lead capture)
+
+Each resource now uses the `MarketingResources` cluster:
+
+```php
+// app/Filament/Resources/FormSubmissionResource.php
+use App\Filament\Clusters\MarketingResources;
+
+public static function getCluster(): ?string
+{
+    return MarketingResources::class;
+}
+```
+
+This small change had an immediate impact. Instead of a flat list of 15+ resources, our admin sidebar now shows a collapsible "Marketing" section with clear, scoped entries. Click it, and you’re in the right context.
+
+## Why Clusters Matter for Developer Velocity
+
+This isn’t just about looking tidy. Organizing resources into clusters improves real-world developer experience in three key ways:
+
+**1. Faster navigation and onboarding**
+New team members can now grasp the domain structure at a glance. "Where do I go to edit product categories?" → "Under Marketing, obviously." No more guessing or grepping through files.
+
+**2. Cleaner permission scoping**
+With all marketing resources grouped, we can now apply role-based access more predictably. For example, marketing analysts get view/edit access to everything under `MarketingResources`, but nothing else. This pattern makes policy logic easier to write and audit.
+
+**3. Future extensibility without sprawl**
+We’re already planning to add `Campaign`, `LandingPage`, and `A/BTest` resources. Thanks to the cluster, they’ll land in the right place from day one. No refactoring, no tech debt accumulation.
+
+This refactor was part of a broader February 2025 push to modernize the AustinsElite backend architecture. Even though the frontend is a Laravel 12 app, the Laravel 12 backend is where content and data workflows live—and keeping it organized ensures the whole system scales cleanly.
+
+## Final Thoughts: Structure Scales With You
+
+It’s easy to treat admin panels as afterthoughts, especially when your frontend gets all the spotlight. But in content-heavy, admin-driven apps like AustinsElite, the backend UX matters just as much.
+
+Filament’s clusters are a simple, powerful tool for bringing order to complexity. We didn’t need a custom CMS or a new framework—just a few minutes to group related things together.
+
+If you’re using Laravel with Filament and feeling the pain of a cluttered admin, try this: pick one domain (like marketing, sales, or content), create a cluster, and move three related resources into it. You’ll be surprised how much clarity a little structure brings.

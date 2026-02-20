@@ -1,0 +1,53 @@
+---
+title: "From Full Refresh to Incremental Sync: How We Scaled Data Imports in AustinsElite"
+date: "2025-06-09"
+excerpt: "We replaced a slow, blocking data import system with an incremental pipeline—cutting build times and keeping data fresh in AustinsElite."
+tags: ["Laravel", "data synchronization", "performance optimization", "incremental import", "developer experience"]
+author: "Ryan Dashwood"
+---
+## The Problem: Full Refreshes Were Killing Our Flow
+
+A few months ago, AustinsElite—our Laravel 12–powered platform—was stuck with a data import system that felt like rewinding a VHS tape every time we wanted to watch a scene. Every update required a full refresh of all records. That meant pulling tens of thousands of entries from external sources, parsing them, and overwriting the existing dataset—completely blocking any new changes during the process.
+
+This wasn’t just slow. It was fragile. Builds regularly took 12+ minutes, and if the script failed halfway through, we were left with a half-updated database. Worse, because the import ran on a schedule, we often shipped frontend (Next.js) builds with stale data. Our users noticed. So did our deploy logs.
+
+We needed a change. Not just a tweak—a fundamental shift in how we thought about data synchronization.
+
+## Building the Incremental Pipeline: Events, Timestamps, and Smart Sync
+
+We knew the solution had to be incremental: only pull what’s changed since the last import. But how do you reliably track "what’s changed" across systems?
+
+Our answer: leverage Laravel’s event system and strict timestamp tracking. Instead of re-fetching everything, we refactored the import process to:
+
+1. Store the last successful sync timestamp in the database.
+2. Query external APIs with a `?modified_since=` parameter using that timestamp.
+3. Process only the delta—new and updated records.
+4. Dispatch Laravel events (`DataImported`, `RecordUpdated`) to trigger downstream actions like cache invalidation or search index updates.
+
+The key insight? Treat data like a stream, not a snapshot.
+
+We wrapped the core logic in a Laravel command (`php artisan import:incremental`) that runs via cron every 15 minutes. Each run is lightweight, idempotent, and fast. If it fails, the next run picks up from where it left off—no manual recovery needed.
+
+We also added safeguards: retry logic for failed API calls, detailed logging via Laravel’s built-in Monolog integration, and a dry-run mode for testing. And because we still needed occasional full syncs (e.g., after schema changes), we kept the original full import command—but now it’s opt-in, not the default.
+
+One commit that marked the turning point was removing the old full-refresh logic and replacing it with the incremental core. It wasn’t flashy—just clean, focused code that queried based on `updated_at` timestamps and processed results in chunks. But it was the moment we stopped fearing the import.
+
+## Results: Faster Builds, Fresher Data, Happier Developers
+
+The impact was immediate:
+
+- **Average import time dropped from 12 minutes to under 45 seconds.**
+- **Frontend builds now pull data that’s never more than 15 minutes old.**
+- **Zero partial-failure incidents in the past 4 weeks.**
+
+But the real win wasn’t just in the numbers—it was in the developer experience. We’re no longer coordinating around "import windows." We can deploy confidently, knowing data syncs quietly in the background. The Next.js frontend builds faster because it’s not waiting on a bloated, outdated dataset.
+
+We also learned a few hard lessons:
+
+- **Clocks matter.** Timezone mismatches between our server and external APIs caused missed updates early on. We now normalize all timestamps to UTC before comparison.
+- **Idempotency is non-negotiable.** Even with small batches, we ensure each record update is idempotent—running the same import twice doesn’t create duplicates.
+- **Observability unlocks trust.** We added a simple dashboard showing last sync time, record counts, and error logs. Now everyone knows the system is working—without asking.
+
+This wasn’t a rewrite. It was a rethink. And it transformed AustinsElite from a system that *fought* data into one that *flows* with it.
+
+If you’re stuck with full-refresh imports in your Laravel app, especially one feeding a frontend like Next.js, consider going incremental. Start small: add timestamp filtering to one endpoint. Prove the concept. Then scale it. The path from "batch and pray" to real-time readiness starts with a single `updated_at` check.

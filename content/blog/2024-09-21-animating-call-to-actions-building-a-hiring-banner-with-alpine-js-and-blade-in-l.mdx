@@ -1,0 +1,113 @@
+---
+title: "Animating Call-to-Actions: Building a Hiring Banner with Alpine.js and Blade in Laravel 12"
+date: "2024-09-21"
+excerpt: "How I added a performant, animated hiring banner to AustinsElite using Alpine.js and Blade—without heavy frameworks."
+tags: ["Alpine.js", "Laravel", "Blade", "animations", "frontend", "performance"]
+author: "Ryan Dashwood"
+---
+## Why Lightweight Interactivity Wins on Marketing Pages
+
+Marketing sites need motion—not bloat. At AustinsElite, our Laravel 12 app drives conversions through clean, fast-loading pages. But when we wanted to highlight a hiring push, we needed more than static text. We wanted pulse. A banner that grabs attention without tanking performance.
+
+Enter Alpine.js. Instead of pulling in React state or a full animation library, I reached for Alpine: a 10kB framework that feels like React’s little cousin who still knows all the cool tricks. It’s perfect for sprinkling reactivity onto server-rendered Blade templates—exactly what our Laravel 12 stack delivers.
+
+The goal? An animated banner with a cycling gradient background and a blinking "We're Hiring!" CTA. All without hydration, without Webpack bloat, and without compromising load speed.
+
+## Integrating Alpine.js into Laravel with Blade Components
+
+Alpine plays nice with any backend that outputs HTML—Laravel included. The setup was dead simple:
+
+First, I pulled Alpine from the CDN and added it to our main layout:
+
+```blade
+<!-- resources/views/layouts/app.blade.php -->
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+```
+
+Then, I created a reusable Blade component for the hiring banner:
+
+```bash
+php artisan make:component HiringBanner
+```
+
+This generated `HiringBanner.php` and a corresponding view. In `resources/views/components/hiring-banner.blade.php`, I structured the banner with Alpine directives:
+
+```blade
+<div 
+    x-data="hiringBanner()"
+    x-init="init()"
+    class="relative overflow-hidden py-4 text-center font-bold text-white"
+    :class="gradient">
+    <span x-text="text" :class="{ 'opacity-100': isVisible, 'opacity-0': !isVisible }" class="transition-opacity duration-300"></span>
+</div>
+```
+
+The magic lives in the `x-data` attribute, which binds a JavaScript object to the DOM. I defined `hiringBanner()` in a global script block (loaded via Vite alongside our other assets):
+
+```js
+window.hiringBanner = () => ({
+    gradients: [
+        'bg-gradient-to-r from-green-400 to-blue-500',
+        'bg-gradient-to-r from-purple-500 to-pink-500',
+        'bg-gradient-to-r from-yellow-400 to-red-500',
+    ],
+    currentGradient: 0,
+    isVisible: true,
+    text: 'We\'re Hiring! Click to apply →',
+
+    get gradient() {
+        return this.gradients[this.currentGradient];
+    },
+
+    init() {
+        // Cycle gradients every 4 seconds
+        setInterval(() => {
+            this.currentGradient = (this.currentGradient + 1) % this.gradients.length;
+        }, 4000);
+
+        // Blink text every 1.5s
+        setInterval(() => {
+            this.isVisible = false;
+            this.$nextTick(() => {
+                setTimeout(() => {
+                    this.isVisible = true;
+                }, 150);
+            });
+        }, 1500);
+    }
+});
+```
+
+By keeping the logic encapsulated and tied to the component, we maintain reusability. Drop `<x-hiring-banner />` anywhere in our Blade templates, and it just works—no props, no imports, no fuss.
+
+## Animating with $nextTick and State Toggling
+
+The blinking effect was trickier than expected. Toggling `isVisible` to `false` and back wasn’t enough—the DOM needed a chance to repaint before restoring opacity. That’s where Alpine’s `$nextTick` saved the day.
+
+`$nextTick` waits for the next DOM update cycle, letting us force a reflow. Without it, the browser would batch the changes and the blink would be invisible. Here’s the blink logic again for clarity:
+
+```js
+this.isVisible = false;
+this.$nextTick(() => {
+    setTimeout(() => {
+        this.isVisible = true;
+    }, 150);
+});
+```
+
+This sequence:
+1. Sets `isVisible: false` → triggers `opacity-0`
+2. Waits for DOM update via `$nextTick`
+3. After a 150ms delay, restores `isVisible: true` → `opacity-100`
+
+The result? A crisp, noticeable blink—like a UI heartbeat.
+
+Meanwhile, the gradient cycling runs independently via `setInterval`, rotating through three vibrant color combos. Because we’re using Tailwind’s utility classes, switching gradients is just a matter of updating a string. No CSS keyframes, no animation libraries.
+
+## Final Thoughts: Progressive Enhancement, Done Right
+
+This banner ships zero JavaScript beyond Alpine’s 10kB. It works without JS enabled (falls back to first gradient and static text). It’s built with Laravel’s native component system, so it integrates seamlessly into our existing workflow.
+
+At AustinsElite, we’re not chasing framework trends—we’re solving user problems with the right tool for the job. Sometimes that’s Laravel. Sometimes it’s Blade. And sometimes, it’s a tiny JS library that lets us animate a CTA like it’s 2024 and we still care about performance.
+
+If you’re working in a hybrid stack—PHP backend, dynamic frontend—give Alpine.js a shot. It’s not a replacement for React. It’s a reminder that not every interaction needs a megaton of code.

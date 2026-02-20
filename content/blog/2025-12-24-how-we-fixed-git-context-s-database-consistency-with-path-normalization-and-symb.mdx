@@ -1,0 +1,50 @@
+---
+title: "How We Fixed Git Context’s Database Consistency with Path Normalization and Symbol Tracking"
+date: "2025-12-24"
+excerpt: "We solved flaky tests in Git Context by normalizing file paths and fixing symbol reference counts in the database."
+tags: ["git", "database", "debugging", "typescript", "testing"]
+author: "Ryan Dashwood"
+---
+## The Test Was Right—We Were Wrong
+
+One morning, our CI pipeline lit up. Five integration tests for Git Context—our tool that generates semantic context from Git repositories—started failing intermittently, all centered around TypeScript files. At first glance, the errors looked like random database corruption: symbols disappearing, references miscounted, and file entries duplicated. But after digging in, we realized the truth: the database wasn’t broken. It was faithfully recording what we told it. And we were telling it nonsense.
+
+The root cause? Two subtle but deadly issues: inconsistent file path handling and flawed symbol reference counting. Both stemmed from how we processed file paths across different operating systems and Git operations. On the surface, it seemed like minor edge cases. In practice, they were breaking the integrity of our entire context graph.
+
+## Paths That Didn’t Match Themselves
+
+The first clue came from a failing test that checked whether a function defined in `src/utils/helpers.ts` was correctly tracked across commits. The test would pass locally on macOS but fail in CI (Linux). Stranger still, sometimes it passed in CI too—hence the "flakiness."
+
+We added debug logging and discovered something bizarre: the same file was being inserted into the database twice—once as `src/utils/helpers.ts` and once as `src/utils//helpers.ts`. The double slash came from a Git submodule operation that normalized paths differently than our local resolver.
+
+Git doesn’t care about `src/utils/helpers.ts` vs `src/utils//helpers.ts`—it treats them as the same path. But our database did. And because we used file paths as primary keys, we ended up with duplicate entries, orphaned symbol records, and inconsistent state.
+
+The fix was clear: we needed to normalize all file paths before touching the database. We adopted a two-step process:
+
+1. Run all paths through `path.normalize()` to collapse `//`, `/./`, and `/../` sequences.
+2. Enforce forward slashes (`/`) across platforms, even on Windows, to avoid backslash-related mismatches.
+
+We also added a pre-insert hook in our database layer that logs and deduplicates any path that resolves to an already-tracked file. This caught several edge cases where Git’s output included relative paths or symlinks that pointed to the same file.
+
+## Symbols That Lost Count
+
+Once path duplication was under control, we noticed another issue: symbol reference counts were still off. A function used in three files would sometimes show only two references. This time, the problem wasn’t the paths—it was how we counted.
+
+Originally, we tracked symbol usage by scanning each file and incrementing a global counter. But if the same file was processed twice (due to the path issue), the symbol got double-counted. When we fixed path normalization, the double-counting went away—but now we were *under*-counting, because some files were being skipped entirely during the transition.
+
+The real solution required a refactor: instead of mutating counters during file processing, we switched to a two-phase approach:
+
+- **Phase 1:** Collect all symbol definitions and references in a map keyed by *normalized* file path.
+- **Phase 2:** After all files are processed, aggregate the totals and write them atomically to the database.
+
+This eliminated race conditions and ensured consistency, even if a file was temporarily processed multiple times during a complex Git operation. We also added edge normalization—ensuring that references between files used the same canonical path format, so no link was lost in translation.
+
+## Debugging Tools That Saved the Day
+
+None of this would’ve been possible without better visibility. We built a simple but powerful file comparison script that dumps the database’s view of a file’s symbol graph and compares it to a ground-truth snapshot from a known-good commit. This script, introduced in `feat(debug): Implement file comparison script and enhance database debugging`, became our microscope.
+
+Combined with updated test logs and a clearer integration test workflow (documented in `feat(tests): Update test results and enhance debugging for TypeScript files`), we turned a guessing game into a repeatable diagnostic process.
+
+The result? All five failing tests now pass—consistently. More importantly, we’ve built a foundation that won’t break the next time Git spits out a weird path or a submodule gets updated.
+
+If you’re building tools that sync file system data into a database, don’t trust paths at face value. Normalize them. Audit them. And make sure your symbols are counting correctly—because when the test fails, it’s not always the code that’s wrong. Sometimes, it’s the assumptions we didn’t know we were making.

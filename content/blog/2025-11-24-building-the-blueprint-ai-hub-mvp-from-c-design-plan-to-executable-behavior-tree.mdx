@@ -1,0 +1,57 @@
+---
+title: "Building the Blueprint AI Hub MVP: From C++ Design Plan to Executable Behavior Trees"
+date: "2025-11-24"
+excerpt: "How I built a functional C++ AI behavior tree system in a single day, from architecture to execution."
+tags: ["C++", "AI Systems", "Behavior Trees", "Game Development", "MVP", "Systems Design"]
+author: "Ryan Dashwood"
+---
+## Turning a Vision Into Code
+
+Today, I shipped the MVP of Blueprint AI Hub—a system that compiles AI behavior trees directly into C++ for maximum performance and type safety. The idea? Move away from interpreted behavior logic and embrace compiled, native execution for AI agents. This isn’t about scripting in a game engine; it’s about treating AI behaviors as first-class citizens in the codebase, with all the benefits that come from compile-time checks, optimization, and direct integration with engine systems.
+
+The starting point was simple: define a clean, extensible architecture that could represent behavior trees as composable C++ types. No JSON, no Lua, no runtime parsing. Just structs, templates, and functions. By the end of the day, I had a working prototype that could instantiate a behavior tree, execute it step-by-step, and respond to simulated world events—all without a single virtual call or heap allocation in the hot path.
+
+This wasn’t just a coding sprint. It was a validation of a design philosophy: that high-performance AI doesn’t have to mean complexity or rigidity. With the right abstractions, you can have both speed and structure.
+
+## Architecture: Designing for Compile-Time Clarity
+
+The initial plan for Blueprint AI Hub laid out a component-based structure where each behavior node—sequence, selector, condition, action—was a lightweight, stateless type. State, when needed, lived in isolated context objects passed by reference during execution. This kept nodes themselves trivially copyable and allowed the entire tree to be composed via template metaprogramming rather than dynamic polymorphism.
+
+I leaned heavily on CRTP (Curiously Recurring Template Pattern) to give nodes access to shared execution utilities while preserving their concrete types. For example:
+
+```cpp
+template<typename Derived>
+struct BehaviorNode {
+    virtual ~BehaviorNode() = default;
+    
+    BehaviorStatus tick(Context& ctx) {
+        return static_cast<Derived*>(this)->execute(ctx);
+    }
+};
+```
+
+This pattern eliminated virtual dispatch overhead while still enabling reusable logic. More importantly, it made the control flow *obvious* at compile time—no opaque function pointers or reflection magic. Each node’s behavior was explicit, testable, and inlinable.
+
+The tree itself was constructed as a compile-time hierarchy using variadic templates. A sequence node could take any number of child nodes as template arguments, and the compiler would generate the entire execution logic upfront. This meant that common patterns like “move to target → check visibility → attack” became zero-cost abstractions.
+
+I also baked in type-safe messaging from the start. Instead of string-based event broadcasting, I used a compile-time event registry that mapped event types to handler functions. This caught miswired connections at build time, not runtime—critical for avoiding subtle AI bugs in production.
+
+## Execution: From Static Tree to Dynamic Behavior
+
+Having a beautiful compile-time structure is one thing. Making it *do* something useful is another. The real test came when I wired up the first executable tree.
+
+I started with a minimal agent loop: tick the root node every frame, pass in a context containing sensor data and internal state. Each node returned a `BehaviorStatus` (Success, Failure, Running), which dictated how the parent node should proceed. The selector would short-circuit on the first success; the sequence would continue until one failed.
+
+What made this feel real was seeing a simulated agent react to changes. I added a simple condition node that checked a boolean in the context, then hooked it up to a timer that flipped the flag after two seconds. Watching the behavior tree transition from idle to active—*because the code actually responded to input*—was the moment the MVP clicked.
+
+State isolation was key here. Each agent had its own context instance, so multiple instances could run the same compiled tree without interference. No global variables, no shared mutable state. Just pure, deterministic execution driven by well-defined inputs.
+
+One surprise was how fast iteration became. Because everything was in C++ and compiled ahead of time, I could tweak a node, rebuild, and see changes in under three seconds. No asset reloading, no script parsing, no engine restart. Just edit, build, run. That tight feedback loop made refining behaviors feel more like writing unit tests than tuning AI parameters.
+
+## Trade-Offs: Performance Over Flexibility?
+
+There’s no free lunch. By choosing compiled C++ over a dynamic system, I gave up some runtime flexibility. You can’t hot-swap behaviors or edit trees in a visual editor (yet). But that wasn’t the goal. This MVP was about proving that a native, type-safe, zero-overhead AI system is not only possible—but practical.
+
+The trade-off feels worth it. In domains where performance matters—AAA games, robotics, simulation—having AI logic execute at native speed with predictable memory usage is a game-changer. And with the right tooling, we can bring back the flexibility later (think: codegen from visual editors).
+
+Today’s win wasn’t just shipping a prototype. It was validating a path forward: AI systems that are fast by default, safe by design, and built like the rest of the engine—because they *are* the engine.

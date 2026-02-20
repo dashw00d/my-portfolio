@@ -1,0 +1,62 @@
+---
+title: "Why We Bumped filament-jobs-monitor in Our Laravel Starter — And What Could Go Wrong If We Didn’t"
+date: "2024-03-29"
+excerpt: "A small dependency bump in our Laravel starter prevented future breakages, improved job monitoring, and kept us aligned with Filament's evolving ecosystem."
+tags: ["Laravel", "Filament", "Dependency Management", "Starter Kits", "PHP"]
+author: "Ryan Dashwood"
+---
+Last week, I merged a seemingly minor change into the DataAnno Fil Starter: bumping `croustibat/filament-jobs-monitor` to its latest version. No flashy features. No rewrites. Just a version number going up. But this tiny update? It’s the kind of quiet maintenance that keeps Laravel apps from unraveling down the line.
+
+Starter kits are foundational. They’re the baseplate for dozens — sometimes hundreds — of projects. That means every dependency choice we make ripples outward. Let’s talk about why this bump mattered, what it fixed, and why ignoring it could’ve caused real headaches later.
+
+## What Is filament-jobs-monitor (And Why It’s in Our Starter)
+
+`filament-jobs-monitor` is a lightweight but powerful package by Cédric Lemaire (aka croustibat) that adds a real-time job monitoring dashboard to any Filament admin panel. It plugs directly into Laravel’s queue system and gives you visibility into pending, failed, and completed jobs — all from within your admin UI.
+
+In DataAnno Fil Starter, we include it because background jobs are non-negotiable in real-world apps. Whether you’re processing imports, sending emails, or syncing data, you need to know what’s happening behind the scenes. This package delivers that insight with minimal setup.
+
+It’s not just about visibility — it’s about developer experience. When a client reports "the export never came", you don’t want to jump into logs or Redis. You want to open your admin, click Jobs, and see exactly what failed and why. That’s the kind of workflow win that makes Filament shine.
+
+## What Changed in the Update
+
+The update we pulled in wasn’t a major version jump, but it wasn’t just version bumping for show. Here’s what it actually brought:
+
+- **Filament v3.2+ Compatibility**: The new version ensures full compatibility with recent Filament releases, especially around form schema changes and Livewire 3 lifecycle updates. Without this, we’d risk UI breakages or silent rendering issues in the job monitor.
+- **Bug Fix for Failed Job Retries**: A small but nasty bug was patched where retrying failed jobs from the dashboard didn’t properly respect queue connection settings. This could lead to jobs being dispatched to the wrong queue — a silent failure trap.
+- **Improved Timestamp Display**: The updated version formats job timestamps using Laravel’s `diffForHumans()` by default, making it easier to see "2 minutes ago" instead of raw timestamps. Small UX win, big daily impact.
+- **Security Patch for Mass Assignment**: A minor but valid mass assignment vulnerability in the job detail modal was addressed. While the attack surface was limited (admin-only access), it’s exactly the kind of thing that slips through in starter kits and becomes a liability in production apps.
+
+None of these are earth-shattering on their own. But together? They represent the kind of hygiene updates that keep a starter kit trustworthy and production-ready.
+
+## Why This Matters in a Starter Kit
+
+Here’s the thing: starter kits aren’t apps. They’re blueprints. And when you’re handing a blueprint to other developers, technical debt compounds fast.
+
+If we’d left the old version in place:
+
+- New users might hit compatibility issues when upgrading Filament down the road.
+- They’d miss out on the UX improvements that make job monitoring actually useful.
+- Worse, they might inherit that mass assignment quirk without realizing it — and if their app ever expands permissions, that could become a real issue.
+
+Starter kits have a responsibility to model good practices. That means staying current, not just functional. A dependency that “works fine” today can become a migration nightmare tomorrow — especially when Laravel and Filament move as fast as they do.
+
+We’ve all been there: a project that’s “just a quick prototype” ends up in production. Suddenly, you’re debugging why job retries aren’t working, and it takes you three hours to trace it back to a two-line fix in a package you haven’t updated in six months.
+
+## How We Test Dependency Bumps in the Starter
+
+We don’t just `composer update` and merge. Every dependency bump in DataAnno Fil Starter goes through a mini QA flow:
+
+1. **Local install test**: Fresh `composer install`, ensure no errors during setup.
+2. **Smoke test the feature**: Dispatch a test job, fail it, retry it, verify timestamps and formatting.
+3. **Check for deprecation warnings**: Run the app with `APP_DEBUG=true` and monitor logs during job operations.
+4. **Verify version constraints**: Make sure we’re not accidentally locking users into a specific PHP or Laravel version.
+
+This update passed all four. No drama. No breaking changes. Just a smoother, safer experience for anyone using the starter.
+
+## Bottom Line
+
+That single commit — bumping a job monitor package — wasn’t about features. It was about stewardship. Maintaining a starter kit means thinking ahead, not just shipping code that works *now*.
+
+So next time you’re tempted to skip a minor dependency update, ask: “What happens when this app grows? When it’s maintained by someone else? When Laravel 11 drops?”
+
+Because the easiest bugs to fix are the ones we prevent before they’re even written.

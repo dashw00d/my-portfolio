@@ -1,0 +1,61 @@
+---
+title: "How a 5-Minute Label Change Exposed Technical Debt in Our Legacy Form System"
+date: "2025-04-01"
+excerpt: "Renaming 'Sommelier' to 'Kitchen Staff' should’ve taken seconds—but instead revealed deep cracks in our Laravel 12 app’s domain language."
+tags: ["Laravel", "technical debt", "legacy systems", "domain modeling", "form handling"]
+author: "Ryan Dashwood"
+---
+## The Commit That Wasn’t Just a Label Change
+
+Last week, I opened what I thought would be a throwaway PR: change the label 'Sommelier' to 'Kitchen Staff' in a staff management form. Five minutes, tops. It was part of a broader April 2025 refactor to align our UI with actual roles—no more wine snobbery in the kitchen.
+
+But as soon as I updated the Blade template, red flags popped up. The form’s Livewire controller still referenced `sommelier_id`. The validation rules accepted `sommelier_role`, and the admin panel—recently migrated to Filament—had a hardcoded dropdown labeled 'Sommelier' in three places. What should’ve been a one-line change snowballed into a full audit of how we handle staff roles across the app.
+
+This wasn’t just a rename. It was a stress test.
+
+## Ripple Effects in Blade, Livewire, and Beyond
+
+Our primary app, AustinsElite, runs on Laravel 12—a modernized stack after shedding its ancient PHP roots. We’ve been migrating forms from legacy scripts into Livewire and Filament, but not all at once. That means hybrid logic: Blade templates pulling from old Eloquent models, Livewire components managing state, and API endpoints still shaped by decisions made in 2018.
+
+When I changed the label, I didn’t just break visual consistency—I broke assumptions baked into the system. The form submission failed because the backend was still expecting `sommelier` as a field name. The error? `"sommelier_role must be one of: lead, assistant, trainee"`. But now our UI said "Kitchen Staff"—a mismatch that confused users and failed silently in testing.
+
+Digging deeper, I found:
+
+- Database seeds still used `sommelier` roles
+- Policy checks referenced `isSommelier()`
+- Admin reports filtered by `role = 'sommelier'`
+- Frontend JavaScript (yes, we still have some) assumed `user.type === 'sommelier'`
+
+We’d modernized the surface, but the domain language underneath was fractured. The rename acted like a canary: suddenly, all the inconsistencies gasped for air.
+
+## Aligning the Domain: Constants, Contracts, and Consistency
+
+The fix wasn’t just search-and-replace. That would’ve been reckless. Instead, we needed to establish a single source of truth for role definitions.
+
+We started by introducing a `StaffRole` enum in `App\Enums`, defining `KITCHEN`, `FRONT_OF_HOUSE`, `MANAGEMENT`, and so on. Then we mapped legacy `sommelier` entries to `KITCHEN` during a controlled data migration. This wasn’t just about naming—it was about intent.
+
+Next, we updated validation rules to use the enum:
+
+```php
+'role' => ['required', Rule::in(StaffRole::values())],
+```
+
+Livewire components now accept `StaffRole::cases()` for dropdowns. Filament forms use the same source. Even our old Blade templates were updated to reference `StaffRole::label($role)` so labels stay consistent everywhere.
+
+We also introduced a `LegacyRoleMapper` service for backward compatibility during the transition—because yes, some third-party integrations still send `sommelier`. It’s temporary, but it keeps the lights on while we deprecate.
+
+The biggest win? We stopped treating the UI as the source of truth. Now, the domain model drives everything.
+
+## Small Changes, Big Lessons
+
+This wasn’t really about sommeliers. It was about how small, seemingly trivial changes can expose architectural rot. When your domain language is inconsistent, every update becomes a game of whack-a-mole.
+
+Here’s what I learned:
+
+1. **UI labels are lies until backed by domain logic.** If your form says one thing and your backend expects another, you’re building on sand.
+2. **Modernization isn’t just tech stack upgrades.** Moving to Laravel 12 and Filament helped, but the real work was aligning mental models across the codebase.
+3. **Rename operations are excellent probes.** Next time you change a label, watch what breaks. That’s where your technical debt lives.
+
+We’re not fully clean yet. There are still echoes of `sommelier` in logs and backups. But now we have a pattern: define the domain, enforce it everywhere, and let the UI follow.
+
+And if you’re working on a legacy app? Try renaming something obvious. You’ll be surprised how much you find.

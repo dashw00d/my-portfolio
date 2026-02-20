@@ -1,0 +1,64 @@
+---
+title: "How We Refactored a Legacy Homepage into Next.js — Without Breaking SEO"
+date: "2025-02-26"
+excerpt: "Migrating a critical PHP homepage to Laravel 12 while preserving SEO, design, and performance—lessons from the AustinsElite redesign."
+tags: ["Next.js", "SEO", "migration", "Laravel", "frontend", "refactoring"]
+author: "Ryan Dashwood"
+---
+Back in February, we took on a deceptively simple task: rebuild the AustinsElite homepage in Laravel 12. Simple? On paper, yes. In practice? We were touching a live wire—this page drives significant organic traffic, ranks well for competitive terms, and is deeply embedded in our Laravel 12 backend ecosystem. Breaking SEO wasn’t an option.
+
+Our goal wasn’t just a visual refresh (though that was part of it). We wanted faster loads, better developer experience, and a foot in the door for more React-powered pages down the line. But we couldn’t afford downtime, lost rankings, or broken analytics. Here’s how we pulled it off—without sacrificing SEO or sanity.
+
+## Mapping the Old PHP Template to React Components
+
+The original homepage was a classic Laravel Blade template—mixed PHP logic, inline styles, and server-rendered content pulled from Eloquent queries. It worked, but it was brittle. Any change risked unintended side effects.
+
+We started by reverse-engineering the structure: hero section, feature grid, testimonials, CTA, footer. Each became a standalone React component in our Laravel 12 app. The key was *structural fidelity*—we matched the DOM output of the old template as closely as possible, down to class names and wrapper divs.
+
+Why? Because our CSS was still tied to those classes (more on that later), and we didn’t want search engine renderers seeing a drastically different page during the transition. We used `dangerouslySetInnerHTML` sparingly—for legacy content only—and ensured every rendered element matched the original semantic hierarchy.
+
+We also preserved server-side data fetching patterns by replicating the same JSON endpoints Laravel used, now served via Next.js API routes. This let us decouple the frontend without rewriting backend logic.
+
+## Preserving SEO: Static Generation and Beyond
+
+SEO was our top constraint. We couldn’t risk crawlers seeing a blank page or missing metadata.
+
+Our solution? Static Site Generation (SSG) with `getStaticProps`. We pre-rendered the entire homepage at build time, pulling data from the same sources as the Laravel app. This gave us HTML out of the box—no hydration flash, no missing content.
+
+We also mirrored all critical SEO elements:
+
+- **Meta tags**: Dynamically generated from config, matching the original `<title>`, `<meta name="description">`, and Open Graph tags.
+- **Canonical URL**: Explicitly set to the production Laravel URL during the transition, signaling to Google that this was a rendering update, not a new page.
+- **Structured data**: Re-implemented JSON-LD scripts using the same schema.org markup as before.
+
+Analytics were another landmine. The old page used a mix of Google Tag Manager and custom event listeners. We re-injected the same GTM container in `next/head`, but wrapped it in a `useEffect` to ensure it only loaded on the client. This avoided hydration mismatches while preserving tracking accuracy.
+
+We also set up 301 redirects from the old `/home` route to the new `/` in our Vercel config—just in case any legacy links were still floating around.
+
+## Handling CSS: From Global Spaghetti to Scoped Sanity
+
+The original CSS was a decades-old stylesheet with global classes, `!important` overrides, and deeply nested rules. We couldn’t rewrite it all in one go.
+
+Instead, we adopted a hybrid approach:
+
+1. Imported the legacy stylesheet globally in `_app.tsx` to maintain visual consistency.
+2. Scoped new components using CSS Modules, naming them in a way that wouldn’t conflict (`hero.module.css`, `testimonials.module.css`).
+3. Gradually replaced old class names with new ones, verifying pixel-perfect output at each step.
+
+We also extracted design tokens—colors, spacing, fonts—into a shared config file. This let us start modernizing the design system without overhauling everything at once.
+
+One gotcha: some legacy styles relied on element-level targeting (`div p span`). To avoid regressions, we used `className` overrides judiciously and wrote visual regression tests using Percy on key sections.
+
+## Validating Performance and SEO Gains
+
+After deployment, we monitored closely. Vercel Analytics showed a 40% reduction in load time. Lighthouse scores jumped from 72 to 94 on mobile—mostly due to better resource loading and reduced JavaScript bloat.
+
+More importantly, Google Search Console showed no drop in impressions or rankings. Organic traffic held steady, then grew as the new page started picking up long-tail keywords thanks to cleaner markup.
+
+The migration wasn’t just safe—it was a win. We now have a maintainable, composable homepage that’s easier to A/B test, update, and extend.
+
+And yes, the old Laravel app is still running the rest of the site. This wasn’t a big bang rewrite. It was a surgical strike—modernizing one critical piece without blowing up the whole system.
+
+If you’re sitting on a legacy PHP or Laravel frontend and eyeing Next.js: start small. Pick one page. Match the output. Respect the SEO. Prove the value. Then scale.
+
+The future doesn’t have to break the past.

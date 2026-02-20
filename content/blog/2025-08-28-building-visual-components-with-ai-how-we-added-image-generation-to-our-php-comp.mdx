@@ -1,0 +1,63 @@
+---
+title: "Building Visual Components with AI: How We Added Image Generation to Our PHP Component Generator"
+date: "2025-08-28"
+excerpt: "We integrated AI-powered image generation into our PHP component pipeline and unified prompt logic—here's how it went."
+tags: ["PHP", "AI Integration", "Component Design", "Image Generation", "Design Systems"]
+author: "Ryan Dashwood"
+---
+## Introducing AI-generated visuals into a PHP component pipeline
+
+For months, our internal tool—Component Gen—has been churning out reusable PHP-based UI components from structured input. It started simple: pass in a block definition, get back a templated component with HTML, CSS, and PHP logic. But something was missing. Designers wanted visuals. Stakeholders wanted previews. And we realized: if we’re generating components, why not generate what they actually look like?
+
+So we set out to add AI-powered image generation to the pipeline. Not just mockups—real, on-demand visual renderings of components as they’d appear in-browser. The goal wasn’t to replace Figma, but to close the loop between code generation and visual feedback, especially during rapid prototyping.
+
+We chose LocalAI as our backend—self-hosted, OpenAI-compatible, and privacy-safe—so we could run image generation models locally without leaking internal component designs. Using Stable Diffusion through LocalAI’s API, we wired up a new image generation step right after component synthesis. Now, when a developer requests a component, they can opt-in to receive a generated PNG of what it should look like.
+
+It sounds straightforward: generate text, generate image. But the real work started when we had to make the two systems speak the same language.
+
+## Refactoring prompt logic: from scattered logic to a single toPrompt method
+
+Originally, each component block had its own ad-hoc way of building prompts for text generation. One block might concatenate strings manually. Another used a template engine. A third pulled from a config array. It worked—until we needed to generate images.
+
+Suddenly, we needed consistency. The image model didn’t care about PHP syntax; it needed a clear, structured description of layout, color, spacing, and intent. We couldn’t feed it raw code. We needed a unified prompt representation.
+
+So we refactored everything into a single `toPrompt()` method on the base block class. Every block—button, card, navbar—now implements this method to return a standardized text description optimized for both text and image generation. For example:
+
+```php
+public function toPrompt(): string {
+    return "A {$this->color} {$this->size} button labeled '{$this->label}' with rounded corners and subtle shadow, centered in a white container.";
+}
+```
+
+This wasn’t just cleanup—it was alignment. Now, the same semantic input drives both the PHP component *and* its visual rendering. No more guessing what the button looks like. No more mismatched styles. The prompt became the single source of truth for intent.
+
+And because `toPrompt()` is part of the block interface, we gained flexibility. We can route the output to text generators, image models, or even future tools like motion prototypes or accessibility checkers. The refactor wasn’t just about images—it was about making our system more composable.
+
+## Challenges in synchronizing image generation with existing component workflows
+
+Getting the image out of LocalAI was easy. Integrating it into our workflow? That took iterations.
+
+First, timing. PHP isn’t async by default, and image generation takes seconds, not milliseconds. We couldn’t block the HTTP request. Our solution: background jobs. We now queue image generation using a lightweight Redis-backed job system. The API returns the component immediately and pushes the image task. When done, the image is attached via webhook and cached for future use.
+
+Second, fidelity. Early outputs were… creative. Too creative. The model would add gradients, icons, or layouts we didn’t ask for. We solved this by tightening prompt constraints and adding negative prompts (e.g., "no text overflow, no extra icons, no shadows unless specified"). We also started including simple ASCII layout diagrams in the prompt—things like:
+
+```
+[ Label ]
+[ Input        ][ Button ]
+```
+
+These dramatically improved structural accuracy.
+
+Finally, caching. Regenerating the same component image on every request was wasteful. We added a hash-based cache keyed on the `toPrompt()` output. Same prompt, same image—served instantly.
+
+The result? A smooth developer experience: request a component, get code and preview, move on.
+
+## Lessons for integrating generative AI in traditional backend systems
+
+Adding AI to a mature PHP system wasn’t about swapping in a new library. It forced us to rethink abstraction boundaries. The biggest insight? **Generative AI doesn’t just consume data—it consumes intent.**
+
+Our old system encoded structure well but expressed intent poorly. With `toPrompt()`, we elevated intent to a first-class concern. That shift made AI integration possible—and made the whole system more maintainable.
+
+If you’re working on a backend system and thinking about adding generative AI, start by asking: *What does this component mean, not just what does it do?* Build a clean, unified way to express that meaning. Then, and only then, plug in the model.
+
+Today, Component Gen doesn’t just write code—it shows you what it’s writing. And that changes how we build, review, and trust generated components. AI in PHP? Absolutely. It just takes the right abstractions.

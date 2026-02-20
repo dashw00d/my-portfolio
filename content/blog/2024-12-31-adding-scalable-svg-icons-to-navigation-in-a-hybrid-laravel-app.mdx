@@ -1,0 +1,63 @@
+---
+title: "Adding Scalable SVG Icons to Navigation in a Hybrid Laravel App"
+date: "2024-12-31"
+excerpt: "How we integrated custom SVG icons into our Laravel-powered navigation for scalability and performance during a rebrand."
+tags: ["Laravel", "SVG", "Frontend Optimization", "Design Systems", "React Patterns", "Web Performance"]
+author: "Ryan Dashwood"
+---
+## Expanding Navigation, Scaling the Design System
+
+We recently launched two new service pages at AustinsElite — 'Day of Coordination' and 'Full-Scale Coordination' — as part of a broader rebrand and service-line refinement. With expansion came a practical challenge: how do we keep our navigation visually consistent, performant, and easy to maintain as more services get added?
+
+The old approach used icon fonts and scattered PNGs. It worked, but it wasn’t scalable. Icon fonts are heavy, offer limited customization, and often render inconsistently across devices. Raster images don’t scale well on high-DPI screens. We needed a better solution — one that aligned with modern frontend practices, even within our Laravel 12 backend-driven stack.
+
+Enter: custom SVG icons, treated as first-class UI components.
+
+## Treating SVGs as Components (Even Without React)
+
+Now, I know what you’re thinking — "Wait, isn’t this a Laravel app?" Yes. AustinsElite runs on Laravel 12, serving blade templates with sprinkles of modern JavaScript where needed. We’re not using React in production, but I’ve borrowed a key idea from component-based frameworks: **treat UI elements as reusable, self-contained units**.
+
+Instead of dumping SVG files into `public/images` and embedding them via `<img>` tags, we built a lightweight icon system using inline SVGs wrapped in reusable Blade components. Here’s how it works:
+
+1. Each SVG (like `day-of-coordination.svg`) is cleaned and optimized using [SVGO](https://github.com/svg/svgo).
+2. We extract the `<svg>` content and store it in a Blade component: `resources/views/components/icons/day-of-coordination.blade.php`.
+3. The component accepts props like `class`, `width`, and `height` for styling and responsiveness.
+
+For example:
+
+```blade
+{{-- resources/views/components/icons/day-of-coordination.blade.php --}}
+<svg {{ $attributes->merge(['class' => 'icon']) }} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 4V2M12 22v-2m8-8h2M2 12h2m7.5-7.5L13 6m-1.5 12 1.5-1.5M6 13l1.5-1.5m10.5-1.5L16 13m-7.5-7.5L7 7l1.5 1.5L10 7zM7 17l1.5-1.5L10 17l1.5 1.5L10 20l-1.5-1.5L7 20z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
+```
+
+Then, in our navigation:
+
+```blade
+<x-nav-link href="/services/day-of-coordination">
+  <x-icons.day-of-coordination class="w-5 h-5" />
+  <span>Day of Coordination</span>
+</x-nav-link>
+```
+
+This gives us the DX benefits of React-style components — reusability, consistency, type-safe props via PHPStorm hints — without needing a full SPA framework.
+
+## Optimizing for Performance and Responsiveness
+
+Inline SVGs can bloat your HTML if you’re not careful. We took three steps to ensure performance stayed tight:
+
+**1. On-demand loading via Blade conditionals**
+We only include icon components when they’re actually used on the page. No global icon bundle. No unused bytes.
+
+**2. Shared attributes and CSS variables**
+We use `currentColor` for fill/stroke, so icons inherit text color. That means one class like `text-primary` can theme the entire icon. No extra CSS per icon.
+
+**3. Responsive defaults with override support**
+All icons use `em` units and `viewBox`, so they scale with font size. Need a bigger icon? Just increase the font size of the parent or pass `w-6 h-6`.
+
+We also added lazy-loading behavior for non-critical icons using a simple `data-src` pattern and a tiny JS helper — but for the main nav, inline is still king. You can’t beat zero-latency rendering.
+
+This system has already paid off. Since launching these two new service icons, we’ve added three more across other pages without any friction. The design team can drop a cleaned SVG into Figma, hand it off, and we wrap it in minutes.
+
+It’s not flashy, but it’s solid. And in web dev, that’s what lasts.

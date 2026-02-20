@@ -1,0 +1,122 @@
+---
+title: "How We Decoupled Email Logic in a Legacy Form System — And Why It Fixed Our Duplicate Notifications"
+date: "2025-05-19"
+excerpt: "Refactoring hardcoded email logic out of Livewire components eliminated duplicate notifications and made our Laravel app more maintainable."
+tags: ["Laravel", "Livewire", "Legacy Code", "Email", "Refactoring", "Best Practices"]
+author: "Ryan Dashwood"
+---
+## The Annoying Bug That Wouldn’t Die
+
+For months, our users at AustinsElite would submit a form and get two — sometimes three — identical confirmation emails. Not a great look. The issue lived in a legacy form powered by Livewire, part of our main Laravel 12 application. We’d tried quick fixes: debounce timers, flag checks, even commenting out chunks of code hoping the problem would vanish. It didn’t. The root cause wasn’t timing or user error — it was architecture.
+
+The email was being dispatched inline, deep inside a Livewire component’s `save()` method. Recipients were hardcoded. There was no separation of concerns, no retry logic, and worst of all — no visibility into what was actually happening during the request lifecycle. Livewire’s reactivity was firing the send more than once, and we had no way to track or control it.
+
+## Before: Email Logic Trapped in Livewire
+
+Here’s what the original code looked like — stripped down, but painfully real:
+
+```php
+public function save()
+{
+    $data = $this->validate();
+    
+    $submission = FormSubmission::create($data);
+
+    \Mail::to('admin@domain.com')
+        ->cc(['manager@domain.com'])
+        ->send(new FormSubmitted($submission));
+
+    return $this->redirect('/success');
+}
+```
+
+Simple? Sure. Dangerous? Absolutely. This pattern breaks multiple Laravel best practices:
+
+- Business logic buried in UI components
+- No abstraction for testing
+- Hardcoded recipients (yes, including that one manager who left two years ago)
+- Side effects with no retry or logging
+- And worst of all: no control over execution frequency in reactive components
+
+Livewire can trigger methods multiple times during hydration, re-rendering, or even due to frontend events. With the mail call sitting directly in `save()`, we had no guardrails. The email went out every time — even if the form was only submitted once.
+
+## The Fix: Extracting to a Dedicated Email Service
+
+The solution wasn’t fancy — it was foundational. We extracted email handling into a dedicated service class, decoupling it from the Livewire component entirely. Here’s how it went down.
+
+First, we created a `FormSubmissionMailer` service:
+
+```php
+class FormSubmissionMailer
+{
+    public function sendNotification(FormSubmission $submission): void
+    {
+        $recipients = $this->resolveRecipients($submission);
+        
+        \Mail::to($recipients['to'])
+            ->cc($recipients['cc'])
+            ->send(new FormSubmitted($submission));
+    }
+
+    private function resolveRecipients(FormSubmission $submission): array
+    {
+        // Dynamic logic based on form type, region, etc.
+        return [
+            'to' => ['admin@domain.com'],
+            'cc' => $this->getManagersForRegion($submission->region)
+        ];
+    }
+}
+```
+
+Then, we updated the Livewire component to use it — but with a twist. Instead of calling it directly, we dispatched a job:
+
+```php
+public function save()
+{
+    $data = $this->validate();
+    
+    $submission = FormSubmission::create($data);
+
+    SendFormSubmissionEmail::dispatch($submission);
+
+    return $this->redirect('/success');
+}
+```
+
+The job itself is simple, but powerful:
+
+```php
+class SendFormSubmissionEmail implements ShouldQueue
+{
+    public function __construct(protected FormSubmission $submission) {}
+
+    public function handle(FormSubmissionMailer $mailer)
+    {
+        $mailer->sendNotification($submission);
+    }
+}
+```
+
+This shift did three critical things:
+
+1. **Eliminated duplicates** — Jobs are dispatched once, even if the component re-renders.
+2. **Enabled queuing** — Emails now run in the background, improving response time and reliability.
+3. **Made logic testable** — We can now unit test recipient resolution without spinning up a Livewire test.
+
+This refactor was part of a broader cleanup — we were already removing deprecated Laravel auth scaffolding and modernizing the app’s core. But fixing the email issue was one of the most visible wins.
+
+## Why This Matters Beyond One Bug
+
+This wasn’t just about stopping duplicate emails. It was about shifting how we think about side effects in UI-driven Laravel apps. Livewire is powerful, but it’s not a business logic container. When you mix rendering concerns with domain actions like sending emails, you invite subtle, hard-to-debug issues.
+
+By moving email handling into a service + job pattern, we gained:
+
+- **Debuggability**: Failed emails show up in Horizon. Recipient logic is inspectable.
+- **Flexibility**: Need to add BCCs based on form type? Change one method, not five components.
+- **Consistency**: All form notifications now follow the same pattern.
+- **Testability**: We wrote unit tests for `resolveRecipients()` in under 10 minutes.
+
+The fix came in a commit titled *'fixed email abstraction and livewire duplicate instances'*, and it closed a Jira ticket that had been open for 11 months. No exaggeration.
+
+If you’re working with Livewire in a Laravel app — especially a legacy one — ask yourself: where are your side effects hiding? If they’re inside components, they’re probably causing silent issues. Pull them out. Build services. Use jobs. Your future self (and your inbox) will thank you.

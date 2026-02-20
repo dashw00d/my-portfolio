@@ -1,0 +1,62 @@
+---
+title: "From Dynamic to Static: How We Boosted Performance by Locking Down Astro.js in PaidFor"
+date: "2026-01-19"
+excerpt: "We switched PaidFor’s frontend from hybrid rendering to fully static Astro — here’s how it slashed load times and simplified deployment."
+tags: ["Astro", "performance", "static-generation", "frontend", "Jamstack"]
+author: "Ryan Dashwood"
+---
+## The Hybrid Hangover
+
+When we first built PaidFor’s frontend with Astro, we leaned into its hybrid rendering model — letting pages opt into server-side rendering or hydration as needed. It felt flexible. Powerful, even. We could sprinkle interactivity where we needed it and keep the rest fast. But over time, that flexibility became a liability.
+
+We weren’t using SSR heavily, but we were paying the runtime cost anyway. Every page request hit a Node.js server, even if the content was 95% static. Our LCP (Largest Contentful Paint) was inconsistent, and TTFB (Time to First Byte) hovered around 300–500ms — not terrible, but not great for a content-heavy marketing site. Plus, managing server infrastructure just to serve mostly static pages felt like overkill.
+
+The kicker? We were already building most pages from Markdown and CMS data at build time. If everything’s known ahead of time, why wait until request time to serve it?
+
+## Locking Astro Into Static Mode
+
+The turning point came with a single config change:
+
+```js
+// astro.config.mjs
+export default defineConfig({
+  output: 'static' // 👈 not 'server' anymore
+});
+```
+
+That one line flipped PaidFor’s entire frontend into fully static generation. No more Node.js server. No more runtime rendering. Just pure HTML, CSS, and minimal JS — built once, served forever.
+
+But the real win wasn’t just the config change — it was the ripple effect. With static output enforced, we could simplify our deployment pipeline and Nginx config. One recent commit removed Livewire and generalized asset handling, replacing it with a clean, dedicated block for Vite’s output:
+
+```nginx
+location /assets/ {
+  alias /var/www/paidfor/dist/assets/;
+  expires 1y;
+  add_header Cache-Control "public, immutable";
+}
+```
+
+No more routing logic for dynamic endpoints. No more worrying about server timeouts or cold starts. The entire site became a set of files we could drop onto any CDN or static host. Simpler, cheaper, and faster.
+
+We also revisited our build process. Since everything now happens at build time, we optimized our data fetching — pre-generating all pages from our CMS during CI/CD. That meant longer build times (our average went from 2m to 4m), but that trade-off was worth it. We’re happy to wait longer upfront if it means every visitor gets instant load times.
+
+## The Numbers Don’t Lie
+
+Post-migration, we ran a series of Lighthouse audits across key pages. The results were clear:
+
+- **TTFB dropped from ~400ms to ~80ms** — mostly limited by CDN edge location now
+- **LCP improved from 1.8s to 1.1s** on mobile (3G throttled)
+- **Server costs cut by ~60%** — no more EC2 instance or load balancer
+- **Cold starts? Gone.** There’s no "cold" when you’re serving static files
+
+But beyond the metrics, the developer experience improved too. Deployments are faster and more predictable. Rollbacks are just switching to a previous build artifact. And we’ve eliminated entire classes of runtime bugs — no more SSR hydration mismatches or server-only module errors.
+
+Was it all smooth? Not quite. We had to refactor a few components that relied on `Astro.request` or dynamic API routes. But in every case, we found better patterns — either by moving logic to client-side JS or pre-generating the data we needed.
+
+## Static Isn’t Boring — It’s Smart
+
+Going fully static didn’t make PaidFor less capable. If anything, it forced us to think more deliberately about where interactivity was actually needed. Most of our pages don’t need it. And for the ones that do? Astro’s partial hydration still lets us bring in React or Preact components — just without the runtime tax on the rest of the page.
+
+This shift wasn’t about chasing trends. It was about aligning our architecture with our actual use case. PaidFor is a content-first product site. It doesn’t need a server. It needs speed, reliability, and simplicity.
+
+And now, with Astro locked into static mode, it’s got all three.

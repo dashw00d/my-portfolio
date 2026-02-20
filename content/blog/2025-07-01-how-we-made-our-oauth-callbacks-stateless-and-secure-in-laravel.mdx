@@ -1,0 +1,78 @@
+---
+title: "How We Made Our OAuth Callbacks Stateless and Secure in Laravel"
+date: "2025-07-01"
+excerpt: "We refactored Laravel's social auth flow to eliminate session dependency and enforce secure, stateless OAuth callbacks with explicit redirects."
+tags: ["Laravel", "OAuth", "Security", "Authentication", "Socialite", "Web Development"]
+author: "Ryan Dashwood"
+---
+## The Problem with Stateful OAuth in Laravel
+
+Laravel’s Socialite makes social authentication feel plug-and-play—until it doesn’t. At Capital City, we ran into a recurring issue during user onboarding: OAuth callbacks would sometimes fail silently, especially when users opened login links in new tabs or had stale sessions. The root cause? We were relying on session state to persist redirect targets and authentication context.
+
+This is risky. Sessions can expire, be lost across tabs, or be hijacked. Worse, coupling OAuth flow integrity to session state introduces unpredictability. What should be a straightforward Google login could end up redirecting to the wrong page—or worse, expose a timing window for session fixation attacks.
+
+We decided to go stateless. No more storing redirect paths or intent in the session. Instead, every OAuth request would carry its destination explicitly, and the callback would act only on what was passed in—securely signed, never trust-based.
+
+## Enforcing Stateless Auth with Explicit Redirect URIs
+
+Our goal: make every OAuth callback self-contained, predictable, and secure by default. We started by modifying our Google OAuth flow to require an explicit `redirect_uri` parameter in the initial authorization request.
+
+Instead of relying on session-stored state to remember where a user came from, we began passing `redirect_uri` as a signed query parameter. This meant that when a user clicked "Sign in with Google" from the invitation page, the URL included something like:
+
+```
+/auth/google?redirect_uri=signed-url-to-invitation-flow
+```
+
+We used Laravel’s signed URLs to ensure the destination couldn’t be tampered with. On the callback side, instead of blindly redirecting back to a session-stored path, we extracted the signed redirect, validated it, and only then completed the redirect.
+
+This had two big benefits:
+
+1. **Security**: No more open redirect risks. Only pre-signed, valid URLs were honored.
+2. **Reliability**: Users could open login flows in any tab, at any time, and still land exactly where they needed to go.
+
+We also removed all session writes during the OAuth handshake. No more `session(['intended' => ...])`, no `Socialite::withState()`. The flow became purely request-driven, making it easier to test, debug, and scale.
+
+## Implementation: Route Closures and Socialite in AppServiceProvider
+
+Here’s where things got interesting. To enforce this pattern across the app, we registered our OAuth routes programmatically in `AppServiceProvider` using route closures. This let us inject consistent logic—like redirect validation and logging—directly into the callback pipeline.
+
+```php
+// In AppServiceProvider boot()
+Route::get('/auth/google/callback', function (Request $request) {
+    $user = Socialite::driver('google')->user();
+    
+    // Resolve or create your local user...
+    
+    $redirectUri = $request->query('redirect_uri');
+    
+    if (!URL::hasValidSignature($request)) {
+        return redirect('/login')->withErrors('Invalid or expired redirect.');
+    }
+
+    return redirect($redirectUri);
+});
+```
+
+This approach gave us fine-grained control. We could validate the signature, inspect the incoming request, and still leverage Socialite’s clean OAuth abstraction. It also made it easy to plug in logging—critical when debugging edge cases in the invitation flow.
+
+## Lessons from the Trenches: Logging the Invitation Path
+
+One of our trickiest scenarios was the invitation-based login. A user receives an invite link, clicks "Sign in with Google", and expects to be automatically enrolled post-login. But without proper logging, we couldn’t tell if the failure was in user resolution, redirect handling, or session bleed.
+
+So we added detailed logging in `handleInvitationUser`, capturing:
+
+- Whether a signed `redirect_uri` was present
+- If the user was found or created
+- The final redirect destination
+
+This was a game-changer. We caught cases where the signed URL was malformed due to double-encoding, and others where the user was correctly authenticated but the redirect wasn’t being honored due to middleware interference.
+
+The logs also revealed that some users were attempting to log in from email clients that stripped query parameters. We responded by adding a fallback landing page that reconstructed the flow using temporary, short-lived tokens stored in cache—still stateless, but with a graceful degradation path.
+
+## Final Thoughts: Security Through Simplicity
+
+Going stateless didn’t just make our OAuth flow more secure—it made it more predictable. By removing session dependency and enforcing explicit, signed redirects, we eliminated entire classes of bugs and attack vectors.
+
+Was it more work upfront? Yes. But the payoff in reliability, security, and debuggability was worth it. If you're using Laravel Socialite, I’d encourage you to audit your callback flow. Are you relying on session state to make it work? Could that be exploited or fail silently?
+
+At Capital City, this refactor resolved long-standing onboarding friction. Users now land where they expect, every time—and we sleep better knowing the flow isn’t quietly depending on something as fragile as session persistence.

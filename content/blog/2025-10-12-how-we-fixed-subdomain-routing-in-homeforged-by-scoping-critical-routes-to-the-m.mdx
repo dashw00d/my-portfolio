@@ -1,0 +1,51 @@
+---
+title: "How We Fixed Subdomain Routing in HomeForged by Scoping Critical Routes to the Main Domain"
+date: "2025-10-12"
+excerpt: "We solved broken invitation and integration links in HomeForged by scoping sensitive Laravel routes to the main domain using domain constraints."
+tags: ["Laravel", "routing", "subdomain", "security", "PHP"]
+author: "Ryan Dashwood"
+---
+## The Subdomain Routing Bug That Broke User Onboarding
+
+Last week, we started seeing reports from new users: invitation links weren’t working. Clicking a team invite sent them to a 404. Same with third-party integration setup URLs. At first, we thought it was a caching issue. Then we noticed a pattern—these broken links only failed when accessed from a tenant subdomain, like `project.team.homeforged.app`.
+
+HomeForged uses Laravel’s subdomain routing to power its multi-tenant architecture. Each workspace gets its own subdomain, and the app dynamically adjusts the UI and data scope based on the host. This works great—until you introduce routes that *shouldn’t* be tenant-scoped.
+
+The problem? Laravel doesn’t automatically distinguish between tenant-specific and globally shared routes. When a user clicked an invitation link while already on their subdomain, Laravel tried to resolve the `/invite/...` route *within* that tenant’s context. But those routes were only defined in the main app’s routing layer, not in every tenant’s isolated route group. Result: 404. Not just a UX hiccup—this was blocking user onboarding entirely.
+
+## Scoping Sensitive Routes to the Main Domain
+
+The fix wasn’t about rewriting logic or adding middleware. It was about *scope*. We needed to tell Laravel: "These routes only exist on the main domain, no matter what."
+
+Laravel’s `domain()` method on route groups was the answer. We wrapped our critical global routes—invitations, OAuth callbacks, API webhooks—into a dedicated route group constrained to our main domain:
+
+```php
+Route::domain('homeforged.app')
+    ->middleware('web')
+    ->group(base_path('routes/auth.php'));
+```
+
+We moved all tenant-agnostic, security-sensitive flows into `routes/auth.php`, including:
+
+- Team invitation acceptance
+- SSO and third-party integration callbacks
+- Password reset endpoints
+- Email verification handlers
+
+By scoping them explicitly, we ensured that even if a user is browsing `client.agency.homeforged.app`, when they click an invite link, Laravel routes them through the main domain’s logic. No more 404s. No more orphaned sessions.
+
+This also fixed a subtle security concern: previously, tenant subdomains could *attempt* to handle sensitive auth flows, opening the door to potential session confusion or token leakage in edge cases. Now, those flows are locked to the main domain—cleaner, safer, more predictable.
+
+## Why This Matters for Modular Laravel Apps
+
+This wasn’t just a routing tweak. It was a shift in how we think about responsibility in modular Laravel applications.
+
+Early in HomeForged’s development, we treated all routes as equal. As the app grew, we split logic by domain (tenant vs. main), but we didn’t enforce it at the routing layer. The move from `artisan serve` to full Nginx + Traefik in production exposed this flaw. Local dev masked it because routing was flat. But in production, with strict host-based routing, the cracks showed.
+
+The lesson? In multi-tenant Laravel apps, *not all routes belong everywhere*. You have to be intentional about what lives in the tenant context and what stays global.
+
+We now treat domain scoping as a first-class concern during feature design. If a route touches authentication, onboarding, or cross-tenant actions, it’s automatically flagged for main-domain isolation. We’ve added Psalm and PHPStan rules to flag any global route definitions outside the scoped group—failing CI if they sneak in.
+
+This fix came from a single commit—`'fix: scope invitation and integration routes to main domain to prevent subdomain conflicts'`—but it represents a bigger shift in our architecture hygiene. It’s not just about making links work. It’s about building systems where security and usability aren’t compromised by routing oversights.
+
+If you’re building a Laravel app with subdomains, ask yourself: *Are your auth routes truly global?* If they’re not explicitly scoped, they might be broken in ways you haven’t noticed yet.

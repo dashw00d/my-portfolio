@@ -1,0 +1,78 @@
+---
+title: "From Legacy to Maintainable: How We Tamed a 15-Year-Old PHP Codebase with Targeted Refactors"
+date: "2026-02-07"
+excerpt: "We modernized a 15-year-old PHP app not with a rewrite, but with surgical refactors that improved queries, UX, and team onboarding."
+tags: ["Laravel", "Legacy Code", "Technical Debt", "Refactoring", "Maintainability", "PHP"]
+author: "Ryan Dashwood"
+---
+## The Weight of 15 Years
+
+When you inherit a PHP application that’s been in production since 2011, you’re not just dealing with old code—you’re navigating a living archive of developer decisions, framework evolution, and business pivots. That’s exactly where we landed with AustinsElite (Legacy). No tests. No documentation. Just thousands of lines of PHP that somehow kept the lights on.
+
+The app worked—mostly. But every change felt risky. Queries were brittle, patterns inconsistent, and new team members spent weeks just trying to map the mental model. A full rewrite? Tempting. But we couldn’t justify halting feature work for months. So we went surgical: small, high-leverage refactors that reduced technical debt without derailing delivery.
+
+Our goal wasn’t perfection. It was progress. And we found it in two places: the database layer and the user interface.
+
+## Refactoring Queries: Removing Noise, Not Just N+1s
+
+One of the first pain points we hit was in the event scheduling module. A simple query to fetch upcoming events looked like this:
+
+```php
+DB::table('events')
+    ->where('start_date', '>=', now())
+    ->where('namespace', '!=', 'App\\Models\\Event')
+    ->orderBy('start_date')
+    ->get();
+```
+
+Wait—`namespace != 'App\\Models\\Event'`? Why was a database column storing PHP namespaces? Turns out, this was a relic from an early Eloquent workaround that never got cleaned up. Over time, it became a silent assumption baked into queries across the codebase.
+
+This wasn’t just ugly—it was dangerous. It added cognitive load, obscured intent, and made migrations harder. So we tackled it in one focused commit: `fix: update event date queries to remove redundant namespace references`.
+
+We traced every usage, validated the data, and eliminated the condition. The new query?
+
+```php
+Event::where('start_date', '>=', now())
+    ->orderBy('start_date')
+    ->get();
+```
+
+Clean. Obvious. Laravel-idiomatic. And more importantly, it set a precedent: we’re not just fixing bugs—we’re reclaiming clarity.
+
+This wasn’t an isolated win. Once we removed the noise, we spotted actual performance issues we’d been blind to before—like missing indexes on date filters. Sometimes, the best optimization isn’t caching or indexing. It’s removing the junk that hides the real problems.
+
+## UX and Maintainability: One Change, Two Wins
+
+Refactoring isn’t just about the backend. We found a sweet spot where user experience and code health overlapped: staff name rendering.
+
+Originally, staff names were dumped raw into views:
+
+```blade
+{{ $event->staff_name }}
+```
+
+No context. No links. Just a string. If you wanted to manage that person’s profile, you had to navigate away and search manually. For a team managing hundreds of events, this was death by a thousand clicks.
+
+Our fix was simple but powerful: `feat: add project memory documentation and enhance staff name display`.
+
+We updated the view to render names as links to management pages:
+
+```blade
+<a href="{{ route('staff.edit', $event->staff_id) }}" class="text-blue-600 hover:underline">
+    {{ $event->staff_name }}
+</a>
+```
+
+But we didn’t stop there. We embedded this change in a broader push for sustainability: the *project memory doc*. This living document captured tribal knowledge—why certain workarounds existed, which modules were fragile, and where the business logic actually lived (spoiler: not always in the models).
+
+The result? New developers could onboard in days, not weeks. They could look at a query or a route and understand not just *what* it did, but *why* it looked that way. We turned implicit knowledge into shared infrastructure.
+
+## Incremental Wins, Lasting Impact
+
+You don’t need a rewrite to modernize a legacy app. You need focus. We picked changes that delivered immediate value—better queries, better UX, better onboarding—and chained them into momentum.
+
+The truth is, no one celebrates a clean query or a well-documented quirk. But these are the changes that let teams move faster, ship safer, and sleep easier. In a 15-year-old codebase, that’s not just maintenance. It’s transformation.
+
+If you’re staring down a legacy PHP app, don’t wait for permission to rewrite. Start small. Remove one redundant condition. Link one raw field. Write one paragraph of context. The compounding effect is real.
+
+We’re not done with AustinsElite (Legacy). But for the first time in years, we’re not afraid of it either.

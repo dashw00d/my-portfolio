@@ -1,0 +1,70 @@
+---
+title: "Building a Shallow Orchestrator: Lightweight Coordination for Homelab Automation"
+date: "2025-11-03"
+excerpt: "How I built a minimal orchestrator for HomeForged that coordinates services without the bloat of full-scale tools."
+tags: ["homelab", "orchestration", "YAML", "DevOps", "automation"]
+author: "Ryan Dashwood"
+---
+## The Problem with Over-Engineering Homelab Orchestration
+
+Let’s be real: most of us running homelabs don’t need Kubernetes. We’re not scaling to hundreds of nodes or managing distributed state across regions. We’re trying to get a media server, a DNS resolver, and maybe a self-hosted CI runner to play nice—without spending more time configuring the orchestrator than the services themselves.
+
+Yet, even simple setups quickly outgrow shell scripts and `docker run` commands. You want services to start in order, react to failures, and share config. But pulling in a full orchestration stack feels like using a flamethrower to light a candle. So what’s the alternative? Build something just heavy enough to coordinate, but light enough to understand in one sitting.
+
+That’s exactly why I built the shallow orchestrator in [HomeForged](https://github.com/ryandaswood/homeforged)—a minimal coordination layer that routes actions between declarative service primitives, without any cluster managers, agents, or CRDs.
+
+## How the Shallow Orchestrator Works
+
+The core idea is simple: instead of watching containers or nodes, the orchestrator watches *intent*. That intent is expressed in YAML—the single source of truth for all primitives in HomeForged. Each service (like a `container`, `script`, or `network`) is defined declaratively, with inputs, dependencies, and desired state.
+
+When you run `homeforged apply`, the orchestrator doesn’t spin up a control plane. It doesn’t even run in the background. It’s a CLI-driven, synchronous runner that:
+
+1. Parses all YAML configs in the project
+2. Builds a dependency graph based on declared `depends_on` and resource links
+3. Executes actions (start, stop, restart) in topological order
+4. Streams logs and exits when done
+
+Here’s a snippet of what a service definition looks like:
+
+```yaml
+service: pihole
+primitive: container
+image: pihole/pihole:latest
+ports:
+  - "53:53/tcp"
+  - "80:80/tcp"
+environment:
+  - ServerIP=192.168.1.100
+depends_on:
+  - network: homelan
+```
+
+The orchestrator doesn’t interpret the container runtime—it just knows that `pihole` depends on the `homelan` network primitive. It calls the `network` primitive’s `start()` method first, then the `container`’s. Each primitive exposes a minimal interface: `validate()`, `plan()`, and `apply()`. That’s it.
+
+This is the "shallow" part: no reconciliation loops, no state storage, no watchers. It’s a one-pass coordinator that leans on the host’s existing tools (Docker, systemd, etc.) and assumes they’re reliable enough for homelab use.
+
+## Simplicity Over Scalability (And Why That’s Okay)
+
+You might be thinking: "This sounds like `docker-compose` with extra steps." And honestly? For many cases, it is. But the difference lies in extensibility and composition.
+
+`docker-compose` is great until you need to run a script before a container starts, or conditionally apply configs based on environment. Or when you want to mix containers with VMs, bare-metal scripts, or cloud resources. That’s where the shallow orchestrator shines—it treats all primitives as first-class citizens, whether they’re local or remote, long-lived or ephemeral.
+
+But this simplicity comes with trade-offs:
+
+- **No automatic recovery**: If a service crashes, it stays down. You run `apply` again.
+- **No parallel execution**: Actions run sequentially to keep logic predictable.
+- **No remote state**: Everything is file-based. No database, no API.
+
+These aren’t bugs—they’re constraints by design. The goal isn’t to replace production systems; it’s to give homelab builders a tool that’s transparent, auditable, and easy to debug. When something breaks, you can read the code in under five minutes.
+
+The shift to YAML as the single source of truth (thanks to recent updates in the tree builder and child component logic) made this even more powerful. Now, whether you’re editing configs by hand or building a UI on top, there’s one canonical format driving execution.
+
+And yes—while there’s now drag-and-drop support in the frontend (via the improved tree builder), the YAML always wins. The UI reflects it, never the other way around. This prevents config drift and keeps the system *composable*, not just convenient.
+
+## Final Thoughts: Build Just Enough
+
+The shallow orchestrator isn’t trying to be everything. It’s a tool for the first 80% of homelab automation—the part where you want structure without ceremony, coordination without complexity.
+
+If you’re knee-deep in ArgoCD and Terraform, this won’t replace your stack. But if you’re tired of juggling scripts and `docker run` commands, or you’re building a tool that needs lightweight coordination, consider going shallow.
+
+Sometimes the best orchestrator is the one that doesn’t stick around.

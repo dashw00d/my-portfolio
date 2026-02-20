@@ -1,0 +1,68 @@
+---
+title: "Debugging the Tree: How We Restored Hierarchical State in HomeForged’s Visual Builder"
+date: "2025-11-07"
+excerpt: "How we tracked down and fixed a critical race condition in HomeForged's tree node rehydration after a schema refactor."
+tags: ["React", "state management", "debugging", "visual builder", "race conditions"]
+author: "Ryan Dashwood"
+---
+## The Tree That Wouldn’t Hold Its State
+
+Last week, something broke in a quiet, catastrophic way: the Visual Builder in HomeForged stopped reliably restoring nested node structures. You’d load a project, expand a branch, and—poof—child nodes would vanish or appear duplicated. Drag-and-drop still worked, but reloading the page reset everything. For users building complex workflows, this wasn’t just annoying; it made the tool feel broken.
+
+This wasn’t a new feature gone rogue. It surfaced right after we merged the schema unification from the DataAnno Fil Starter project—a backend overhaul meant to standardize how we represent hierarchical data across tools. On paper, it was progress. In practice, it exposed a fragile coupling between our frontend tree component and how we rehydrate state on mount.
+
+I’ve seen this before: the UI *thinks* it’s talking to the data layer, but they’re out of sync. This time, though, the regression was subtle. The tree rendered—just not correctly. And it only failed on cold loads, never in isolated dev stories. That inconsistency? That’s the kind of clue you learn to chase.
+
+## Peeling Back the Rehydration Onion
+
+My first move: check the payloads. I pulled the API response for a saved project. The JSON looked clean—parent-child relationships intact, IDs consistent, no duplicates. So the backend was doing its job. The break had to be on the frontend.
+
+I added debug logs in our `useTreeState` hook, which reconstructs the in-memory node hierarchy from the flat list returned by the API. What I saw was maddening: the initial state was correct, but within milliseconds, a second re-render would reset parts of the tree. The nodes weren’t missing—they were being *overwritten*.
+
+Then I spotted it: a race condition in the component lifecycle. The tree was mounting and initializing state from the API response, but a secondary effect—meant to sync expanded/collapsed state from localStorage—was firing too early. It was reading stale defaults, then clobbering the freshly hydrated structure. Worse, because the schema had changed (node IDs were now UUIDs instead of incrementals), the localStorage cache was using outdated key formats, causing mismatches.
+
+The real kicker? This only happened on first load. Once you interacted with the tree, the in-memory state corrected itself. That’s why our unit tests passed and Storybook looked fine—we weren’t simulating a cold start with legacy cache.
+
+I confirmed it by clearing localStorage and reloading. The tree worked. Then I simulated an old user profile with cached expansion state. The bug returned instantly.
+
+## Fixing the Lifecycle, Not Just the Data
+
+The fix wasn’t about rewriting the tree logic. It was about *timing* and *source hierarchy*. We needed to ensure that:
+
+1. Backend state always wins on initial load
+2. Local preferences (like expanded nodes) are applied *after* the tree is fully hydrated
+3. Schema mismatches in cached data don’t corrupt the active state
+
+Here’s what changed:
+
+First, I decoupled state initialization from the localStorage effect. We now await the API response and fully construct the tree *before* applying any client-side preferences. This eliminated the race.
+
+```js
+// Before: concurrent, unordered effects
+useEffect(() => { hydrateFromApi(); });
+useEffect(() => { applyLocalExpansion(); });
+
+// After: sequential, intentional flow
+useEffect(() => {
+  async function init() {
+    const nodes = await fetchProjectNodes();
+    const tree = buildTree(nodes);
+    setTreeState(tree);
+    
+    // Only now, apply local UI preferences
+    const savedExpansion = getSavedExpansion(projectId);
+    if (savedExpansion) {
+      setExpandedNodes(savedExpansion);
+    }
+  }
+  init();
+}, []);
+```
+
+Second, we added schema versioning to the cached data. If the stored node IDs don’t match the expected format (e.g., non-UUIDs), we discard the cache silently instead of trying to reconcile it. No more ghost nodes.
+
+Finally, we normalized the node state using a consistent selector pattern, ensuring all components read from the same source of truth. This reduced redundant state copies that were previously drifting out of sync.
+
+The result? The tree now restores correctly 100% of the time—even with old cache. We’ve also added integration tests that simulate cold loads with mixed schema versions, so this won’t slip through again.
+
+This wasn’t a flashy refactor. No new libraries, no architecture diagrams. Just careful attention to lifecycle order and a reminder: when your UI and data layer start whispering past each other, the fix is often about *when* you listen—not *what* you’re hearing.

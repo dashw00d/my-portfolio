@@ -1,0 +1,66 @@
+---
+title: "From Heightmaps to Influence Maps: Rewriting Terrain Generation in a Hex-Based 3D RTS"
+date: "2025-06-13"
+excerpt: "How I replaced rigid height-based terrain with a dynamic influence system in Godot for more flexible biome and gameplay design."
+tags: ["Godot", "RTS", "Procedural Generation", "Game Design", "Hex Grids", "Influence Maps"]
+author: "Ryan Dashwood"
+---
+## The Problem with Heightmaps
+
+When I first built the terrain system for my hex-based 3D RTS in Godot, I went with the obvious approach: heightmaps. Elevation dictated everything—sea, land, cliffs, biomes. Simple. Predictable. And *way* too rigid.
+
+I hit the wall fast. Want tundra at low elevations because of magical frost wells? Nope. Desert on high plateaus but only near trade routes? Not without hacks. The moment gameplay elements like buildings or resources needed to *affect* terrain, I was stuck juggling spaghetti logic that checked height first, then applied exceptions. It didn’t scale. It didn’t breathe.
+
+The final straw was a commit titled `terrain sort of working`. It wasn’t sarcastic. It was a surrender. I’d hardcoded SEA/LAND/CLIFF thresholds into the mesh generation, and every new feature made it worse. I needed out.
+
+## A Shift to Influence-Driven Terrain
+
+So I ripped it all out.
+
+Instead of asking "How high is this hex?", the new system asks: "What influences this tile, and how strong are they?"
+
+Now, terrain type emerges from layered influence maps. Each hex stores float values for factors like *water*, *heat*, *magic*, *civilization*, or *decay*. Biomes aren’t tied to elevation—they’re derived from combinations of these influences. A desert forms where *heat* is high and *water* is low. A swamp emerges from high *water* and high *decay*. Tundra? High *magic* and low *heat*, regardless of height.
+
+But here’s the kicker: those influences aren’t static. Units, buildings, and resources actively push values around. A fortress raises *civilization* influence, gradually turning scrubland into farmland. A necromancer’s tower pumps *decay*, corrupting nearby forests into bogs. Even elevation can be a *result* of influence—say, when terraforming units compress *earth* influence into raised terrain.
+
+This isn’t just prettier terrain. It’s gameplay baked into the world. Players don’t just move *on* the map—they shape it, and the map pushes back.
+
+## Building It in Godot: Data, Hexes, and Updates
+
+Godot’s flexibility made this pivot possible, but it still took careful architecture.
+
+I represent the world as a `HexGrid` using axial coordinates (q, r). Each hex has a data container with influence values, stored in a `Dictionary` for quick access:
+
+```gdscript
+var influences = {
+    "water": 0.0,
+    "heat": 0.0,
+    "civilization": 0.0,
+    "decay": 0.0
+}
+```
+
+Influence sources—like a farm or an oasis—register themselves with the `InfluenceManager`. Every frame (or on a staggered update for performance), the manager applies falloff and diffusion using a simple flood-fill over hex neighbors. The strength at each tile is a weighted sum, clamped and normalized.
+
+Biome determination happens in a separate system that reads the final influence state. I use a priority-based rule set:
+
+```gdscript
+if influences["water"] > 0.8 and influences["decay"] > 0.6:
+    return BIOME_SWAMP
+elif influences["civilization"] > 0.7 and influences["water"] > 0.4:
+    return BIOME_FARMLAND
+```
+
+This decouples biome logic from influence propagation—critical for iteration. Want cities to create suburbs instead of farmland? Tweak the rules, not the math.
+
+Mesh generation now runs *after* biome assignment. Elevation is just another output—possibly influenced by biome, but not the driver. Cliffs? They’re generated where biome or elevation changes too rapidly between hexes, with Godot’s `SurfaceTool` stitching the geometry.
+
+Performance was a concern, but by updating influences in chunks and using Godot’s `PhysicsServer3D` for spatial queries when needed, it runs smooth even on larger maps.
+
+## Why This Matters for Indie RTS Devs
+
+If you’re building an RTS—especially in Godot—don’t lock yourself into height-driven terrain early. It feels safe, but it’s a trap. The real magic happens when the world *reacts*. Influence maps aren’t just for AI pathfinding or strategic scoring. They can be the foundation of your entire world model.
+
+This rewrite let me delete more code than I wrote. The system is more flexible, more readable, and actually *fun* to extend. Next up: letting players drop terraforming abilities that inject influence pulses directly.
+
+The terrain isn’t just a stage anymore. It’s part of the conversation.

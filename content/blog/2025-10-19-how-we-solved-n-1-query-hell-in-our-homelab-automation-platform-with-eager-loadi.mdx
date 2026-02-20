@@ -1,0 +1,80 @@
+---
+title: "How We Solved N+1 Query Hell in Our Homelab Automation Platform with Eager Loading"
+date: "2025-10-19"
+excerpt: "How a simple Laravel eager loading fix slashed query counts from 101 to 2 on HomeForged's events dashboard."
+tags: ["Laravel", "Performance", "Eager Loading", "N+1 Query", "Homelab", "Optimization"]
+author: "Ryan Dashwood"
+---
+## The Dashboard That Took Too Long to Load
+
+A few weeks ago, I was testing the events dashboard in [HomeForged](https://github.com/ryandaswood/HomeForged), my homelab automation platform, and noticed something ugly: the page was taking over 3 seconds to load. That’s not just slow—it’s user-hostile.
+
+The dashboard lists recent automation events, each tied to a server position (like 'rack-01-u12' or 'shelf-top'). Simple, right? But Laravel was quietly running hundreds of database queries under the hood. When I checked the query log, I saw it: 101 queries. One to fetch the events, and 100 more to fetch each event’s position individually. Classic N+1.
+
+This wasn’t just a theoretical issue. With real data from recent seeders, the problem was immediate and measurable. The kind of thing that sneaks into Laravel apps when you’re moving fast and forget to optimize relationships.
+
+## Spotting the N+1 and Fixing It in One Line
+
+Here’s what the original controller code looked like:
+
+```php
+public function index()
+{
+    $events = Event::latest()->get();
+    
+    return view('events.index', compact('events'));
+}
+```
+
+And in the Blade template:
+
+```blade
+@foreach ($events as $event)
+    <tr>
+        <td>{{ $event->name }}</td>
+        <td>{{ $event->position->name }}</td>
+    </tr>
+@endforeach
+```
+
+Every time `$event->position->name` was accessed, Laravel hit the database again. With 100 events? 100 extra queries. Ouch.
+
+The fix was embarrassingly simple. Laravel’s `with()` method lets you eager load relationships, so all the positions come in a single additional query instead of one per event.
+
+```php
+public function index()
+{
+    $events = Event::with('position')->latest()->get();
+    
+    return view('events.index', compact('events'));
+}
+```
+
+That one change dropped the total query count from 101 to 2. The page load time? Down to under 300ms. No caching, no indexing tricks—just proper use of Eloquent’s built-in tools.
+
+## Seeding for Consistency (and Fewer Surprises)
+
+While fixing the N+1, I also realized our seeders weren’t consistent. Some events were being created without valid positions, which led to both bugs and misleading performance tests.
+
+So I updated the seeders to ensure every event has a properly linked position:
+
+```php
+Event::factory()
+    ->count(100)
+    ->has(Position::factory()->count(1))
+    ->create();
+```
+
+This not only made the test data more realistic but also ensured that our optimization was being tested under real-world conditions. No more phantom null relationships skewing results.
+
+## The Bigger Picture: Why This Matters
+
+This wasn’t just about speed. It was about building a maintainable, scalable homelab tool. HomeForged runs on modest hardware—my lab’s got a repurposed server and a Raspberry Pi or two. Wasting resources on avoidable queries isn’t an option.
+
+But beyond the hardware limits, this is a pattern I see all the time in Laravel apps: developers (myself included!) reach for the ORM’s convenience without thinking about the SQL it generates. The result? N+1 queries hiding in plain sight.
+
+The lesson? Always check your queries in development. Use Laravel Debugbar or Telescope. If you’re looping over models and accessing relationships, ask: "Is this eager loaded?" If not, it’s probably slowing you down.
+
+And don’t wait for the problem to surface in production. Catch it early, fix it fast, and your users—whether they’re you at 2 a.m. debugging a script or a teammate using your internal tool—will thank you.
+
+Optimizing this page took less than 30 minutes. The impact? Massive. That’s the power of knowing your tools and paying attention to the details.

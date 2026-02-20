@@ -1,0 +1,63 @@
+---
+title: "How We Unified Lead Tracking Across Legacy and Modern Systems in AustinsElite"
+date: "2026-01-12"
+excerpt: "Syncing lead status between a 15-year-old PHP app and a new Next.js frontend taught us hard lessons in event-driven design and data consistency."
+tags: ["full-stack", "legacy migration", "event-driven architecture", "data synchronization", "Next.js", "Laravel"]
+author: "Ryan Dashwood"
+---
+## The Two Systems, One Problem
+
+We’re rebuilding AustinsElite — a platform that’s been live for over 15 years — from the ground up. The old Laravel monolith still handles core operations like form ingestion and lead processing. Meanwhile, our shiny new Laravel 12 frontend manages user journeys, dashboards, and real-time interactions. Both systems needed to track leads, but they were speaking different languages — and worse, showing different truths.
+
+The breaking point came when sales noticed discrepancies: a lead marked as "contacted" in the legacy admin panel would still show as "new" in the Next.js dashboard. The root cause? We had two independent lead tracking implementations, each updating state in isolation. No one was syncing. No one was listening.
+
+We needed a bridge — not just a one-time data dump, but a live, bidirectional flow of lead status changes. And we needed it without rewriting everything at once.
+
+## Building the Bridge with Events and Contracts
+
+Our solution was event-driven. Instead of tightly coupling the systems, we introduced a shared understanding of what a "lead status change" meant — a contract, if you will — and used queues to propagate those events.
+
+In the Laravel app, every time a lead’s status changed (via admin action or form submission), we dispatched a `LeadStatusUpdated` event. That event serialized into a simple JSON payload:
+
+```json
+{
+  "lead_id": "abc123",
+  "status": "contacted",
+  "timestamp": "2026-01-10T14:22:00Z",
+  "source": "legacy-admin"
+}
+```
+
+This event was pushed to a Redis-backed queue (via Laravel Horizon), consumed by a lightweight Node.js worker that forwarded it to the Next.js API. On the receiving end, the Next.js app validated the payload against the same schema (using Zod) and updated its internal state — then fired off analytics via Umami.
+
+The key was consistency in the contract. Both systems agreed on field names, allowed statuses, and timestamp formats. We versioned the schema early (`v1/lead-status-updated`) so we could evolve it later without breaking things.
+
+We did the reverse, too: when a user updated a lead in the Next.js UI, the frontend emitted the same event structure into its own message queue (using BullMQ), which a Laravel listener picked up to sync back into the monolith.
+
+This wasn’t real-time sync — it was *eventual* consistency. But for our use case, that was fine. A few seconds of lag was better than divergent data.
+
+## Lessons from the Trenches
+
+### 1. Eventual Consistency Is a Mindset
+
+We had to retrain our thinking. Instead of "update and verify immediately," we learned to ask: "Is this eventually consistent? Can the user tolerate a brief delay?" We added loading skeletons and toast notifications to signal sync progress. Users now see "Updating…" instead of assuming failure when changes don’t appear instantly.
+
+### 2. Debugging Across Systems Is Hard
+
+When a lead didn’t sync, was it the Laravel event not firing? The queue down? The Next.js validator rejecting the payload? We built a simple audit log — each event got a UUID, logged in both systems — so we could trace its journey. We also added health checks on the queue consumers and alerting on dead-letter queues.
+
+One sneaky bug? Timezone mismatches in timestamps. Laravel was sending local time; Next.js expected UTC. The fix was small (`->toISOString()`), but the impact was huge.
+
+### 3. Test the Integration, Not Just the Code
+
+Unit tests covered the pieces, but we needed contract tests. We wrote a shared test suite (in Node.js) that validated both systems could serialize and deserialize the same event payload. We ran it in CI for both repos. If the schema changed in one, the other would fail fast.
+
+We also added end-to-end tests using Playwright: simulate a status change in the legacy admin, wait for the event to propagate, then check the Next.js dashboard for the update. It added 30 seconds to our pipeline — worth every millisecond.
+
+## Final Thoughts
+
+Migrating from legacy to modern isn’t about flipping a switch. It’s about running two systems side by side — carefully, deliberately — until the new one can stand alone. By treating data as events and contracts as APIs, we kept both systems in sync without coupling them tightly.
+
+This approach didn’t just solve lead tracking. It became the blueprint for syncing clients, appointments, and notifications. The pattern is now repeatable, testable, and safe.
+
+If you’re neck-deep in a legacy rewrite, don’t underestimate the power of a well-defined event. Sometimes, the best way forward is to let your systems talk — not merge.

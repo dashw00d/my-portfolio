@@ -1,0 +1,65 @@
+---
+title: "How We Scaled a Distributed Crawler with Atomic Redis State Management"
+date: "2026-01-30"
+excerpt: "How atomic Redis operations fixed state corruption during worker shutdowns in our distributed Vultr Crawler."
+tags: ["redis", "distributed-systems", "web-crawler", "python", "data-consistency"]
+author: "Ryan Dashwood"
+---
+## The Problem: Jobs Vanishing Into the Void
+
+Picture this: you’re running a distributed crawler at scale, dozens of workers pulling URLs from a Redis-backed queue, scraping pages, and updating state in real time. Everything looks great—until a worker crashes or gets restarted. Suddenly, jobs you *know* were picked up never complete, and worse, they don’t get requeued. They’re just… gone.
+
+That was our reality with the Vultr Crawler. When workers shut down—whether due to deployment, failure, or scaling events—in-progress jobs would disappear without a trace. The Redis state wasn’t being reset, so those jobs stayed marked as "in progress" even though no worker was actually working on them. The result? Data inconsistency, missed scrapes, and a growing backlog of stuck items.
+
+We’d see it in the logs: a worker would die mid-cycle, and the next health check would reveal orphaned job entries. Our retry logic couldn’t catch them because, as far as Redis was concerned, they were still being processed. This wasn’t just a bug—it was a systemic reliability flaw.
+
+## Atomic Redis to the Rescue
+
+The root issue was simple: we weren’t handling state transitions *atomically*. When a worker picked up a job, it would set a status in Redis, but if the process died before completing or cleaning up, there was no guarantee that state would be reverted.
+
+Our fix? Atomic operations using Redis scripting via `EVAL`. Instead of relying on multi-step GET-THEN-SET patterns (which are inherently race-prone), we moved all critical state transitions into Lua scripts executed server-side. This ensured that operations like "mark job as in progress" or "reset in-progress jobs on shutdown" either happened completely or not at all.
+
+Here’s the key insight: during worker shutdown, we needed to safely return any in-progress jobs back to the pending queue. Before, this involved reading job IDs, checking their status, and updating them—three separate commands open to race conditions. Now, we use a single atomic script:
+
+```lua
+-- Reset all in-progress jobs back to pending
+local jobs = redis.call('SMEMBERS', 'jobs:in_progress')
+for _, job in ipairs(jobs) do
+  redis.call('LPUSH', 'jobs:pending', job)
+  redis.call('SREM', 'jobs:in_progress', job)
+end
+return #jobs
+```
+
+This script runs entirely within Redis, so it’s immune to network splits or worker crashes mid-operation. We trigger it during the worker’s graceful shutdown phase—ensuring that even if the worker dies unexpectedly seconds later, the cleanup has already happened.
+
+We wrapped this in Python using `redis_client.eval()`, passing the script and keys as needed. The result? No more orphaned jobs. Every shutdown, planned or not, leaves the system in a consistent state.
+
+## Observability: Seeing the Full Picture
+
+Atomic operations fixed the corruption, but we still needed to *know* when shutdowns happened and whether cleanup succeeded. That’s where enhanced logging came in.
+
+We added structured log entries at every major lifecycle event: job acquisition, processing start, completion, *and* shutdown cleanup. Instead of vague "worker stopped" messages, we now log exactly how many in-progress jobs were recovered, which ones were reset, and whether the atomic script returned cleanly.
+
+For example:
+
+```json
+{
+  "event": "shutdown_cleanup",
+  "jobs_reset": 3,
+  "job_ids": ["vultr:123", "vultr:456", "vultr:789"],
+  "timestamp": "2026-01-29T14:22:10Z"
+}
+```
+
+This level of detail transformed debugging. When we saw a spike in recovered jobs, we could correlate it with deployment events or infrastructure issues. More importantly, we could verify that our atomic logic was working as intended—every time.
+
+Over 123 commits focused on crawler reliability, this pattern became foundational. We extended it to other state transitions: retry limits, error tracking, and even distributed locking for rate-limited domains.
+
+## The Result? A Crawler That Survives Real-World Chaos
+
+Distributed systems are messy. Workers die. Networks hiccup. Deployments happen at 2 a.m. But your data shouldn’t pay the price.
+
+By leaning into Redis’s atomic capabilities and treating state management as a first-class concern, we turned a flaky crawler into a resilient one. Job loss dropped to zero. Recovery became predictable. And we gained confidence that the system could scale without silently corrupting its own state.
+
+If you’re building or maintaining a distributed crawler, don’t treat Redis as just a message broker. Use it as a source of truth—with atomic operations as your guardrails. Because consistency isn’t a nice-to-have. It’s the difference between a tool you trust and one you’re constantly firefighting.

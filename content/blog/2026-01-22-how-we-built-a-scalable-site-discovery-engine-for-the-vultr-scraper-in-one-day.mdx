@@ -1,0 +1,51 @@
+---
+title: "How We Built a Scalable Site Discovery Engine for the Vultr Scraper in One Day"
+date: "2026-01-22"
+excerpt: "We architected a real-time site discovery engine for the Vultr Scraper in under 24 hours—here's how modular design and smart routing made it possible."
+tags: ["web scraping", "backend engineering", "crawling architecture", "API design", "database schema"]
+author: "Ryan Dashwood"
+---
+## Introducing the Challenge: Scaling Site Discovery Across Dynamic Targets
+
+A few weeks ago, we hit a wall with the Vultr Scraper: our old site discovery logic was brittle, tightly coupled, and couldn’t keep up with the volume of dynamic targets we needed to monitor. We were seeing missed domains, duplicated work, and inconsistent state across crawls. The system was built for simplicity, not scale—and as our data ingestion needs grew, so did the pain.
+
+The goal was clear: rebuild the discovery engine to be fast, reliable, and capable of handling real-time input without sacrificing maintainability. And we had one day to prove it could work.
+
+Why the rush? Because this wasn’t just a one-off feature—it was a linchpin in our January refactor to standardize backend patterns across the scraper. We wanted modular components, clean API boundaries, and a schema that could evolve. Site discovery was the first domino.
+
+## Architectural Breakdown: Routers, Worker Modes, and Database Schema Design
+
+We started by rethinking the flow: instead of baking discovery into the crawler, we decoupled it. The new system treats site discovery as a first-class pipeline—separate from crawling, but tightly integrated through a shared state layer.
+
+At the core is a new API router that accepts site hints—URLs, domain patterns, or seed lists—from multiple sources: internal services, external webhooks, even manual submissions. This router doesn’t crawl; it validates, normalizes, and enqueues. That separation let us apply consistent rules (like deduplication and TLD filtering) before anything hits the database.
+
+Behind the API, we introduced a lightweight PostgreSQL schema with two new tables: `discovered_sites` and `discovery_sources`. The former tracks domain, source ID, discovery timestamp, and ingestion status. The latter logs where each hint came from—critical for debugging and prioritization. We added GIN indexes on domain patterns and status flags to keep queries fast, even as the queue grew.
+
+```sql
+CREATE TABLE discovered_sites (
+  id UUID PRIMARY KEY,
+  domain TEXT NOT NULL,
+  source_id UUID REFERENCES discovery_sources(id),
+  discovered_at TIMESTAMPTZ DEFAULT NOW(),
+  status VARCHAR(20) DEFAULT 'pending', -- pending, processing, failed, ingested
+  UNIQUE(domain, source_id)
+);
+```
+
+This schema gave us atomicity and traceability. More importantly, it made the system *observable*. We could ask: Where did this domain come from? How long has it been pending? Has it failed before?
+
+On the worker side, we introduced a "discovery mode" toggle. Same codebase, different behavior. In normal mode, workers crawl pages. In discovery mode, they poll the `discovered_sites` table, resolve DNS, validate responsiveness, and promote qualified domains to the main crawl queue. This dual-mode pattern let us reuse infrastructure while keeping logic isolated.
+
+We also baked in rate limiting and jitter at the client level to avoid overwhelming target servers—a small detail, but one that kept us on the right side of politeness policies.
+
+## Lessons Learned: Balancing Speed and Maintainability in High-Velocity Development
+
+Pulling this off in a day didn’t mean cutting corners—it meant focusing on the right corners to cut. We didn’t build a message queue from scratch. We didn’t write a custom scheduler. We leaned on existing patterns: REST APIs, relational DBs, cron-driven workers. The innovation wasn’t in the tech, but in how we composed it.
+
+One big lesson: *modular design enables velocity*. By isolating discovery behind a clean API and defining clear data contracts, we reduced cognitive load across the team. New contributors could understand the flow in minutes, not hours. Testing became easier, too—unit tests for the router, integration tests for the worker loop.
+
+Another takeaway: schema design is technical debt prevention. Taking 30 extra minutes to define constraints, indexes, and status semantics saved us from a dozen edge-case bugs down the line. It’s tempting to `ALTER TABLE` later, but getting it mostly right early pays dividends.
+
+Finally, we learned that "done in a day" doesn’t mean "throwaway." This system now underpins every new domain the Vultr Scraper touches. It’s been running for three weeks with zero downtime and has processed over 12,000 site hints—scaling exactly as we hoped.
+
+This wasn’t just a win for the scraper. It proved that with the right abstractions, we can move fast *and* build to last. And that’s a pattern worth repeating.

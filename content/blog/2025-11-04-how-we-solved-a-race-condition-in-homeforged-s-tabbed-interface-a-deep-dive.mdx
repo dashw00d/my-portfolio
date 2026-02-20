@@ -1,0 +1,87 @@
+---
+title: "How We Solved a Race Condition in HomeForged’s Tabbed Interface — A Deep Dive"
+date: "2025-11-04"
+excerpt: "Debugging a tricky race condition in HomeForged's reactive tabbed UI after a major visual rebuild."
+tags: ["Vue.js", "race condition", "state management", "frontend debugging", "HomeForged"]
+author: "Ryan Dashwood"
+---
+## The Visual Panel Got Smarter — And Introduced a Nasty Bug
+
+We recently rebuilt the visual panel in HomeForged to support dynamic, schema-driven content. This wasn’t just a UI refresh — it was a full re-architecture. Tabs now load different builder modules on demand, each pulling live data from a shared reactive store. Interactivity went way up, but so did the surface area for bugs.
+
+One issue started popping up during QA: when users rapidly switched between tabs, the content would sometimes "stick" — showing data from a previous tab even after the switch. Worse, actions in one tab occasionally affected the wrong module. This wasn’t a cosmetic glitch; it was a state desync, and it threatened the reliability of the entire builder.
+
+We knew we were dealing with a race condition — but where, exactly, and how to fix it cleanly?
+
+## Chasing Ghosts: Diagnosing the Race
+
+At first, the bug seemed random. But after adding debug logs to our Vue component lifecycles and store mutations, a pattern emerged.
+
+Here’s what was happening:
+
+1. User clicks Tab A → component mounts → fetches data → updates shared state.
+2. Before the fetch resolves, user clicks Tab B.
+3. Tab B mounts, starts its own fetch.
+4. Tab A’s fetch finally resolves — but the component is no longer active.
+5. State gets overwritten with stale, irrelevant data.
+
+The root issue? We were relying on component-level async operations that weren’t being canceled or ignored when the component was no longer in view. Vue’s reactivity kept everything *mostly* in sync — but under rapid interaction, timing gaps exposed flaws in our assumption: "the last tab wins."
+
+We needed a way to ensure that only the *currently active* tab could write to the shared state. And we needed it to be lightweight — no rewriting the entire state layer.
+
+## The Fix: Debounced Watchers and Guard Flags
+
+Our solution had two parts: a guard flag and a debounced watcher.
+
+First, we added a simple `activeTab` field to our Pinia store:
+
+```js
+const state = () => ({
+  activeTab: null,
+  moduleData: {}
+});
+```
+
+Each tab, on mount, sets `activeTab` to its own identifier. This gives us a single source of truth for "who owns the state right now."
+
+Then, in each tab’s data-fetching logic, we wrapped the state commit in a check:
+
+```js
+const response = await fetchModuleData(tabId);
+// Only update if this tab is still the active one
+if (store.activeTab === tabId) {
+  store.updateModuleData(response);
+}
+```
+
+This prevented stale responses from overwriting current state — a solid first line of defense.
+
+But we still had flicker during rapid switches. The UI would briefly show old data before the new fetch resolved. To smooth that out, we introduced a debounced watcher on `activeTab` using Lodash’s `debounce`:
+
+```js
+watch(() => store.activeTab, debounce((newTab, oldTab) => {
+  if (oldTab) {
+    // Clear transient state only after a brief delay
+    store.clearModuleData(oldTab);
+  }
+}, 150), { deep: true });
+```
+
+This tiny delay gave the new tab a window to load and claim the state before the old one’s cleanup ran. It eliminated the flash of outdated content and made tab transitions feel instant and deterministic.
+
+We also added a `pendingTab` flag during navigation to prevent re-entrancy, but the real win was aligning state updates with user intent — not network timing.
+
+## Lessons from the Trenches
+
+Race conditions in reactive UIs are sneaky because they often only appear under real-world usage patterns. Unit tests won’t catch them. E2E tests might miss them. It took deliberate stress-testing — rapid clicks, fast switches, simulated slow networks — to expose this.
+
+But the fix wasn’t about complexity. It was about intentionality: making sure state updates reflect who the user is *currently* interacting with, not who happened to respond last.
+
+If you’re building dynamic, tab-driven interfaces in Vue (or any reactive framework), here’s what I’d recommend:
+
+- Always cancel or guard async operations on component teardown.
+- Use a single source of truth for "active" state.
+- Don’t underestimate the UX impact of debouncing cleanup — 150ms can make transitions feel *instant*.
+- Test with speed, not just correctness.
+
+This fix stabilized a critical part of HomeForged’s builder — and reminded me that sometimes, the best solutions aren’t about rewriting, but about listening to the timing of the system.

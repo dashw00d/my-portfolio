@@ -1,0 +1,85 @@
+---
+title: "How We Built a Scalable Status Management System in Filament PHP"
+date: "2025-04-17"
+excerpt: "Learn how we implemented granular status actions in Filament PHP for form submissions with audit logging and state validation."
+tags: ["Filament PHP", "Laravel", "admin panel", "status management", "audit logging", "state machines"]
+author: "Ryan Dashwood"
+---
+## The Problem: Status Chaos at Scale
+
+At AustinsElite, we process hundreds of form submissions weekly — from client onboarding to service requests. As the volume grew, our team started hitting a wall: status updates were inconsistent, actions were buried in dropdowns, and there was zero visibility into *who* changed *what* and *when*.
+
+We needed a system that was fast for admins, safe for data, and clear for everyone involved. The old way — basic status fields edited manually — wasn’t cutting it. We were seeing duplicate actions, accidental reversions, and no audit trail when things went sideways.
+
+Enter Filament PHP. We’d already built our admin panel on Filament (Laravel 12 backend), so we knew we could go beyond basic CRUD. The goal? Turn status management into a first-class citizen with intentional actions, guardrails, and full traceability.
+
+## Building Intent-Driven Status Actions in Filament
+
+The key insight was this: *status changes should be explicit actions, not field edits*. That means no more freeform selects — instead, we built custom Filament actions tied to specific state transitions.
+
+We started in the `FormSubmissionResource` class, where our admin interface lives. Using Filament’s `Actions\Action` API, we defined discrete actions like `markAsReviewed`, `approve`, and `flagForRevision`. Each one appears as a button in the record view, only when applicable.
+
+Here’s a simplified version of how we set up the `approve` action:
+
+```php
+Actions\Action::make('approve')
+    ->label('Approve Submission')
+    ->color('success')
+    ->icon('heroicon-o-check-circle')
+    ->requiresConfirmation()
+    ->visible(fn (FormSubmission $record) => 
+        $record->status === 'reviewed' && !$record->isApproved()
+    )
+    ->action(function (FormSubmission $record) {
+        $record->update(['status' => 'approved', 'approved_at' => now()]);
+        \Log::channel('audit')->info('Form approved', [
+            'form_id' => $record->id,
+            'approved_by' => auth()->id(),
+            'previous_status' => 'reviewed'
+        ]);
+    }),
+```
+
+Notice a few things:
+
+- **Visibility guards** ensure the button only shows when the current state allows it.
+- **Confirmation modal** prevents accidental approvals.
+- **Audit log** fires on every transition, capturing context.
+
+We didn’t stop there. We also added bulk actions for operations like `markAsReviewed`, which can be applied across selected records in the table — a huge time-saver for our ops team.
+
+## Enforcing State Integrity and Leaving a Paper Trail
+
+The real challenge wasn’t just building the buttons — it was making sure the system stayed consistent, even when things got messy.
+
+We implemented a lightweight state machine pattern using a `StatusTransitionService` that validates allowed transitions before any update. No more jumping from "draft" to "approved" — only valid paths are permitted.
+
+```php
+// In the action's before() hook
+->before(function (FormSubmission $record) {
+    if (!StatusTransitionService::canTransition($record->status, 'approved')) {
+        throw new \Exception('Invalid status transition');
+    }
+})
+```
+
+This service uses a simple config array to define valid flows:
+
+```php
+'form_submission' => [
+    'draft' => ['submitted'],
+    'submitted' => ['reviewed', 'rejected'],
+    'reviewed' => ['approved', 'flagged'],
+    // etc.
+],
+```
+
+We also tapped into Laravel’s model events to automatically log every status change to a dedicated audit channel. These logs go to a separate file and are searchable — critical when a client asks, "When was this approved?"
+
+And because we’re on Laravel 12, we leveraged the improved queue system to offload audit logging asynchronously, keeping the UI snappy even during high-volume periods.
+
+This combo — intentional actions, state validation, and immutable logs — turned a chaotic process into something predictable and trustworthy.
+
+The feature shipped on April 17th as part of our broader push to supercharge the AustinsElite admin panel. Alongside PDF exports and email sharing (coming in next week’s release), it’s already reducing support tickets and helping our team move faster — without breaking things.
+
+If you’re using Filament for form-heavy apps, don’t treat status as just another field. Turn it into a controlled workflow. Your team — and your data — will thank you.

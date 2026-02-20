@@ -1,0 +1,65 @@
+---
+title: "Fixing Session Data Race Conditions in Laravel Livewire After Form Submissions"
+date: "2024-12-17"
+excerpt: "How switching from redirect()->route() to Laravel's redirect() helper fixed session data loss in a Livewire-powered quote flow."
+tags: ["Laravel", "Livewire", "Session", "Form Handling", "Debugging"]
+author: "Ryan Dashwood"
+---
+## The Session Vanished – And So Did Our Quote Data
+
+I was testing the RAQ (Request a Quote) flow on AustinsElite – a Laravel 12 app with Blade templates and Livewire sprinkled in – when I noticed something broken: after submitting the form, the thank-you page came up blank. No user details, no selected services. The session data was gone.
+
+This wasn’t just a UI glitch. The RAQ disclaimer section relied entirely on persisted form state pulled from the session. Without it, users couldn’t verify what they’d submitted. And worse, support teams had no reference when following up.
+
+We were using `redirect()->route('thank-you')` at the end of our Livewire action. Classic Laravel. Seemed harmless. But somewhere between form submit and redirect, the session was being dropped.
+
+Livewire handles redirects a little differently than traditional controllers. When you call `redirect()->route()` inside a Livewire component, it triggers a JavaScript-driven redirect *after* the component re-renders. That tiny delay? It creates a race condition where session data can be lost if not properly flushed or locked.
+
+## Why redirect()->route() Was the Culprit
+
+Here’s the key detail: in a Livewire context, `redirect()->route()` returns a RedirectResponse that gets interpreted client-side. But because Livewire batches updates and handles navigation asynchronously, the session write from the form submission wasn’t guaranteed to complete before the redirect kicked in.
+
+We confirmed this by logging session IDs and timestamps. The thank-you page was loading *just fast enough* to miss the final session commit from the server. It wasn’t a cache issue. It wasn’t middleware. It was timing.
+
+The fix? Swap to Laravel’s global `redirect()` helper.
+
+Instead of:
+
+```php
+return redirect()->route('thank-you');
+```
+
+We changed it to:
+
+```php
+return redirect(route('thank-you'));
+```
+
+Wait – same thing, right? Not quite.
+
+The global `redirect()` function forces Laravel to generate the URL immediately and return a proper redirect response *before* Livewire processes the rest of the lifecycle. This ensures the session is fully written and committed to storage before the browser navigates. No race. No lost data.
+
+It’s subtle, but critical.
+
+## Testing the Fix and Locking It In
+
+Once we made the change, we didn’t just click through once and call it done. We stress-tested it:
+
+- Submitted the form 50+ times across different browsers and network throttling levels.
+- Added session debugging middleware to log all writes and flashes.
+- Verified the `raq_form_data` key persisted through the redirect every time.
+
+We also updated our Livewire component to explicitly flash the data:
+
+```php
+session()->flash('raq_form_data', $this->formState);
+return redirect(route('thank-you'));
+```
+
+This double-ensures the data survives exactly one redirect, which is exactly what we need for the thank-you page.
+
+The result? Rock-solid session persistence. Users now see their submitted info. Support has context. And we avoided a full re-architecture of the form flow.
+
+This wasn’t about rewriting anything. It was about understanding how Livewire’s async nature interacts with Laravel’s session layer. And sometimes, the smallest syntax tweak makes all the difference.
+
+If you’re using Livewire for multi-step forms or any flow where session state matters post-redirect, watch out for `redirect()->route()`. It looks right. It feels right. But in practice, it can silently break your user flow. The global `redirect()` helper? That’s your friend.

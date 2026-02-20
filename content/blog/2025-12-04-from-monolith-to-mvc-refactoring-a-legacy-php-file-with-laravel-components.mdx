@@ -1,0 +1,61 @@
+---
+title: "From Monolith to MVC: Refactoring a Legacy PHP File with Laravel Components"
+date: "2025-12-04"
+excerpt: "How I used Laravel's Illuminate components to refactor a tangled PHP file into a maintainable MVC structure—without rewriting everything."
+tags: ["PHP", "Legacy Code", "Laravel", "Refactoring", "MVC", "Modernization"]
+author: "Ryan Dashwood"
+---
+## The Monolith That Refused To Die
+
+A few months ago, I was neck-deep in `client_list.php`—a 1,200-line PHP file that handled everything from database queries to HTML rendering, with a sprinkle of business logic and session management for good measure. This wasn’t just a page; it was a *system*. It lived in AustinsElite (Legacy), a custom PHP framework we’ve maintained for years, and despite its age, it still powers core client workflows.
+
+The file was a classic case of accidental monolith: no separation of concerns, zero testability, and fragile dependencies baked into echo statements. Adding a new filter meant grepping through spaghetti, and god forbid you tried to write a unit test. Every change felt like defusing a bomb with a butter knife.
+
+But here’s the thing: the app *worked*. Rewriting it in Laravel or Next.js (as some suggested) wasn’t on the table—this was a business-critical system with zero downtime tolerance. So instead of burning it down, I decided to modernize it incrementally, using Laravel’s Illuminate components as my toolkit.
+
+## Extracting Order From Chaos
+
+My goal wasn’t to rewrite, but to *refactor*: preserve behavior while improving structure. I started by identifying seams—logical boundaries where I could extract components. The first was data access. The original file had raw SQL queries scattered throughout, tightly coupled to presentation.
+
+Enter **Eloquent**. I pulled in `illuminate/database` via Composer (yes, you can use Laravel packages standalone) and created a `Client` model. Suddenly, I had a clean, testable abstraction:
+
+```php
+use Illuminate\Database\Eloquent\Model;
+
+class Client extends Model {
+    protected $table = 'clients';
+    
+    public function scopeActive($query) {
+        return $query->where('status', 'active');
+    }
+}
+```
+
+With that in place, I replaced the raw queries in `client_list.php` with Eloquent calls. No need for a full Laravel install—just the component I needed, when I needed it.
+
+Next: presentation. The file was full of `<?php while($row = $result->fetch()) { ?>` mixed with HTML. I extracted the view into a Blade template using `illuminate/view`. I set up a simple factory to boot the Blade engine:
+
+```php
+$filesystem = new Filesystem();
+$blade = new \Illuminate\View\Factory(
+    new \Illuminate\View\Engines\EngineResolver(),
+    new \Illuminate\View\ViewFinderInterface(),
+    $eventDispatcher
+);
+```
+
+Then moved all HTML into `client/list.blade.php`. Suddenly, I had template inheritance, components, and a clean separation from logic.
+
+Finally, I introduced a minimal routing layer using a front controller pattern. Instead of accessing `client_list.php` directly, I routed through `index.php`, which dispatched to a `ClientController`. This controller handled input, called the model, and rendered the Blade view. MVC wasn’t imposed—it emerged from incremental improvements.
+
+## Why Incremental Modernization Wins
+
+You don’t need a greenfield app to write clean code. By leveraging Laravel’s components in a legacy context, I achieved:
+
+- **Testability**: The `Client` model is now 94% covered by PHPUnit tests. The old file? Untestable.
+- **Maintainability**: New features go into the right layer. Adding a CSV export? That’s a new method on the controller, not a 200-line function in the middle of HTML.
+- **Scalability**: The event history module followed the same pattern. We now have consistent patterns across the app, even if it’s not "Laravel."
+
+The best part? Zero downtime. No big-bang deploy. Just small, safe commits that steadily improved the codebase.
+
+This approach isn’t flashy, but it’s realistic. Most of us aren’t building new apps—we’re keeping old ones alive. And sometimes, the most powerful move isn’t to rewrite, but to *refactor smartly*, one Illuminate component at a time.

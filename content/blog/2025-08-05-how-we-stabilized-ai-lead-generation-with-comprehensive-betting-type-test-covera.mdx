@@ -1,0 +1,40 @@
+---
+title: "How We Stabilized AI Lead Generation with Comprehensive Betting Type Test Coverage"
+date: "2025-08-05"
+excerpt: "Full test coverage for betting types in Lockline AI slashed regressions and made AI model updates safe and predictable."
+tags: ["PHP", "Laravel", "AI", "Testing", "Data Integrity", "Lead Generation"]
+author: "Ryan Dashwood"
+---
+## The Hidden Cost of Untested Betting Logic
+
+When Lockline AI started pulling in leads from multiple AI providers, we thought the hard part was over. The models were trained, the prompts tuned, and the pipeline was live. But within days, we started seeing weird inconsistencies—leads tagged as "over/under" showing up in parlays, invalid bet modifiers slipping through, and edge cases blowing up downstream processors.
+
+The root cause? Our betting type logic—the core taxonomy that categorizes every lead—had minimal test coverage. We were relying on the AI to "get it right," but without strict validation and predictable behavior, every model iteration introduced subtle regressions. What we thought was a data problem was actually a testing gap.
+
+This wasn’t just about correctness. These inconsistencies were causing missed opportunities, misrouted leads, and extra debugging cycles that slowed down our entire AI iteration loop. We realized: if we wanted reliable AI-driven lead generation, we couldn’t treat betting types as soft labels. They needed to be treated like schema.
+
+## Building a Test Suite That Mirrors Real-World Chaos
+
+We started by mapping every betting type and its validation rules: straight bets, parlays, totals, props, futures, and their variants. Each had constraints—some required specific odds formats, others had team count limits or league-specific rules. We also had to account for how modifiers like "teaser" or "if-bet" changed validation.
+
+Our test suite expansion focused on three layers:
+
+1. **Edge cases**: What happens when a bet type is misspelled? What if a parlay has only one leg? How does the system handle mixed bet types in a single lead?
+2. **Validation rules**: We built a centralized betting type validator in PHP, using Laravel’s rule system, and wrote tests for every possible failure mode.
+3. **Integration points**: We added feature tests that simulated AI-generated leads flowing through the pipeline, ensuring that invalid types were caught early and logged meaningfully.
+
+We didn’t stop at unit tests. We wrote integration tests that mocked responses from each AI provider, feeding them ambiguous or malformed prompts to see how they’d respond—and how our system would handle it. This helped us identify where the AI was overreaching and where our validation needed to be stricter.
+
+One key insight: we stopped trying to make the AI perfect. Instead, we built a safety net that made imperfect output safe to process. That shift in mindset was huge.
+
+## Faster AI Iterations, Fewer Fire Drills
+
+Once we had full coverage, something changed. We could update prompt templates, swap models, or add new providers without fear of breaking lead categorization. The test suite became our canary—any change that introduced a betting type inconsistency failed fast, locally, before it ever touched production.
+
+We also noticed a drop in debugging time. When a lead failed, the logs pointed directly to the validation rule that was violated. No more guessing if it was a data issue, a model issue, or a parsing bug. The tests gave us a shared language between ML and backend teams.
+
+The impact? Since rolling out comprehensive betting type tests, we’ve had zero production regressions related to lead categorization—despite integrating weather data and multi-provider AI logic this month. That stability has let us move faster, not slower.
+
+Testing didn’t slow us down. It unlocked velocity.
+
+If you’re working on AI-driven data pipelines, especially in high-stakes domains like betting or finance, don’t treat data formats as assumptions. Test them like you test your database migrations. Because when AI starts writing your data, your tests aren’t just safeguards—they’re the foundation of trust.

@@ -1,0 +1,101 @@
+---
+title: "How We Built Dynamic PDF Generation and Email Attachment in a Laravel 12 + Next.js Stack"
+date: "2024-10-21"
+excerpt: "Here's how we implemented dynamic PDF generation for event contracts in Laravel, attached them to emails, and debugged delivery issues in production."
+tags: ["Laravel", "Next.js", "PDF Generation", "Email Integration", "Full-Stack Development"]
+author: "Ryan Dashwood"
+---
+## Setting Up Dynamic PDF Generation in Laravel with Blade Templates
+
+Our latest feature on AustinsElite—a production Laravel 12 app—required generating custom event contracts as PDFs whenever a user submits a form via our Laravel 12 frontend. The goal was simple: render a clean, professional contract using real-time form data, convert it to PDF, and attach it to a confirmation email.
+
+We started by building a Blade template (`event-contract.blade.php`) that mirrored the structure of the frontend form. This allowed us to reuse logic and maintain consistency between what users saw and what they received. We populated it with dynamic data passed from the form submission endpoint:
+
+```php
+$data = [
+    'client_name' => $request->client_name,
+    'event_date' => $request->event_date,
+    'services' => $request->services,
+    // ... other fields
+];
+```
+
+To generate the PDF, we used the `barryvdh/laravel-dompdf` package—a solid choice for server-side PDF rendering in Laravel. It’s lightweight, integrates cleanly with Blade, and supports inline CSS for styling. Here’s how we rendered the PDF in our controller:
+
+```php
+$pdf = PDF::loadView('pdf.event-contract', $data);
+$pdfContent = $pdf->output();
+```
+
+The `.output()` method gave us the raw binary content, which we could then pass around securely without writing temporary files to disk—a key consideration for security and performance.
+
+One early hiccup? Fonts. Our design used custom typography, and dompdf doesn’t support all CSS properties. We had to simplify our styles and stick to web-safe fonts with embedded fallbacks. Not ideal, but it kept things stable.
+
+## Attaching PDFs to Emails with Optional Parameter Handling
+
+Once the PDF was generated, the next step was attaching it to the `FormSubmissionMail` class. Laravel’s Mailable system makes this straightforward with the `attachData()` method:
+
+```php
+$this->attachData($pdfContent, 'event-contract.pdf', [
+    'mime' => 'application/pdf'
+]);
+```
+
+But here’s where things got tricky: we already had existing mail flows that didn’t require PDFs. Making the `$pdfContent` parameter mandatory would break backward compatibility across other features.
+
+So we made it optional in the constructor:
+
+```php
+public function __construct($formData, $pdfContent = null)
+{
+    $this->formData = $formData;
+    $this->pdfContent = $pdfContent;
+}
+```
+
+Then, inside the `build()` method, we conditionally attached the PDF only if content was present:
+
+```php
+if ($this->pdfContent) {
+    $this->attachData($this->pdfContent, 'event-contract.pdf', [
+        'mime' => 'application/pdf'
+    ]);
+}
+```
+
+This small change preserved existing behavior while enabling new functionality—no ripple effects, no downtime. It’s a pattern I now use anytime I’m extending legacy mailers with dynamic attachments.
+
+## Debugging Email Delivery in Staging: When Recipients Go Missing
+
+We thought we were done. The PDF rendered. The email sent. But in staging, recipients weren’t getting the attachment.
+
+After digging through logs, we realized the issue wasn’t with the PDF or the mailer—it was with how we were setting the recipient. Our original code pulled the email from a dynamic field that occasionally returned `null` in edge cases (like internal test submissions):
+
+```php
+->to($request->client_email)
+```
+
+In some cases, this resulted in an invalid or missing recipient, causing the entire mail job to fail silently. To fix it, we added validation *before* dispatching the mail:
+
+```php
+$validated = $request->validate([
+    'client_email' => 'required|email',
+    // ... other rules
+]);
+```
+
+We also wrapped the mail dispatch in a try-catch block to log any delivery issues:
+
+```php
+try {
+    Mail::to($validated['client_email'])->send(
+        new FormSubmissionMail($validated, $pdfContent)
+    );
+} catch (Exception $e) {
+    Log::error('Email failed to send: ' . $e->getMessage());
+}
+```
+
+This exposed a few hidden SMTP timeout issues in our staging environment, which we resolved by switching to a more reliable mail driver (Mailgun) and increasing the queue worker timeout.
+
+Shipping this feature taught me that even "simple" tasks like attaching a PDF can unravel fast without proper guards. But with Laravel’s elegant mail system, Blade-powered PDFs, and careful error handling, we got it right—and now every client gets a polished contract the moment they submit a form.

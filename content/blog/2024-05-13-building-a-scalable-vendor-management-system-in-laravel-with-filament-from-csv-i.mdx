@@ -1,0 +1,90 @@
+---
+title: "Building a Scalable Vendor Management System in Laravel with Filament: From CSV Imports to Job Monitoring"
+date: "2024-05-13"
+excerpt: "How we built a robust vendor and product import system in Laravel using Filament, queued jobs, and smart Eloquent hooks."
+tags: ["Laravel", "Filament", "CSV Import", "Job Monitoring", "Eloquent", "Admin Panels"]
+author: "Ryan Dashwood"
+---
+## The Problem: Managing Vendors at Scale
+
+At AustinsElite, our quote system lives and dies by accurate, up-to-date vendor and product data. We onboard new vendors regularly, and each brings hundreds—or thousands—of SKUs. Manually entering this? Not an option. Copy-pasting from spreadsheets? A maintenance nightmare. We needed a system that was fast for admins, resilient to errors, and could handle large datasets without breaking a sweat.
+
+Enter Laravel 12 and Filament PHP. While the frontend uses Next.js for customer-facing pages, our internal tooling runs on a robust Laravel backend. Filament, with its elegant admin panel scaffolding, became the obvious choice for building out our vendor management suite. But we didn’t just need CRUD—we needed bulk imports, validation, background processing, and visibility into job status.
+
+## Building the Import Pipeline with Filament and Queues
+
+The core of the system is a Filament resource for `Vendor`, which now spans a 191-line PHP class—yes, it started lean, but real-world complexity adds up. We used Filament’s built-in `ImportAction` to trigger CSV uploads directly from the resource page. But out-of-the-box importers don’t cut it when you need custom logic, so we extended the pipeline.
+
+Here’s how it works:
+
+1. Admin uploads a CSV from the Filament form.
+2. The importer validates required fields (SKU, name, price, etc.) using Laravel’s validation rules.
+3. Valid rows are queued for processing via Laravel Jobs—no blocking the UI.
+4. Each job parses and creates/updates products, linked to the vendor.
+
+We didn’t stop at blind queuing. One of the most useful additions was a real-time job monitor—also built in Filament. After the commit *'product importer and jobs monitor added'*, admins can now see active, completed, and failed import jobs right from the dashboard. This is powered by a simple `JobLog` model that records status, progress, and error messages, all viewable through a dedicated Filament resource.
+
+```php
+// Simplified: Queuing import jobs with feedback
+ImportProductsJob::dispatch(
+    $vendor,
+    $csvPath
+)->onQueue('imports')
+  ->afterCommit();
+```
+
+This visibility turned what was once a "fire and forget" process into something transparent and debuggable. When a product fails to import due to a malformed price or missing category, the admin sees it immediately—no digging through logs.
+
+## SEO and Data Hygiene: Beyond the Import
+
+One sneaky requirement? SEO-friendly product slugs. Vendors don’t care about URL structure, but our site does. So during import, we generate slugs from product names—but not naively. We strip special characters, handle duplicates, and ensure consistency.
+
+```php
+// In the product creation logic
+$product->slug = Str::slug($product->name . '-' . $product->sku);
+```
+
+But here’s the kicker: we also had temporary fields in the CSV—like `import_row_id` or `raw_category_name`—that were useful during processing but had no place in the final product record. Instead of cluttering the model or forgetting to clean up, we used Eloquent model events:
+
+```php
+// App\Models\Product.php
+protected static function booted()
+{
+    static::saved(function ($product) {
+        // Clean up transient import fields
+        $product->unsetAttributes(['import_row_id', 'raw_category_name']);
+    });
+}
+```
+
+This keeps the data clean automatically, without relying on the developer to remember cleanup steps in every import path.
+
+## Lessons in Maintainability
+
+Let’s be real: that 191-line Filament resource is *big*. It started small, but as we added tabs for products, import history, and contact info, it grew. One thing I learned the hard way—document as you go, or you’ll forget why you did things.
+
+In the commit *'fixed route model binding, some other updates i forgot to push'*, I cleaned up a bunch of stale comments and reorganized form layout logic. Some were from early experiments with Livewire components outside Filament. Others were debug notes I never removed. Trimming that cruft made the codebase more approachable for the next dev (even future me).
+
+We also standardized how we handle large forms. Instead of dumping everything into `form()`, we broke it into methods:
+
+```php
+public function form(Form $form): Form
+{
+    return $form
+        ->schema([
+            $this->generalInfoSection(),
+            $this->contactDetailsSection(),
+            $this->importHistorySection(),
+        ]);
+}
+```
+
+It’s a small change, but it makes the file navigable. And when you’re working with complex admin panels, readability is scalability.
+
+## Wrapping Up
+
+Building this system wasn’t about flashy tech—it was about solving real operational pain. With Filament, Laravel’s queue system, and a few smart Eloquent hooks, we now onboard vendors in minutes, not days. The import pipeline is resilient, observable, and self-cleaning.
+
+If you’re building admin panels in Laravel, especially with Filament, don’t underestimate the power of structured imports and job visibility. It’s not just developer polish—it’s what makes your tools actually usable by real people.
+
+And hey, if you’re drowning in CSVs and manual data entry, maybe it’s time to build your own importer. Start small, queue the work, and watch your ops team thank you.

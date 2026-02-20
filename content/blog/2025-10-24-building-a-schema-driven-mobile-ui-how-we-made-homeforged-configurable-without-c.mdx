@@ -1,0 +1,93 @@
+---
+title: "Building a Schema-Driven Mobile UI: How We Made HomeForged Configurable Without Code"
+date: "2025-10-24"
+excerpt: "We turned hardcoded React components into dynamic, schema-driven UIs—enabling no-code configuration for mobile screens in HomeForged."
+tags: ["React", "Schema-Driven UI", "Mobile Development", "No-Code", "Frontend Architecture"]
+author: "Ryan Dashwood"
+---
+## The Problem with Hard-Coded UIs
+
+A few months ago, every new screen in the HomeForged mobile app meant writing yet another React component. Need a form? Write a component. A settings panel? Another component. An accordion inside a bottom sheet? You get the idea—boilerplate city.
+
+It worked, but it was slow. Design changes required code changes. Product wanted to tweak layouts? Back to the IDE. Even small tweaks meant PRs, reviews, and deploys. We were building UIs like it was 2015.
+
+We needed a way to make the UI *configurable*, not hardcoded. Something product teams could tweak without touching code. So we went all-in on a schema-driven approach—using JSON to define not just data, but the UI itself.
+
+## How the Schema-to-UI Pipeline Works
+
+The core idea is simple: instead of writing a React component for each screen, we define its structure in a JSON schema. That schema gets parsed at runtime, and our renderer turns it into actual UI components—Accordions, Cards, Bottom Sheets, you name it.
+
+Here’s how it works under the hood:
+
+1. A screen definition comes in as JSON from our backend (or local config).
+2. Our `ComponentGen` engine walks the schema tree.
+3. For each node, it maps a `type` (like `accordion` or `card`) to a registered React component.
+4. Props are passed through, children are recursively rendered, and voilà—dynamic UI.
+
+```json
+{
+  "type": "bottom-sheet",
+  "props": { "title": "Your Home Details" },
+  "children": [
+    {
+      "type": "accordion",
+      "props": { "title": "Property Info" },
+      "children": [
+        { "type": "card", "props": { "label": "Address", "value": "{{home.address}}" } }
+      ]
+    }
+  ]
+}
+```
+
+The real magic? Those `{{home.address}}` bindings are resolved at render time using our data-source system, which pulls from live context. No hardcoded values, no re-renders on data change—just reactive, declarative UI.
+
+This isn’t just about saving keystrokes. It means we can A/B test layouts, roll out new screens via config toggle, and let non-devs tweak UIs using a visual editor we’re building on top. That’s the endgame: no-code mobile UIs that still feel native.
+
+## Migrating to Functional Components (And Why It Mattered)
+
+Early versions of this system used class components for the renderers. That worked—until we needed hooks.
+
+We wanted to use `useContext` for data binding, `useEffect` for lazy loading, and custom hooks for things like form validation. Class components? No dice.
+
+So we rewrote the entire renderer pipeline using functional components. This wasn’t just a refactor—it was a prerequisite for the whole dynamic system to scale.
+
+With functional components, our `renderNode` function could now safely call hooks inside dynamically rendered components. We wrapped each schema node in a small functional wrapper that handled data resolution, error boundaries, and conditional rendering—all using modern React patterns.
+
+```jsx
+function SchemaRenderer({ schema }) {
+  const Component = registry.get(schema.type);
+  const resolvedProps = useDataBindings(schema.props);
+
+  if (!Component) return <ErrorFallback type={schema.type} />;
+
+  return (
+    <Component {...resolvedProps}>
+      {schema.children?.map((child, i) => (
+        <SchemaRenderer key={i} schema={child} />
+      ))}
+    </Component>
+  );
+}
+```
+
+This shift unlocked the flexibility we needed. Now, adding a new component to the schema system is as easy as registering it:
+
+```js
+ComponentGen.register('accordion', Accordion);
+ComponentGen.register('bottom-sheet', BottomSheet);
+```
+
+No wiring, no boilerplate, no PRs for simple UI changes.
+
+## Real-World Results: Accordion, Bottom Sheet, and Beyond
+
+Today, HomeForged’s mobile app uses this system for over 10 core UI components—including Accordions, Bottom Sheets, Cards, and Form Fields. We’ve replaced dozens of hand-written screens with schema-driven equivalents.
+
+One win: the property details screen. What used to be a hardcoded component with embedded logic is now defined in JSON. When product wanted to reorder sections, we didn’t touch code—we just rearranged the schema array. Deployed in minutes.
+
+Another: dynamic accordions that expand based on user role. The schema includes conditional `showIf` rules, and the renderer handles the rest. No extra logic in the component—just configuration.
+
+We’re not done. Next up: a visual editor for non-devs, runtime schema hot-reloading, and fine-grained permissions in the component registry.
+
+But the foundation is solid. We’ve proven that you *can* build rich, native-feeling mobile UIs without writing a new component every time. All it takes is a schema, a renderer, and a belief that configuration should be code-free.

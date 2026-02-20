@@ -1,0 +1,71 @@
+---
+title: "Migrating Job State Management from Redis to Postgres: Why We Centralized Crawler Jobs in a Single Source of Truth"
+date: "2026-01-29"
+excerpt: "We moved job claiming in the Vultr Crawler from Redis to Postgres for better consistency, auditability, and operational simplicity."
+tags: ["distributed systems", "Postgres", "Redis", "job queues", "crawler architecture", "data consistency"]
+author: "Ryan Dashwood"
+---
+## The Problem with Redis: Speed at the Cost of Visibility
+
+When we first built the Vultr Crawler, Redis was the obvious choice for job claiming. It’s fast, supports atomic operations like `LPOP` and `SREM`, and handles high-throughput workloads with ease. Each worker would claim a job item by popping it from a Redis set or list, and we’d track basic state in side keys. For a while, it worked great.
+
+But as our crawl volume grew and compliance requirements tightened, cracks started to show. The biggest issue? **We couldn’t reliably audit or recover job state**. If a worker crashed mid-processing, the job was gone from Redis—but was it actually started? Was it retried? Without durable logs or foreign key relationships, reconstructing the chain of events during incidents became a forensic nightmare.
+
+Worse, we had no built-in way to enforce referential integrity between job items and their parent crawl jobs. Orphaned items, duplicate processing, and race conditions during retries became more frequent. We were trading long-term operability for short-term performance.
+
+## Migrating to Postgres: A Single Source of Truth
+
+This month, we completed the migration of job item claiming and management from Redis to Postgres—a shift that redefined how we think about state in our crawler.
+
+The core of the new system is a `job_items` table with the following schema:
+
+```sql
+CREATE TABLE job_items (
+  id UUID PRIMARY KEY,
+  job_id UUID REFERENCES crawl_jobs(id),
+  payload JSONB,
+  state TEXT CHECK (state IN ('pending', 'claimed', 'processing', 'completed', 'failed')),
+  claimed_by TEXT, -- worker identifier
+  claimed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_job_items_job_id_state ON job_items(job_id, state);
+CREATE INDEX idx_job_items_claimed_by ON job_items(claimed_by) WHERE state = 'claimed';
+```
+
+Workers now claim jobs using a transactional `SELECT FOR UPDATE SKIP LOCKED` pattern:
+
+```sql
+BEGIN;
+SELECT id, payload FROM job_items 
+WHERE job_id = $1 AND state = 'pending'
+ORDER BY created_at
+LIMIT 1
+FOR UPDATE SKIP LOCKED;
+
+-- If row returned:
+UPDATE job_items 
+SET state = 'claimed', claimed_by = $2, claimed_at = NOW(), updated_at = NOW()
+WHERE id = $3;
+COMMIT;
+```
+
+This ensures that only one worker can claim a job item at a time, even under high concurrency. The entire operation is atomic, and because it’s in Postgres, every state change is durable and queryable.
+
+We also added triggers to log state transitions to a separate `job_item_events` table, giving us full auditability. Need to know when a job failed and who was running it? It’s all there.
+
+## Trade-offs and Performance: Was It Worth It?
+
+Let’s be real: Postgres is not Redis. Raw throughput is lower, and `SELECT FOR UPDATE` has more overhead than a simple `LPOP`. We expected a performance hit—but the reality was more nuanced.
+
+Our benchmarks showed a **15–20% increase in job claim latency** under peak load. But in practice, this didn’t bottleneck the overall crawl pipeline. Why? Because job claiming was never our critical path. Network I/O, HTML parsing, and rate limiting were the real bottlenecks.
+
+More importantly, the trade-off paid off in **reliability and debuggability**. We’ve eliminated entire classes of race conditions and now have a single system of record for job state. Operational incidents that used to take hours to debug now take minutes.
+
+We also gained unexpected benefits: easier backups, integration with our existing observability stack (via logical replication to our analytics DB), and the ability to run complex ad-hoc queries across job metadata.
+
+Looking ahead, we’re exploring a hybrid model—using Redis as a **read-through cache** for pending job counts and worker load balancing, while keeping Postgres as the authoritative source. This gives us the best of both: durability where it matters, speed where it doesn’t.
+
+Migrating job state out of Redis wasn’t just a technical refactor—it was a shift in philosophy. We’re no longer optimizing for raw speed at the expense of clarity. Sometimes, the right database is the one you already trust with your data.

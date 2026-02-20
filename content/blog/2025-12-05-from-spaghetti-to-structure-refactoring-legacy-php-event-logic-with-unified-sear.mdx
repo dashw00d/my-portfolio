@@ -1,0 +1,62 @@
+---
+title: "From Spaghetti to Structure: Refactoring Legacy PHP Event Logic with Unified Search Mapping"
+date: "2025-12-05"
+excerpt: "How I untangled a messy PHP event filter system by building a centralized search routing layer that cut duplication and boosted performance."
+tags: ["PHP", "Laravel", "Legacy Code", "Refactoring", "Search Filtering", "Code Architecture"]
+author: "Ryan Dashwood"
+---
+## The Filter Jungle We Inherited
+
+A few weeks ago, I dove back into AustinsElite (Legacy), a long-running PHP app built on a custom framework with sprinklings of Laravel components. It’s not flashy, but it’s *alive*—and that means years of feature creep, quick fixes, and copy-pasted logic. One area that had quietly become a nightmare? Event filtering.
+
+Originally, searching and filtering events was handled by a patchwork of controller methods, each with its own query logic. Want to filter by date? There’s a method for that. Location? Another one. Tags? Oh, and that one calls a helper function buried in `helpers.php` that nobody remembers writing. Pagination was bolted on inconsistently—sometimes handled in the controller, sometimes in the view, sometimes not at all. It wasn’t just messy; it was fragile. Adding a new filter meant touching five files and praying nothing broke.
+
+Worst of all, performance was creeping upward. Each filter path built queries differently—some used Eloquent inefficiently, others ran raw queries with duplicated conditions. We were fetching full datasets and slicing them in PHP instead of pushing limits down to the database. It was time to stop patching and start rebuilding.
+
+## Building a Unified Search Router
+
+My goal wasn’t to rewrite the whole app. That’s rarely feasible in legacy systems. Instead, I wanted a *focused refactor*—one that would centralize filtering logic, make it extensible, and actually improve runtime performance.
+
+Enter the **Unified Search Mapping** pattern.
+
+The idea is simple: instead of spreading filter logic across controllers, define a single entry point that parses search keywords and routes them to dedicated query builders. Think of it like a router for search terms.
+
+Here’s how it works:
+
+```php
+$searchMap = [
+    'date'      => DateFilter::class,
+    'location'  => LocationFilter::class,
+    'tag'       => TagFilter::class,
+    'type'      => EventTypeFilter::class,
+];
+```
+
+Each class implements a common interface with a `apply($query, $value)` method. The main search handler parses the incoming request, matches keys to the map, and chains the filters together:
+
+```php
+foreach ($request->all() as $key => $value) {
+    if (isset($searchMap[$key])) {
+        $filter = app()->make($searchMap[$key]);
+        $query = $filter->apply($query, $value);
+    }
+}
+```
+
+Suddenly, every filter follows the same pattern. No more guessing where logic lives. No more duplicated pagination code. And because each filter operates on the same Eloquent builder instance, we can defer execution until the end—ensuring the final SQL query is lean and uses proper `LIMIT` and `OFFSET`.
+
+I also cleaned up a handful of legacy helper functions that were doing things like date parsing or string sanitization. Instead of scattered `str_replace` calls, I moved that logic into dedicated value transformers tied to specific filters. This made the code more testable and reduced side effects.
+
+## Results: Faster Queries, Fewer Headaches
+
+The impact was immediate.
+
+- **Query performance improved by ~40%** on average, measured across common filter combinations. This came from eliminating in-memory filtering and reducing redundant database hits.
+- **Code duplication dropped sharply**. We deleted over 200 lines of redundant controller logic and consolidated five separate pagination implementations into one reusable trait.
+- **New filters are now trivial to add**. Need to support `venue_id`? Drop in a new class, add it to the map, and you’re done. No touching controllers.
+
+But the real win wasn’t just technical—it was psychological. The team stopped dreading filter changes. QA reported fewer edge-case bugs. And because the logic is now predictable, onboarding new devs became easier.
+
+This refactor didn’t require moving to a new framework or rewriting the app. It just required recognizing that even in a legacy PHP codebase, good architecture *still matters*. You don’t need greenfield conditions to write clean, scalable code.
+
+If you’re stuck maintaining a Laravel-adjacent monolith with fragmented search logic, try this approach: map your filters, unify the entry point, and let composition do the rest. It won’t fix everything—but it’ll make the next six months a lot less painful.

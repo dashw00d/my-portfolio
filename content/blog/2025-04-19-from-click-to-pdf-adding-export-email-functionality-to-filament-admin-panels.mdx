@@ -1,0 +1,97 @@
+---
+title: "From Click to PDF: Adding Export & Email Functionality to Filament Admin Panels"
+date: "2025-04-19"
+excerpt: "How I added PDF export and email sharing to form submissions in a Laravel Filament admin panel using dompdf and Laravel Mail."
+tags: ["Laravel", "Filament", "PDF", "Email", "Admin Panels"]
+author: "Ryan Dashwood"
+---
+## Why Exportable Forms Matter in Admin Panels
+
+If you’ve ever handed a client an admin panel full of form submissions, you’ve probably heard the next request within minutes: *"Can I export this?"* Not just CSVs—real, printable, shareable documents. At AustinsElite, we hit that moment in April 2025 when the team needed a way to turn form entries into PDFs and email them directly from the admin. We’re on Laravel 12 with Filament powering the backend, and while Filament handles data beautifully, exporting clean, styled PDFs isn’t built in. So I rolled up my sleeves and made it happen.
+
+This wasn’t just about convenience. Some submissions go to external partners who don’t have system access. Others need to be archived as signed-looking documents. A raw database dump won’t cut it. We needed something presentable—something you could actually attach to an email and send.
+
+## Generating PDFs Inside Filament Actions
+
+The first step was turning a form submission into a PDF. I reached for `dompdf`, a solid Laravel-compatible library that renders HTML to PDF. It’s not flashy, but it works—especially when you already have Blade templates styled and ready to go.
+
+I started by installing the package:
+
+```bash
+composer require barryvdh/laravel-dompdf
+```
+
+Then, I created a custom Filament action. In Filament, actions are perfect for this kind of one-off workflow. I added it directly to the form resource’s view page:
+
+```php
+Action::make('exportPdf')
+    ->label('Export as PDF')
+    ->icon('heroicon-o-document')
+    ->action(function (FormSubmission $record) {
+        $pdf = PDF::loadView('pdf.submission', compact('record'));
+        return response()->streamDownload(
+            fn () => print($pdf->output()),
+            "submission-{$record->id}.pdf"
+        );
+    }),
+```
+
+The `pdf.submission` Blade view is just a simple HTML template—styled with Tailwind, same as the rest of the app. That consistency matters. No weird formatting jumps, no extra CSS to maintain. And because `dompdf` supports basic Tailwind (via utility classes), I didn’t have to rewrite anything.
+
+One gotcha: `dompdf` doesn’t love dynamic content or complex layouts. I had to avoid `@foreach` loops with too much nesting and keep images small or base64-encoded. But for a clean, linear form summary? Perfect.
+
+Now, with one click, admins get a PDF that looks like it belongs in a folder—not a screenshot pasted into Word.
+
+## Emailing the PDF: Closing the Loop
+
+Exporting is half the battle. The real win? Sharing without leaving the panel. Clients don’t want to download, open Outlook, attach, and send. They want *one button*: "Send Now."
+
+So I built a second action—`emailPdf`—that generates the PDF in memory and attaches it to a Laravel Mailable.
+
+First, I created the mailable:
+
+```bash
+php artisan make:mail SubmissionPdfMail
+```
+
+Then, I wired it up in another Filament action:
+
+```php
+Action::make('emailPdf')
+    ->label('Email PDF')
+    ->modalHeading('Send Submission via Email')
+    ->form([
+        TextInput::make('email')
+            ->email()
+            ->required()
+            ->label('Recipient Email'),
+    ])
+    ->action(function (array $data, FormSubmission $record) {
+        $pdf = PDF::loadView('pdf.submission', compact('record'));
+        
+        Mail::to($data['email'])->send(new SubmissionPdfMail($record, $pdf));
+    }),
+```
+
+The mailable itself accepts the PDF instance and attaches it in the `build()` method:
+
+```php
+public function build()
+{
+    return $this->view('emails.submission')
+                ->subject('Form Submission Attached')
+                ->attachData(
+                    $this->pdf->output(),
+                    "submission-{$this->record->id}.pdf",
+                    [
+                        'mime' => 'application/pdf'
+                    ]
+                );
+}
+```
+
+Now admins can preview the data, hit "Email PDF", type in an address, and send—no context switching, no extra tools. The whole flow lives inside Filament.
+
+This wasn’t a huge refactor, but it removed friction in a place where friction kills productivity. And honestly? The client loved it. They’re already asking what else we can automate.
+
+If you're building admin panels in Laravel with Filament, don’t stop at data display. Think about what happens *after* the form is submitted. Because your users aren’t done when they click save—they’re just getting started.

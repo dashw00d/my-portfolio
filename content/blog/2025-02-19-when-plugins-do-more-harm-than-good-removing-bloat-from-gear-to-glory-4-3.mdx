@@ -1,0 +1,44 @@
+---
+title: "When Plugins Do More Harm Than Good: Removing Bloat from Gear to Glory 4.3"
+date: "2025-02-19"
+excerpt: "We removed two underperforming plugins from Gear to Glory 4.3—trading bloat for stability and maintainability with Godot’s built-in tools."
+tags: ["Godot", "plugin optimization", "code maintenance", "game development", "technical debt"]
+author: "Ryan Dashwood"
+---
+## Cutting the Fat: Why We Removed Plugins in Gear to Glory 4.3
+
+Last month, we shipped Gear to Glory 4.3—not with flashy new features, but with something quieter: deletion. We removed two third-party plugins that had been lingering in the project for months: the AnimatedSprite to AnimationPlayer (AS2P) converter and the GDScript Formatter. At first glance, these tools seemed helpful. One promised to modernize legacy sprite animations; the other promised cleaner, consistent code formatting. But over time, they became more trouble than they were worth.
+
+Plugins can feel like quick wins. You install one, and boom—automated refactoring, prettier output, or smoother workflows. But in reality, every external dependency adds complexity. It has to be updated, understood, and debugged when it breaks. And when the plugin ecosystem lags behind engine updates (like Godot 4.x’s rapid evolution), that cost compounds fast.
+
+In our case, both plugins were outdated, sparsely maintained, and fragile under edge cases. Instead of saving time, they were costing us time.
+
+## AS2P: A Converter That Created More Work
+
+The AnimatedSprite to AnimationPlayer (AS2P) tool was designed to help migrate old 2D animation setups to Godot 4’s more robust AnimationPlayer system. On paper, perfect for our upgrade path. In practice? It choked on anything beyond basic sprite sheets.
+
+We ran it on a few test scenes and got mixed results—some animations converted cleanly, others lost frame timing, and a few crashed the editor entirely. Worse, it didn’t handle nested scenes or custom scripts attached to AnimatedSprites, which meant we’d have to manually fix up nearly every converted node anyway.
+
+At that point, we asked: are we saving time or just outsourcing the work to a broken middleman?
+
+The answer was clear. We trashed AS2P and wrote a lightweight internal guide for manually upgrading sprites. It’s not automated, but it’s predictable, teachable, and doesn’t risk corrupting scenes. Sometimes, the best tool is just a checklist and a developer who knows the engine.
+
+## GDScript Formatter: Formatting Isn’t Free
+
+The GDScript Formatter plugin sounded ideal—auto-format code on save, enforce style consistency, keep the codebase clean. But it had two fatal flaws: it hadn’t been updated for Godot 4.3’s parser changes, and it made aggressive, opinionated choices we couldn’t configure.
+
+We started seeing formatting runs that reordered function parameters or broke multiline strings. CI checks would fail not because of logic errors, but because the formatter produced different output on different machines. Suddenly, we were debugging the linter instead of writing game logic.
+
+Meanwhile, Godot’s built-in script editor has steadily improved. Syntax highlighting, auto-indent, and basic formatting are now solid. We paired that with a lightweight `.editorconfig` file and a shared team understanding of GDScript style (based on the official docs), and we got 90% of the benefit with zero runtime risk.
+
+Now, when someone opens a script, it looks clean—not because a plugin forced it, but because the tooling and team are aligned.
+
+## Leaner Code, Clearer Ownership
+
+Removing these plugins wasn’t just about performance—it was about ownership. When you rely on third-party tools, you’re outsourcing not just functionality, but decision-making. You’re stuck waiting for fixes, working around quirks, or reverse-engineering broken behavior.
+
+By cutting them loose, we regained control. Our project builds faster, the editor is more stable, and we’re no longer at the mercy of unmaintained code.
+
+This month’s work on Gear to Glory 4.3 reflects a broader shift in how I approach dependencies: default to skepticism. Ask: *Does this solve a real problem? Is it actively maintained? Can Godot itself do this now?* More often than not, the answer is “we can handle it ourselves.”
+
+In a world obsessed with adding features, sometimes the most powerful move is to remove one.

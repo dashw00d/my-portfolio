@@ -1,0 +1,76 @@
+---
+title: "Securing AI APIs: How We Fixed HTTP/2, Re-Enabled SSL, and Locked Down Auth in Lockline AI"
+date: "2025-08-15"
+excerpt: "How we resolved HTTP/2 issues, restored SSL, and hardened authentication to secure Lockline AI’s API before launch."
+tags: ["API Security", "SSL", "Authentication", "HTTP/2", "AI Backend"]
+author: "Ryan Dashwood"
+---
+## The Day We Locked Down Lockline AI’s API
+
+We were three days from production launch when the red flags started popping up in our staging environment: spotty client connections, insecure fallbacks, and authentication flows that felt… too permissive. Lockline AI, our API-driven AI service for automated document processing, was functionally solid—but security wasn’t where it needed to be. That day became a deep dive into hardening the core communication and access layers. We fixed HTTP/2 compatibility, restored SSL where it had been accidentally dropped, and tightened our authentication logic. This is how we did it—and why each step mattered.
+
+## Fixing HTTP/2: Why Clients Were Dropping Connections
+
+The first symptom was subtle: some frontend clients, especially mobile and long-polling scripts, would silently disconnect during large document analysis jobs. Logs showed no server crashes, just abrupt `RST_STREAM` events. We traced it to our reverse proxy configuration—somewhere in a recent deploy, HTTP/2 support had been disabled at the load balancer level, forcing all traffic down HTTP/1.1.
+
+That might sound minor, but for an AI API serving streaming responses (think: real-time extraction updates), HTTP/2’s multiplexing is essential. Without it, concurrent requests from the same client would block each other, leading to timeouts and broken sessions.
+
+The fix was configuration, not code:
+
+```nginx
+listen 443 ssl http2;
+ssl_protocols TLSv1.2 TLSv1.3;
+```
+
+But the lesson was bigger: we needed automated checks for protocol support in staging. We now run a lightweight smoke test that verifies `HTTP/2` is active on all public endpoints. It’s part of our CI pipeline now—no more accidental downgrades.
+
+## SSL Wasn’t Broken—It Was Gone
+
+Here’s an embarrassing truth: during a refactor of our deployment scripts, we temporarily commented out SSL termination because a test environment didn’t support our wildcard cert. What was meant to be temporary made it into a pre-prod build. The API was running over plain HTTP.
+
+No excuses. But we caught it early because our frontend started throwing mixed-content warnings when calling the AI backend. That red flag triggered an audit.
+
+We re-enabled SSL using Let’s Encrypt via Certbot, re-encrypting both the main API and our htmx-powered admin dashboard. The fix wasn’t complex:
+
+1. Reinstall the cert via `certbot --nginx`
+2. Restore the nginx `ssl_certificate` and `ssl_certificate_key` directives
+3. Redirect all HTTP traffic to HTTPS
+
+```nginx
+if ($scheme != "https") {
+    return 301 https://$host$request_uri;
+}
+```
+
+What made this safe? We tested the redirect chain in isolation using `curl -I http://api.lockline.ai` and verified HSTS headers were in place. We also confirmed that our AI clients—both internal and third-party—handled redirects gracefully. No more plaintext. Ever.
+
+## Hardening Authentication: From "Good Enough" to Production-Ready
+
+Early in development, we used simple API keys passed in headers. Fast, but fragile. As we approached launch, we realized we needed better session control, rate limiting by identity, and short-lived credentials.
+
+We upgraded to a hybrid model:
+
+- **Short-lived Bearer tokens** (JWT) for client API access
+- **HttpOnly, SameSite=Strict cookies** for admin dashboard sessions
+- **Token revocation list** (in Redis) for immediate logout support
+
+Here’s how the flow works now:
+
+1. Client logs in via `/auth/login` with API key
+2. Server validates key, returns JWT with 15-minute expiry
+3. All subsequent requests to `/analyze`, `/status`, etc., require `Authorization: Bearer <token>`
+4. Admin users get a session cookie set server-side after login
+
+We also added rate limiting per token using Redis, critical for preventing abuse of our AI inference endpoints. Each token is tied to a user role, and scopes are enforced at the middleware layer.
+
+The change wasn’t just about security—it improved observability. Now every API call logs the associated token ID, making audit trails actionable.
+
+## Final Checks Before Launch
+
+That day of fixes ended with green lights across the board: HTTP/2 active, SSL enforced, auth flows validated. We ran a final battery of tests:
+
+- `nmap --script ssl-enum-ciphers` to verify TLS config
+- `curl -I --http2 https://api.lockline.ai` to confirm protocol
+- Postman collection with expired token checks
+
+Securing an AI API isn’t just about model safety—it’s about the entire stack. A fast, smart backend means nothing if the door is left open. For teams nearing launch: don’t treat SSL, HTTP/2, or auth as checkboxes. Test them like code. Break them before someone else does.

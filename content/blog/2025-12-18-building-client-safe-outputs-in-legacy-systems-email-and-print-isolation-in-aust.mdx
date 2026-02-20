@@ -1,0 +1,66 @@
+---
+title: "Building Client-Safe Outputs in Legacy Systems: Email and Print Isolation in AustinsElite"
+date: "2025-12-18"
+excerpt: "How we securely exposed event data to clients in a legacy PHP app by filtering sensitive fields at the controller level."
+tags: ["Laravel", "Legacy Systems", "Security", "PHP", "Blade Templates", "Content Filtering"]
+author: "Ryan Dashwood"
+---
+## The Problem: Exposing Event Data Without Leaking Secrets
+
+AustinsElite is a legacy PHP application built on a custom framework with selective Laravel components—think service containers, Eloquent, and Blade, but no Artisan or full Laravel routing. One of our core features is managing event bookings for clients, which includes staff assignments, rates, and internal notes. Historically, admins could view everything—names, hourly pay, internal comments—but clients? They only needed to know who was showing up, not how much we paid them.
+
+The challenge came when clients started asking for printable summaries and email confirmations of their event details. We couldn’t just send the raw data—too much risk of exposing staff-sensitive information. And because this is a legacy system, we couldn’t afford a full refactor or API layer just to solve this one use case. We needed a surgical, secure, and maintainable fix.
+
+## The Fix: Context-Aware Rendering in Controllers and Templates
+
+Our solution was to build client-safe output pathways directly into the existing flow—without touching the core data model or introducing new services. We added two new routes: `/event/{id}/print` and `/event/{id}/email-client`. These hit new controller methods in `EventController` that prep the same underlying data, but with strict role-based filtering applied *before* it ever hits the view.
+
+Here’s how it works:
+
+```php
+public function printClientView($id)
+{
+    $event = $this->eventRepository->findOrFail($id);
+    
+    $safeEvent = $this->filterForClient($event);
+    
+    return view('events.print-client', compact('safeEvent'));
+}
+
+private function filterForClient($event)
+{
+    return [
+        'title' => $event->title,
+        'date' => $event->date,
+        'staff' => $event->staff->map(function($s) {
+            return [
+                'name' => $s->name,
+                'role' => $s->role,
+                'start_time' => $s->pivot->start_time,
+                'end_time' => $s->pivot->end_time,
+                // No rate, no internal notes
+            ];
+        }),
+        'venue' => $event->venue,
+        'client_notes' => $event->client_notes,
+    ];
+}
+```
+
+This `filterForClient` method acts like lightweight middleware for data—stripping out anything a client shouldn’t see. It lives in the controller because, in this legacy context, that’s where the request context is clearest. We’re not trying to be framework-pure; we’re trying to be *safe* and *practical*.
+
+On the Blade side, we created `print-client.blade.php` with print-optimized CSS and semantic structure for accessibility. We also added `@media print` rules to hide non-essential UI elements when someone hits print from the browser. The email version uses the same filtered data but renders a simplified HTML email template, queued via Laravel’s mail system (yes, we’re using that package—even in this hybrid setup).
+
+One sneaky issue? Field formatting. Some event fields contained raw HTML or special characters that broke email rendering or print layout. We introduced a small `formatForClientOutput` helper that strips unsafe tags, converts line breaks, and ensures consistent typography—especially important for client-facing deliverables.
+
+## A Pattern for the Long Haul
+
+This approach isn’t just for print and email. Once we had the filtering logic in place, it became a blueprint for other client-safe outputs:
+
+- **PDF exports**: We plugged the same `filterForClient` output into DomPDF with minimal changes.
+- **Future API endpoints**: If we ever expose event data via JSON, the filtering layer is already defined and testable.
+- **Audit trails**: Because the filtered data is generated in a single method, we can log what was *actually* exposed, not just what was *available*.
+
+The real win? We didn’t need to modernize the entire app to make it safer. By treating output generation as a security boundary—not just a formatting step—we built a reusable pattern that fits cleanly into the existing architecture.
+
+Legacy systems aren’t going away. But with careful, context-aware filtering at the edge of the request cycle, we can make them behave like modern, compliant applications—without rewriting everything. That’s not just smart engineering. It’s sustainable.

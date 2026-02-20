@@ -1,0 +1,75 @@
+---
+title: "Why We Migrated Laravel Notifications to JSON: A Data Schema Evolution"
+date: "2024-02-07"
+excerpt: "We switched Laravel's notification data from PHP serialization to JSON for better portability, debugging, and future extensibility."
+tags: ["Laravel", "Filament", "Database Migration", "JSON", "Notifications"]
+author: "Ryan Dashwood"
+---
+Today, we landed a small but impactful change in the DataAnno Fil Starter project: migrating the `data` column in Laravel’s notifications table from PHP serialization to JSON. It’s not flashy, but it’s one of those foundational tweaks that pays dividends in debuggability, interoperability, and long-term flexibility. If you're managing notifications in a Laravel app—especially one using tools like Filament—this is worth your attention.
+
+## The Problem with Serialized PHP Data
+
+Laravel’s default notification system uses PHP’s `serialize()` function to store payload data in the `data` column of the `notifications` table. It works—until it doesn’t. Serialized data is opaque. Try reading it in a database viewer? Good luck. Want to query specific fields inside it? Forget it. And if you ever need to access that data outside of PHP—say, from a Node.js service or a frontend API consumer—you’re stuck.
+
+In our case, we’re building on top of Filament, which surfaces notifications in admin dashboards and exposes them via API endpoints. Serialized blobs were a pain: debugging required booting Laravel just to `unserialize()` a value, and frontend components couldn’t reliably extract structured fields. We needed something transparent, queryable, and language-agnostic. JSON was the obvious answer.
+
+## Migrating Step by Step
+
+The migration itself was straightforward but required care. Here’s how we did it:
+
+1. **Alter the database column**: We created a new migration to change the `data` column from `text` (interpreted as serialized PHP) to a `json` type. This signals both the database and Laravel’s ORM to treat the content appropriately.
+
+```php
+Schema::table('notifications', function (Blueprint $table) {
+    $table->json('data')->nullable()->change();
+});
+```
+
+2. **Update the model cast**: In Laravel, Eloquent models can cast attributes automatically. We added or confirmed the presence of:
+
+```php
+protected $casts = [
+    'data' => 'array',
+];
+```
+
+This ensures that whenever the `data` attribute is accessed, Laravel treats it as JSON and converts it to a PHP array—no manual decoding needed.
+
+3. **Backfill existing data (if needed)**: In our case, we didn’t have production data yet, so we skipped conversion. But in a live app, you’d write a script to unserialize the old values and resave them as JSON. Something like:
+
+```php
+Notification::chunk(100, function ($notifications) {
+    foreach ($notifications as $notification) {
+        $notification->data = unserialize($notification->getRawOriginal('data'));
+        $notification->saveQuietly();
+    }
+});
+```
+
+4. **Test the flow**: We triggered test notifications and verified they were stored as valid JSON, readable in the DB, and correctly interpreted in Filament’s resource views.
+
+The commit that closed this out? Simple: `Use 'json' for the notification 'data' column' (Fixes #61)`. But the impact was immediate.
+
+## Gains in Interoperability and Debugging
+
+Switching to JSON unlocked several practical wins:
+
+- **Debugging is now trivial**. Open your database tool, click on a row, and you see structured data—not a cryptic string like `a:2:{s:4:"name";s:5:"Ryan";...}`. This is huge during development and incident triage.
+
+- **Frontend access is seamless**. Filament’s API responses now expose notification data as clean JSON objects. No extra parsing, no frontend workarounds. Components can safely access `.data.title` or `.data.action_url` without fear of malformed payloads.
+
+- **Future extensibility is unlocked**. Want to write a database view or trigger based on notification type? JSON makes it possible. Planning to build a non-PHP microservice that reads notifications? Now it can.
+
+- **Consistency with modern Laravel patterns**. Laravel has been moving toward JSON casting for years—`$casts = ['options' => 'array']`, `json` columns in migrations, native JSON support in MySQL and PostgreSQL. We’re now aligned with that trajectory.
+
+## Lessons Learned: Trust, but Verify
+
+Even a simple migration needs validation. We learned this the hard way during early testing: one notification class was manually serializing data before assignment, breaking the cast. Always check:
+
+- Are all notification classes relying on Laravel’s automatic data handling?
+- Are you accidentally double-encoding anywhere?
+- Do your tests cover both creation and retrieval?
+
+We now have a test that asserts the `data` column contains JSON and that specific keys are accessible post-persistence. It’s a small guardrail that prevents regressions.
+
+This change was small in scope but big in principle: favor open, inspectable data formats over opaque ones. In a world of APIs, microservices, and real-time debugging, JSON isn’t just convenient—it’s essential. And in a Laravel + Filament stack like DataAnno Fil Starter, it’s a no-brainer.

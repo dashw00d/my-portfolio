@@ -1,0 +1,71 @@
+---
+title: "From Spaghetti to Structure: Refactoring Permission Management in a Legacy PHP App"
+date: "2025-12-09"
+excerpt: "How introducing a dedicated Permission model brought sanity to access control in a 15-year-old PHP monolith."
+tags: ["PHP", "Legacy Code", "Refactoring", "Permissions", "Code Maintenance"]
+author: "Ryan Dashwood"
+---
+## The Day I Inherited 15 Years of Permission Logic
+
+I didn’t inherit a codebase—I inherited a fossil. AustinsElite, a legacy PHP app built on a custom framework with scattered Laravel components, had been running for over a decade. It worked. Mostly. But when I was asked to audit user access issues, I opened the permissions file and found 800 lines of inline SQL, role checks buried in views, and hardcoded logic that made my eyes water.
+
+There was no central authority for "who can do what." Roles? Sure. But they were strings in a column, checked via `if (user_role == 'admin')` blocks scattered across 40 files. Adding a new permission meant grepping through templates, hoping you didn’t miss a condition. It wasn’t just risky—it was unsustainable.
+
+I knew we couldn’t rewrite the whole thing. This wasn’t a greenfield project. So I asked: *Can we bring structure without breaking everything?*
+
+## Building a Permission Layer That Doesn’t Break the Past
+
+The goal wasn’t elegance—it was survival. I needed a system that could coexist with the old code while slowly replacing it. My plan:
+
+1. Introduce a `Permission` model (Eloquent, thanks to Laravel’s Illuminate components already in the stack)
+2. Map existing roles to a structured set of permissions
+3. Build a sync job to keep legacy role flags in line with the new model
+4. Create a lightweight middleware for new routes
+
+The first step was defining the model. Simple: `id`, `name`, `description`, and a pivot table with `user_permissions`. But the real challenge was backward compatibility. We still had to support `user->is_admin` checks. So instead of ripping them out, I made them *derived*:
+
+```php
+// Legacy getter, now powered by the new system
+public function getIsAdminAttribute()
+{
+    return $this->hasPermission('manage_users') || 
+           $this->hasPermission('edit_content');
+}
+```
+
+Now, the old logic still worked—but it was backed by something auditable. I wrote a sync command that ran nightly (and on deploy) to ensure no one slipped through the cracks:
+
+```php
+Artisan::command('sync:permissions', function () {
+    User::chunk(200, function ($users) {
+        foreach ($users as $user) {
+            $this->updateUserPermissions($user);
+        }
+    });
+    $this->info('Permissions synced.');
+});
+```
+
+This wasn’t just cleanup—it was insurance. If someone manually flipped a role in the DB (yes, it happened), the system would self-correct within hours.
+
+## From Fear to Flexibility: What Changed
+
+Six commits later, the transformation wasn’t flashy—but it was profound. We went from:
+
+- Manual, error-prone permission checks
+- Zero visibility into who had what access
+- A 20-minute process to grant someone editorial rights
+
+To:
+
+- A single `@can('publish_content')` directive in Blade templates
+- A `/debug/permissions` admin page (yes, we still have those) showing real-time user abilities
+- Role changes taking effect immediately, with audit trails
+
+The best part? No outages. No angry support tickets. Just quieter logs and fewer edge cases.
+
+I won’t pretend it’s perfect. There are still legacy views with inline checks. But now, when someone asks, "Can Sarah approve invoices?", I don’t have to grep. I just check the `permissions` table.
+
+And when the next dev joins? They won’t inherit a fossil. They’ll inherit a system that, while old, finally makes sense.
+
+That’s not just refactoring. That’s respect—for the code, the team, and the users who depend on it.

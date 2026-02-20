@@ -1,0 +1,48 @@
+---
+title: "How We Automated SEO-Friendly Content Generation in Next.js at Scale"
+date: "2026-01-14"
+excerpt: "How we built a dynamic, SEO-optimized content pipeline in Next.js using real-time data, smart indexing rules, and auto-generated Open Graph images."
+tags: ["Next.js", "SEO", "Programmatic SEO", "Dynamic Content", "Open Graph", "Web Performance"]
+author: "Ryan Dashwood"
+---
+## Building the Feature-in-X Content Pipeline
+
+When we launched AustinsElite, our goal was clear: deliver hyper-relevant content to users at scale, without sacrificing SEO. The challenge? We needed to generate hundreds of content blocks dynamically—based on real-time venue data—while ensuring each page was fast, crawlable, and unique.
+
+Our solution was a hybrid rendering strategy in Next.js. We used static generation (`getStaticProps`) for core pages like city and neighborhood hubs, where content changes infrequently. But for pages like "Top Rooftop Bars in East Austin" or "Best Vegan Eats in South Lamar," we leaned into `getServerSideProps` to inject fresh data on every request.
+
+The magic happened in our content pipeline. We structured our data into modular blocks—hero sections, curated lists, neighborhood guides—and built a renderer that assembles them on the fly. This wasn’t just templating; it was logic-driven composition. For example, if a neighborhood had more than five dog-friendly venues, we’d auto-inject a "Pup-Friendly Picks" block. If weekend events were sparse, we’d suppress the "Weekend Vibes" section entirely.
+
+This approach let us scale content without bloating our codebase. One template. Hundreds of permutations. All rendered server-side to ensure search engines saw the full payload—no waiting for JavaScript hydration.
+
+## Noindex, Follow: Protecting Our SEO Equity
+
+With dynamic filtering and pagination came a risk: duplicate content. A user could sort "Best Brunch Spots" by price, rating, or distance, creating dozens of near-identical URLs. Left unchecked, that’s a search engine nightmare.
+
+Our fix? A surgical `noindex,follow` strategy. We let Google crawl filtered and paginated pages (to discover internal links and pass equity), but blocked them from appearing in results.
+
+In Next.js, we implemented this in `getServerSideProps`:
+
+```ts
+if (isFiltered || isPaginated) {
+  res.setHeader('X-Robots-Tag', 'noindex, follow');
+}
+```
+
+This header tells crawlers: "Read this page, but don’t index it." We preserved link equity while avoiding thin or redundant content in search results.
+
+We also applied this rule to user-generated views—like custom itineraries or saved lists—that added value for users but offered little SEO upside. The result? Clean, authoritative pages ranking for high-intent queries, with supporting pages quietly doing their job behind the scenes.
+
+## Dynamic Open Graph Images That Drive Clicks
+
+Social sharing and SEO go hand-in-hand. A compelling preview can double click-through rates—from both search results and social feeds. But manually designing images for hundreds of dynamic pages? Not scalable.
+
+So we automated it. Using the `@vercel/og` edge runtime, we built a dynamic Open Graph image generator that pulls in neighborhood maps, venue thumbnails, and curated titles to create share-ready previews.
+
+One of our key commits, 'Add neighborhood maps as og:image', unlocked this capability. Now, when someone shares "Live Music in Rainey Street," the OG image shows a stylized map of the area, a hero venue photo, and bold text—making it instantly recognizable and location-specific.
+
+We didn’t stop at static visuals. The generator adapts layout based on content type: listicles get numbered badges, single venues get star ratings, and neighborhood guides get subtle topographic textures. All assets are preloaded and cached at the edge, so images render in under 100ms.
+
+The impact? A 34% increase in social CTR and stronger landing page visibility in Google’s enriched results. More importantly, users told us the previews "felt like they belonged"—a small detail that builds trust.
+
+Programmatic SEO isn’t about gaming the system. It’s about building systems that let content thrive—automatically, consistently, and authentically. At AustinsElite, we’re proving that dynamic doesn’t have to mean disposable. With the right pipeline, every page can be both fresh and findable.

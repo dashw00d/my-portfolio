@@ -1,0 +1,84 @@
+---
+title: "From Legacy Dates to US Format Consistency: How We Enforced Regional Standards in a Full-Stack Laravel-Next.js App"
+date: "2025-05-27"
+excerpt: "How we standardized US date formatting across a Laravel-Filament-Next.js app during a legacy data migration."
+tags: ["Laravel", "Filament", "Next.js", "Date Formatting", "Legacy Migration", "Full-Stack"]
+author: "Ryan Dashwood"
+---
+## The Date Format That Broke User Trust
+
+We launched the first phase of AustinsElite’s modernization with clean data, sleek UI, and a solid Laravel 12 + Filament backend. But within days, support tickets started rolling in: *"Why does it say my invoice is due on 05/04/2025 when I created it in May?"*
+
+Our users were confused—because we were showing dates in DD/MM/YYYY format by default. For a US-based business platform, that’s a silent trust killer. A date like 05/04/2025 reads as May 4th to Americans, but our system was parsing it as April 5th. This wasn’t just a display issue—it risked compliance, reporting accuracy, and user confidence during a critical data migration.
+
+The root cause? Legacy data imported from an old system used inconsistent formatting, and our new app hadn’t enforced regional standards end-to-end. We had Laravel handling dates one way, Filament forms another, and the Next.js frontend doing its own thing. Time to unify.
+
+## Aligning the Stack: PHP, Filament, and React in Sync
+
+Our fix needed to be full-stack. We couldn’t just change the display—we had to ensure data was stored, validated, transformed, and presented consistently as MM/DD/YYYY.
+
+First, the backend. In Laravel, we standardized date casting in our Eloquent models using accessors and mutators:
+
+```php
+public function getInvoiceDateAttribute($value)
+{
+    return \Carbon\Carbon::parse($value)->format('m/d/Y');
+}
+```
+
+This ensured every date pulled from the DB conformed to US format. But we also needed to handle inbound data. We updated form requests to parse incoming dates properly:
+
+```php
+public function rules()
+{
+    return [
+        'invoice_date' => ['required', 'date_format:m/d/Y'],
+    ];
+}
+```
+
+Next, Filament. Our admin panel relied heavily on Filament Resources for data management. We updated field definitions to enforce input format:
+
+```php
+DatePicker::make('invoice_date')
+    ->displayFormat('m/d/Y')
+    ->extraInputAttributes(['placeholder' => 'MM/DD/YYYY'])
+    ->required(),
+```
+
+We also adjusted global config where possible—like setting the default locale to `en_US` in `config/app.php`—to reduce repetition. This helped with automatic labeling and some underlying Carbon behaviors.
+
+Then, the frontend. Our Next.js dashboard consumed the Laravel API via JSON endpoints. Even though the backend now formatted dates correctly, we still had components rendering raw timestamps or relying on JavaScript’s `Date.toLocaleDateString()`—which defaulted to the browser’s locale, not ours.
+
+We created a shared `formatDate` utility:
+
+```ts
+export const formatDate = (date: string): string => {
+  const d = new Date(date);
+  return (d.getMonth() + 1).toString().padStart(2, '0') + '/' +
+         d.getDate().toString().padStart(2, '0') + '/' +
+         d.getFullYear();
+};
+```
+
+And updated all display components:
+
+```tsx
+<p>{formatDate(invoice.invoice_date)}</p>
+```
+
+We also added input masks using `react-input-mask` to guide users during form entry, reducing errors before submission.
+
+## Lessons from the Trenches: Consistency Is a Contract
+
+This wasn’t just a one-off tweak—it was a lesson in how date formatting is a contract between system and user. When that contract breaks, even subtly, it erodes trust.
+
+The biggest challenge wasn’t the code—it was alignment. We had three layers (Laravel, Filament, Next.js) each with their own defaults and expectations. The API became the linchpin: we had to ensure it *always* sent dates in MM/DD/YYYY, regardless of source or storage format. That meant normalizing in the resource layer, not the model or frontend.
+
+We also learned to treat legacy data as "untrusted input." Just because it was imported didn’t mean it was valid. We added a validation step post-import that flagged non-US-formatted dates for review, preventing bad data from slipping through.
+
+One surprise? Browser inconsistencies. Even with consistent formatting, some older devices rendered dates differently. We now run a lightweight format check on the frontend during hydration to log discrepancies.
+
+Today, every date in AustinsElite—whether in an admin table, user dashboard, or exported PDF—reads unambiguously as MM/DD/YYYY. No more "April or May?" confusion.
+
+If you’re modernizing a legacy app with regional users, don’t treat date formatting as an afterthought. It’s not just UX—it’s data integrity. Define the format early, enforce it at every layer, and test it like you’d test authentication. Because when a user sees the wrong date, they don’t just doubt the feature—they doubt the whole system.

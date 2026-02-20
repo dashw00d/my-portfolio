@@ -1,0 +1,89 @@
+---
+title: "Building a Plugin Ecosystem for HomeForged: How We Designed a Lightweight Extension System in PHP"
+date: "2025-10-17"
+excerpt: "How we built a modular plugin system in PHP for HomeForged using service providers, manifest files, and event hooks."
+tags: ["PHP", "Laravel", "Plugin Architecture", "Modular Design", "HomeLab", "Event Hooks"]
+author: "Ryan Dashwood"
+---
+## Why Modularity Matters in HomeForged
+
+HomeForged started as a simple automation tool for homelab environments—a way to script routine tasks, manage services, and keep configurations in sync. But as more users adopted it, a pattern emerged: everyone wanted different integrations. One person needed Slack alerts on backup completion. Another wanted dynamic DNS updates via Cloudflare. Someone else wanted to tie in their smart home stack. Building all of these into the core app wasn’t sustainable—or desirable. We needed modularity.
+
+The goal wasn’t just to support plugins, but to do it *lightly*. No heavy interfaces, no complex SDKs. We wanted developers (and tinkerers) to drop in a folder and have their code integrate cleanly. The solution? A plugin system built on PHP patterns we already trusted: service providers, event-driven hooks, and filesystem conventions.
+
+## Plugin Registration: Service Providers Meet Manifest Files
+
+Every plugin in HomeForged lives in `plugins/{plugin-name}/`. Inside, two things are required: a `manifest.json` and a `src/` directory containing a Laravel-style service provider.
+
+The manifest is minimal:
+
+```json
+{
+  "name": "cloudflare-ddns",
+  "version": "0.1.0",
+  "provider": "CloudflareDnsServiceProvider"
+}
+```
+
+On boot, HomeForged scans the plugins directory, reads each manifest, and registers the listed service provider in the app’s service container. This is done during the Laravel `register()` phase, so plugins can bind interfaces, publish configs, or register commands before the app fully boots.
+
+Here’s how we load them:
+
+```php
+$pluginsPath = base_path('plugins');
+
+foreach (scandir($pluginsPath) as $folder) {
+    $manifestPath = "$pluginsPath/$folder/manifest.json";
+    if (!file_exists($manifestPath)) continue;
+
+    $manifest = json_decode(file_get_contents($manifestPath), true);
+    $providerClass = "Plugins\\$folder\\{$manifest['provider']}";
+
+    if (class_exists($providerClass)) {
+        $this->app->register($providerClass);
+    }
+}
+```
+
+This approach keeps things predictable. The manifest acts as a contract. The service provider gives full access to Laravel’s boot cycle. And because each plugin is namespaced under `Plugins\{folder}`, we avoid class collisions while keeping autoloading simple via Composer’s PSR-4 rules.
+
+It also means plugin authors can use familiar tools: commands, config files, even migrations if needed. One plugin we built logs all automation runs to a custom database table—it ships with a migration and registers it via the provider’s `boot()` method. Another publishes a config file so users can set API keys. All of this works because we lean into Laravel’s existing patterns instead of inventing new ones.
+
+## Extending Without Breaking: The Power of Event Hooks
+
+The real challenge wasn’t loading plugins—it was letting them *interact* with core logic safely. We didn’t want plugins reaching into private methods or relying on fragile internals. The answer? A lightweight event hook system.
+
+Instead of exposing APIs, we emit events at key points in automation workflows:
+
+- `AutomationStarted`
+- `TaskCompleted`
+- `BackupFinished`
+- `SystemIdle`
+
+Plugins can listen for these just like any Laravel event. For example, the Slack notification plugin listens for `BackupFinished` and fires off a message if the status is success:
+
+```php
+class SendSlackNotification
+{
+    public function handle(BackupFinished $event): void
+    {
+        if ($event->successful) {
+            Slack::send("Backup completed for {$event->hostname}");
+        }
+    }
+}
+```
+
+The beauty is in the isolation. The core doesn’t know about Slack. It doesn’t care. It just fires events. Plugins react. No tight coupling. No version lock-in. Even if the core changes how backups are run, as long as the event fires, the plugin keeps working.
+
+We also added a simple hook registry for cases where plugins need to *modify* data. Instead of events, we use a filter pattern:
+
+```php
+$hostname = Hook::filter('hostname_normalized', $rawHostname);
+```
+
+Plugins can register filters to transform the value. Each one gets a shot, passing the result down the chain. It’s like WordPress hooks, but minimal and opt-in.
+
+This architecture emerged from a larger refactor that prioritized component isolation. That work made the plugin system possible—and safe. Now, when someone writes a new plugin, they’re not fighting the framework. They’re extending it on its own terms.
+
+The extension system is live, tested, and already running custom DNS and notification plugins in my homelab. If you’re building automation tools in PHP and hitting the limits of monolithic design, give this pattern a try: manifest + provider + events. It’s simple, but it scales.

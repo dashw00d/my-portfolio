@@ -1,0 +1,95 @@
+---
+title: "How We Built a Resilient Node Selection System in HomeForged’s Visual Workflow Designer"
+date: "2025-11-14"
+excerpt: "We fixed flaky node selection in HomeForged’s canvas by overhauling event handling and adding safety checks to prevent UI desync."
+tags: ["React", "Canvas UI", "Event Handling", "Defensive Programming", "Frontend Engineering"]
+author: "Ryan Dashwood"
+---
+## The Selection Bug That Broke the Flow
+
+If you’ve ever clicked on a node in a diagram editor only for the wrong panel to open—or worse, nothing to happen—you know how maddening broken selection logic can be. That was our reality in HomeForged’s visual workflow designer last week. Users would click a node on the canvas, and sometimes the right sidebar would show data from a different node, flash blank, or not respond at all. It wasn’t just buggy—it eroded trust in the entire tool.
+
+The root cause? A mix of poorly scoped event listeners, race conditions in state updates, and assumptions about DOM structure that didn’t hold under dynamic rendering. We’d built the initial version fast, relying on direct DOM queries and inline handlers. But as the canvas grew in complexity—nodes added, removed, repositioned dynamically—those shortcuts became landmines.
+
+The worst part? The bug wasn’t consistent. It depended on render order, timing of state updates, and whether the node was part of a recent batch operation. Classic symptoms of DOM-state desynchronization.
+
+## Untangling Events and DOM Assumptions
+
+Our first move was to audit how events were handled. Originally, we attached `onClick` handlers directly to each node component in React:
+
+```jsx
+<Node onClick={() => selectNode(id)} />
+```
+
+Seems fine—until you have 50+ nodes and some are conditionally rendered or reused via `React.memo`. We started seeing stale closures and orphaned handlers, especially after undo/redo operations. Worse, we had a separate click handler on the canvas background to deselect nodes, but it wasn’t properly distinguishing between clicks on nodes vs. empty space.
+
+The fix? Event delegation. We moved the primary click handling to the canvas container and used `event.target` to identify node clicks:
+
+```jsx
+<div className="canvas" onClick={handleCanvasClick}>
+  {nodes.map(node => (
+    <div key={node.id} data-node-id={node.id} className="workflow-node">
+      {/* node content */}
+    </div>
+  ))}
+</div>
+```
+
+Then, in `handleCanvasClick`, we check if the click originated from a node:
+
+```js
+function handleCanvasClick(e) {
+  const nodeId = e.target.closest('[data-node-id]')?.dataset.nodeId;
+  if (nodeId) {
+    selectNode(nodeId);
+  } else {
+    deselectNode();
+  }
+}
+```
+
+This eliminated per-node listeners and ensured consistent behavior regardless of re-renders. Using `closest()` also made us resilient to clicks on child elements inside a node (like icons or labels).
+
+But that wasn’t enough. We still had cases where the right panel would try to render a node that no longer existed—usually right after a delete or reset action. This pointed to a deeper issue: no validation between the selected node ID and the actual node list.
+
+## Adding Safety Checks to Prevent Panel Chaos
+
+We realized we needed to treat the selected node ID not as a trusted truth, but as a fragile pointer that could dangle. So we introduced validation at the point of selection:
+
+```js
+function selectNode(id) {
+  // Safety check: does this node actually exist?
+  const node = nodes.find(n => n.id === id);
+  if (!node) {
+    console.warn(`Attempted to select missing node ${id}`);
+    dispatch({ type: 'DESELECT' });
+    return;
+  }
+
+  dispatch({ type: 'SELECT_NODE', payload: node });
+}
+```
+
+We also added a guard in the right panel’s render logic:
+
+```jsx
+function RightPanel() {
+  if (!selectedNode) return <div className="empty-panel">No node selected</div>;
+
+  // Double-check existence
+  const nodeExists = nodes.some(n => n.id === selectedNode.id);
+  if (!nodeExists) {
+    return <div className="error-panel">Node no longer available</div>;
+  }
+
+  return <NodeEditor node={selectedNode} />;
+}
+```
+
+These checks turned what were once silent failures into predictable, recoverable states. No more blank panels or stale data.
+
+We also standardized how node IDs were passed and compared—ensuring we weren’t mixing strings and numbers or dealing with reference drift. Small thing, huge impact.
+
+The result? A selection system that feels instant, reliable, and resilient—even during rapid edits. Users aren’t thinking about the UI failing. They’re thinking about their workflows. And that’s the goal.
+
+Defensive programming isn’t about expecting failure—it’s about building systems that can handle it gracefully when it happens. In a canvas-based editor, where DOM and state are constantly in motion, that mindset isn’t optional. It’s foundational.

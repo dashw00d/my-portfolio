@@ -1,0 +1,70 @@
+---
+title: "From Blade to React: How We Migrated a Legacy Services Section to Next.js with Alpine.js for State"
+date: "2025-01-12"
+excerpt: "Migrating AustinsElite’s services section from Laravel Livewire/Blade to Laravel 12 using Alpine.js for lightweight interactivity and Tailwind-powered animations."
+tags: ["Next.js", "Alpine.js", "Laravel", "frontend migration", "Tailwind CSS", "Livewire"]
+author: "Ryan Dashwood"
+---
+## Breaking Free from the Livewire Treadmill
+
+A few months ago, the services section of AustinsElite—a long-standing Laravel 12 application—was powered by Livewire and Blade templates. It worked, sure. But "works" isn’t good enough when your users are bouncing before the first interaction renders. We were dealing with full-page re-renders on every toggle, sluggish state updates, and a growing pile of Blade spaghetti that made even small changes feel risky.
+
+The real pain point? Interactivity. Our service cards had hover states, collapsible details, and dynamic content toggles—all managed by Livewire. That meant every click triggered a round-trip to the server, hydration lag, and a janky UX that didn’t match the modern brand we were trying to build. We knew we had to decouple the frontend.
+
+Enter Next.js. Our goal wasn’t a full rewrite (not yet), but a surgical migration: extract the services section, rebuild it as a standalone, performant React frontend, and serve it alongside our existing Laravel app. The challenge? Keep the rich interactivity without dragging in a full React state management suite—or sacrificing load speed.
+
+## Building Lightweight Interactivity with Alpine.js
+
+We landed on a hybrid approach: Next.js for routing, SSR, and structure, but Alpine.js for client-side state. Why? Because we didn’t need Redux, Context, or even useState for this. We had simple toggles, hover effects, and scroll-triggered animations—perfect for Alpine’s minimal x-data and x-show directives.
+
+Migrating from Livewire to Alpine meant rethinking how we handled state. In Livewire, everything was tied to PHP classes and re-rendered on every action. In our new setup, we pulled the service data via a JSON endpoint from Laravel and fed it into a Next.js page. Then, Alpine took over.
+
+```html
+<div x-data="{ open: false }">
+  <button @click="open = !open">Toggle Details</button>
+  <div x-show="open" x-transition>...service content...</div>
+</div>
+```
+
+No hydration. No client-side frameworks fighting for control. Just declarative, reactive behavior that felt instant. Alpine’s tiny footprint (under 10KB) meant we kept our bundle size lean while delivering buttery interactions. And because Alpine works directly on the DOM, we avoided the React re-render waterfall for simple UI state.
+
+This wasn’t just about performance—it was about developer experience. Our team could write HTML-first components with embedded logic, without context switching between PHP, Blade, and React. The result? Faster iterations, fewer bugs, and a component model that felt natural for a Laravel shop moving incrementally toward modern frontend practices.
+
+## Polishing the UX with Tailwind and Scroll Magic
+
+With the structure and state sorted, we turned to aesthetics. The old Blade templates used basic CSS classes and inline styles—functional, but visually flat. We wanted depth, motion, and a sense of polish that matched AustinsElite’s premium positioning.
+
+Tailwind CSS became our secret weapon. We leveraged radial gradients in the service card backgrounds using custom CSS:
+
+```css
+.bg-radial-gradient {
+  background: radial-gradient(ellipse at bottom, #1a365d, #0b1a2e);
+}
+```
+
+Paired with Tailwind’s utility classes, we created layered cards with subtle shadows, glassmorphism on hover, and smooth transitions that made the section feel alive. But the real win was scroll-triggered animations.
+
+Using `IntersectionObserver` wrapped in a simple React hook, we triggered fade-in and slide-up effects as users scrolled:
+
+```js
+const useScrollFade = () => {
+  const ref = useRef();
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) setIsVisible(true);
+      });
+    });
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, isVisible };
+};
+```
+
+Combined with Alpine for state and Tailwind for styling, we achieved a high-fidelity experience without the bloat. The new services section loaded 60% faster, cut server requests by 80%, and—most importantly—felt modern.
+
+Migrating from Livewire to Laravel 12 wasn’t about abandoning Laravel. It was about using the right tool for the job. For AustinsElite, that meant keeping Laravel 12 as our rock-solid backend while evolving the frontend—one component at a time.

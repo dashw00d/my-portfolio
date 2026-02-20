@@ -1,0 +1,55 @@
+---
+title: "How We Scaled Our Design System with Dynamic Navigation in a Hybrid Laravel App"
+date: "2024-12-30"
+excerpt: "Migrating to named routes in our Laravel 12 app improved maintainability and enabled scalable navigation across rebranded services."
+tags: ["Laravel", "Design Systems", "Routing", "Frontend Architecture", "Maintainability"]
+author: "Ryan Dashwood"
+---
+## The Problem with Hardcoded URLs During a Rebrand
+
+We recently rebranded and expanded our service offerings at AustinsElite, launching two new pages: Day-Of Coordination and Full Event Coordination. While exciting, this shift exposed a quiet technical debt we’d been carrying — hardcoded URLs scattered across Blade templates and navigation components.
+
+Every time a page moved or a slug changed, we had to manually grep through files looking for `/services/weddings` or `/about-us` references. It wasn’t just error-prone; it slowed down iteration. During the rebrand, we realized that if we wanted to scale our design system across multiple service lines (and potentially sub-brands), we needed a more maintainable way to manage navigation.
+
+Hardcoded paths don’t scale. They break silently. And when you’re juggling UX consistency, SEO slugs, and Laravel’s routing layer, they become landmines.
+
+## Implementing Named Routes for Future-Proof Navigation
+
+Our primary app, AustinsElite, runs on Laravel 12 — not Next.js, despite earlier labels suggesting otherwise. But we *do* use a hybrid pattern where Blade templates render dynamic layouts with reusable components, similar in spirit to how you’d structure pages in a modern frontend framework.
+
+The fix? We leaned fully into Laravel’s named routing system. Instead of writing:
+
+```blade
+<a href="/services/weddings">Wedding Planning</a>
+```
+
+We switched to:
+
+```blade
+<a href="{{ route('services.weddings') }}">Wedding Planning</a>
+```
+
+This small change had outsized impact. Now, if we ever change the URI for that route — say, from `/services/weddings` to `/offerings/matrimony` — the link updates globally without touching a single template.
+
+We applied this pattern across our compact navigation bar, footer links, and even embedded CTAs within marketing copy. One commit — 'Switched compact nav to routes' — cleaned up over a dozen hardcoded strings and aligned our markup with Laravel best practices.
+
+But the real win was consistency. With named routes, we could build a shared navigation partial that dynamically pulls in route names and labels, ensuring every page uses the same destination logic. This became critical when adding the new Day-Of and Full Event Coordination pages. Instead of guessing paths or copying patterns, we just registered new named routes:
+
+```php
+Route::get('/services/day-of', [ServiceController::class, 'dayOf'])->name('services.day-of');
+Route::get('/services/full-event', [ServiceController::class, 'fullEvent'])->name('services.full-event');
+```
+
+Then dropped them into the nav config. Done.
+
+## Scaling the Design System Beyond This Release
+
+This refactor wasn’t just about cleaner code — it was about enabling velocity. By decoupling URL structure from presentation, we made it safer for non-developers (like content leads or junior team members) to work with navigation components without fear of breaking links.
+
+It also sets us up for future growth. Imagine spinning up seasonal microsites or regional variations (e.g., `austinselite.com/aus`). With named routes, we can abstract routing logic behind feature flags or environment-aware helpers, keeping the UI layer stable while backend paths evolve.
+
+We’re now treating routes as first-class citizens in our design system. Just like buttons or typography scales, they’re documented, versioned, and referenced consistently. We even auto-generate sitemaps and breadcrumbs using the same route collection, reducing duplication.
+
+Looking back, this feels like one of those 'small fix, big ripple' moments. We didn’t need a framework swap or a rewrite. Just a deliberate step toward better patterns within the stack we already trusted.
+
+If you're working in a hybrid environment — whether Laravel with Blade, Symfony with Twig, or Rails with ERB — don’t underestimate the power of named routes. They’re not just for form actions or redirects. They’re the backbone of a maintainable, scalable frontend.

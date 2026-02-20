@@ -1,0 +1,92 @@
+---
+title: "Escaping FCKeditor Limbo: How We Migrated a Legacy Codebase to TinyMCE Without Breaking Admin Workflows"
+date: "2025-02-02"
+excerpt: "Replacing FCKeditor in a brittle PHP app meant tackling DOM quirks, form serialization, and preserving formatting—without rewriting everything."
+tags: ["legacy PHP", "WYSIWYG migration", "TinyMCE", "FCKeditor", "front-end compatibility", "incremental modernization"]
+author: "Ryan Dashwood"
+---
+## The Editor That Refused to Die
+
+FCKeditor—yes, *that* FCKeditor—was still powering content editing in AustinsElite’s admin panel when I inherited it. Built in the mid-2000s and only lightly patched since, the app relied on a custom PHP framework with a few Laravel components sprinkled in. It wasn’t elegant, but it worked. Until it didn’t.
+
+Around late 2024, admins started reporting blank text areas, missing toolbars, and content vanishing on save. Debugging revealed the root cause: FCKeditor’s ancient JavaScript was choking in modern browsers. Event bindings failed, the DOM was inconsistently manipulated, and worse—it was impossible to debug due to minified, obfuscated code with no source maps. We were stuck: either gut the editor or accept that content creation would keep breaking.
+
+The final straw? A Chrome update that silently deprecated `document.designMode` handling in iframes—something FCKeditor leaned on heavily. We had to move, fast.
+
+## TinyMCE to the Rescue (With Caveats)
+
+We needed a modern WYSIWYG that could slot into our existing forms without rewriting half the admin interface. TinyMCE stood out: mature, well-documented, and—critically—designed to attach to existing `<textarea>` elements. That meant we could avoid touching the PHP form generation logic.
+
+The migration seemed straightforward:
+
+1. Remove FCKeditor’s init script.
+2. Include TinyMCE via CDN.
+3. Initialize it on the same textareas.
+4. Ship it.
+
+But of course, it wasn’t that simple.
+
+Our legacy forms used custom JavaScript to serialize content before AJAX submission. These handlers expected direct access to the `<textarea>`’s `.value`. With TinyMCE, the editor lives in an iframe—the real `<textarea>` only gets updated on `blur` or explicit `save()`. Our form scripts were grabbing empty or stale values.
+
+The fix? Two parts:
+
+First, we added `setup: (editor) => { editor.on('change', () => editor.save()); }` to force TinyMCE to sync content back to the textarea on every change. Not efficient, but safe.
+
+Second, we wrapped form submission in a helper that explicitly called `tinymce.triggerSave()` before serialization. This ensured the DOM was in sync, even if the editor hadn’t blurred.
+
+```js
+function submitForm() {
+  tinymce.triggerSave(); // Force all editors to sync
+  const formData = new FormData(document.getElementById('content-form'));
+  // ... proceed with fetch()
+}
+```
+
+We also hit a gotcha with content filtering. FCKeditor spat out messy HTML—font tags, inline styles, the works. TinyMCE, by default, cleaned aggressively. Suddenly, old content looked broken after re-editing.
+
+Solution? Custom TinyMCE config:
+
+```js
+tinymce.init({
+  invalid_elements: '',
+  extended_valid_elements: 'font[face|size|color|style]',
+  forced_root_block: '',
+  force_br_newlines: true,
+});
+```
+
+This preserved legacy markup while still giving us a functional editor.
+
+## When TinyMCE Became the Problem
+
+For a week, things looked good. Then reports came in: the admin panel felt sluggish, especially on older machines. Profiling revealed TinyMCE’s 700KB+ bundle was blocking the main thread on page load—overkill for our basic formatting needs (bold, lists, links).
+
+We’d solved one problem but created another.
+
+Enter NicEdit: a lightweight, dependency-free editor (~30KB) that also attaches to textareas. The switch was surprisingly smooth:
+
+- Removed TinyMCE script and init.
+- Added NicEdit via `<script>` tag.
+- Replaced init logic with:
+
+```js
+bkLib.onDomLoaded(function() {
+  new nicEditor({
+    fullPanel: true,
+    iconsPath: '/js/nicEditorIcons.gif'
+  }).panelInstance('content-textarea');
+});
+```
+
+NicEdit doesn’t use iframes—it transforms the textarea into a `contenteditable` div but keeps syncing back to the original element. Our existing form handlers worked unchanged.
+
+Best part? No more jank. Load times dropped, and admins stopped complaining about lag.
+
+## Lessons Learned
+
+- **Don’t underestimate form serialization quirks.** WYSIWYG editors that use iframes decouple UI from DOM—expect to bridge that gap.
+- **Legacy content is sacred.** If your app has years of user-generated HTML, configure your new editor to tolerate (not sanitize) it.
+- **Bundle size matters, even in admin panels.** Just because it’s internal doesn’t mean performance isn’t user experience.
+- **Incremental swaps work.** We went FCKeditor → TinyMCE → NicEdit over a month, learning at each step. No big bang, no downtime.
+
+Migrating old systems isn’t about shiny tools—it’s about surgical precision, respecting existing workflows, and knowing when to downsize, not just upgrade.

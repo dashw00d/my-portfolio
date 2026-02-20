@@ -1,0 +1,59 @@
+---
+title: "How We Decoupled Business Logic in a Legacy PHP App Using a New Service Layer"
+date: "2025-12-12"
+excerpt: "We introduced a service layer in a 15-year-old PHP app to untangle business logic, improve testing, and pave the way for future refactors."
+tags: ["PHP", "Laravel", "Legacy Code", "Service Layer", "Refactoring", "Testing"]
+author: "Ryan Dashwood"
+---
+## The Mess We Inherited
+
+AustinsElite (Legacy) has been running on a custom PHP framework with selective Laravel components for over 15 years. Over time, business logic bled everywhere—controllers grew into 800-line monsters, repositories handled validation, and domain rules were scattered across views and API endpoints. When I joined the modernization effort, our goal wasn’t a full rewrite (we couldn’t afford the risk), but to make the system *less fragile*—one refactor at a time.
+
+The biggest pain point? Controllers doing too much. One method in `OrderController` was responsible for validation, inventory checks, payment processing, email dispatch, and audit logging—all inline, tightly coupled, and nearly impossible to test in isolation. We needed a way to extract logic without breaking things. That’s where the service layer came in.
+
+## Building a Service Layer That Fits (Not Forces)
+
+We didn’t want to impose a perfect-on-paper architecture. This isn’t a greenfield Laravel 12 app. It’s a living, breathing legacy system with real users and uptime requirements. So we kept it simple: define clear interfaces, inject dependencies, and gradually shift responsibility.
+
+We started by identifying high-risk, high-churn areas—order processing, user onboarding, and subscription billing. For each, we created a service interface and a concrete implementation:
+
+```php
+interface OrderServiceInterface
+{
+    public function createOrder(array $data): Order;
+    public function cancelOrder(int $orderId): bool;
+}
+```
+
+Then bound it in our custom service container (yes, we still use a homegrown container, but it supports Laravel’s IoC patterns):
+
+```php
+App::bind(OrderServiceInterface::class, EloquentOrderService::class);
+```
+
+The implementation handled all business rules—inventory checks, payment gateway calls, event dispatching—while the controller became a thin orchestrator:
+
+```php
+public function store(Request $request)
+{
+    $order = $this->orderService->createOrder($request->validated());
+    
+    return response()->json($order, 201);
+}
+```
+
+We didn’t eliminate repositories—we repurposed them. They now handle *only* data access. The service layer composes them, applies logic, and manages transactions. This separation made cyclomatic complexity drop from 18 to 6 in key methods.
+
+Testing became dramatically easier. We wrote unit tests for services in isolation using mocks for gateways and repositories. We also added integration tests that boot the minimal app context to verify service-contract fidelity. The commit `feat: Introduce new service layer with comprehensive unit and integration tests` added 42 new tests covering core workflows—something we couldn’t have done before.
+
+## Real Impact: Less Fear, More Progress
+
+Two weeks in, we’ve refactored three major flows using this pattern. The results aren’t just technical—they’re cultural.
+
+New developers can now read `UserService` and understand user creation *without* digging through controller middleware, request classes, and model events. Onboarding time dropped from "a week of reading code" to "here’s the service, here’s the test, go break it (safely)."
+
+Maintainability improved too. When a payment provider changed their API, we only updated the service implementation—not five different controllers. And because services are stateless and interface-driven, swapping behavior (like using a mock during testing or staging) is trivial.
+
+Most importantly, we reduced fear. The app isn’t modern yet, but it’s *movable*. We’ve created seams where none existed. This service layer isn’t the end goal—it’s a stepping stone toward domain-driven design, eventual microservices, or even a full migration. But today, it lets us ship changes confidently.
+
+If you’re working on a legacy Laravel or Laravel-adjacent app, don’t underestimate the power of a humble service layer. It’s not flashy, but it works. Start small. Pick one messy flow. Extract the logic. Write a test. Repeat. You’ll be surprised how quickly the fog lifts.

@@ -1,0 +1,56 @@
+---
+title: "Removing the Kitty Cat: The Hidden Technical Debt in AI Prototypes"
+date: "2025-08-21"
+excerpt: "How a silly 'kitty cat' placeholder became a lesson in cleaning up technical debt as Lockline AI moved to production."
+tags: ["technical-debt", "ai-development", "code-cleanup", "full-stack", "production-readiness"]
+author: "Ryan Dashwood"
+---
+## The Commit That Started It All
+
+Last week, I merged a change so small it barely registered: removing the string 'kitty cat' from a response handler in Lockline AI. No tests broke. No features changed. But it felt like unclogging a drain I didn’t even know was blocked.
+
+That little phrase wasn’t malicious—it wasn’t even functional. It was a placeholder, added months ago during a late-night prototype session when the AI pipeline was still routing mock data through the frontend. A joke, really. 'If this shows up in prod, we’re in trouble,' someone said. We laughed. We shipped anyway.
+
+Fast forward to today: Lockline AI is pulling live weather data, running multi-provider AI inference, and feeding leads into real CRM workflows. And somewhere, deep in a JSON response, a ghost of that prototype era was still whispering, 'kitty cat'.
+
+It’s gone now. But its presence—and removal—taught me something important about how technical debt hides in plain sight, especially in AI-driven apps.
+
+## Why 'Kitty Cat' Was a Real Problem
+
+You might think: it’s just a string. Harmless. But in a production system, nothing is truly harmless if it’s unaccounted for.
+
+First, it created ambiguity. When a new developer joined the team and saw 'kitty cat' in a test output, they wasted 20 minutes tracing it through the stack. Was it a fallback? A debug flag? A data corruption issue? The cognitive load of unknowns adds up.
+
+Second, it masked real issues. We once had a bug where AI responses were being replaced by empty strings. Our logging showed the fallback path was triggering—but we ignored it because we assumed 'kitty cat' meant it was just the mock logic running. It wasn’t. It was a broken API key. We lost two hours of debugging time because the signal was buried in noise.
+
+And third, it eroded trust. When stakeholders see a system that occasionally returns nonsense strings, even in staging, they start questioning everything. Is the AI making up data? Are we logging properly? Is this actually ready for customers?
+
+That one little placeholder wasn’t just sloppy—it was a symptom of a bigger issue: we’d treated our prototype like a disposable sketch, not a foundation. And in AI development, where models evolve fast and integrations pile up, that mindset is dangerous.
+
+## How We Hunt Down Ghosts Like This
+
+We can’t avoid prototyping. We *shouldn’t*—rapid iteration is how we find what works. But we *can* build better habits around cleanup.
+
+Here’s what we’ve started doing in Lockline AI:
+
+**1. Label all mock data with metadata**
+
+Now, any placeholder response carries a flag: `{ "mock": true, "source": "prototype", "expires": "2025-07-01" }`. That way, if it leaks into logs or UI, we know exactly where it came from—and our CI pipeline can fail if mock data persists past its expiry.
+
+**2. Add 'debt audits' to sprint planning**
+
+Every two sprints, we dedicate half a day to hunting technical debt. We grep for `TODO`, `FIXME`, `mock`, `test`, and `placeholder`. We review old branches. We check if any environment variables still point to dev endpoints. It’s not glamorous, but it’s saved us from at least three near-misses.
+
+**3. Treat test artifacts like production code**
+
+We used to write quick, throwaway scripts to simulate AI responses. Now, those scripts live in version control with the same standards as app code: linted, documented, and tagged with a maintainer. If it touches the pipeline, it’s not disposable.
+
+**4. Automate the obvious**
+
+We added a pre-commit hook that scans for known placeholder patterns (yes, including 'kitty cat') and blocks the push with a reminder. It’s saved us twice already.
+
+The goal isn’t perfection—it’s awareness. Every project carries legacy quirks. But in AI systems, where outputs shape user decisions, we owe it to ourselves and our users to keep the signal clean.
+
+That 'kitty cat' commit was low-stakes. But the discipline it inspired isn’t. As Lockline AI moves from prototype to production, I’m learning that the difference between a toy and a tool isn’t just features—it’s hygiene.
+
+And if you ever see a 'kitty cat' in our logs again? Please, open a ticket. We’ve got standards now.

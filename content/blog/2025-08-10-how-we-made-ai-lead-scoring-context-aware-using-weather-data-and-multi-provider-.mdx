@@ -1,0 +1,46 @@
+---
+title: "How We Made AI Lead Scoring Context-Aware Using Weather Data and Multi-Provider Signals"
+date: "2025-08-10"
+excerpt: "We boosted lead relevance by feeding real-time weather and multi-provider signals into our AI scoring engine."
+tags: ["AI", "lead scoring", "weather API", "data integration", "GPT", "full-stack"]
+author: "Ryan Dashwood"
+---
+## The Problem With Generic Lead Scoring
+
+Most AI-powered lead scoring systems make the same mistake: they treat every lead the same, regardless of context. At Lockline AI, we were seeing decent conversion rates, but too many "good" scored leads were falling flat. Why? Because the model didn’t know it was raining in Austin or that a particular provider’s leads had a history of low intent on Mondays.
+
+We realized that to build a truly intelligent system, we needed to move beyond static signals—like form fills or page views—and start incorporating real-world context. That’s when we decided to enrich our lead scoring pipeline with external data, starting with weather and multi-provider metadata.
+
+## Adding Weather and Provider Signals to the AI Pipeline
+
+Our first step was identifying high-impact external factors. Weather stood out: in industries like home services or outdoor events, bad weather correlates with delayed decisions or canceled appointments. We also noticed that not all lead providers were created equal—some delivered high-intent users during weekends, others peaked midweek.
+
+So we rebuilt our ingestion layer to pull in real-time weather data from a third-party API at the moment a lead was processed. Using the lead’s ZIP code, we’d fetch current conditions (rain, heat, storms) and even forecast trends for the next 24 hours. This wasn’t just a boolean flag—we mapped conditions to impact scores. For example, heavy rain in a region prone to flooding got a higher penalty than light drizzle in Seattle.
+
+At the same time, we expanded support for multiple lead providers—something previously siloed in our Laravel 12 backend for AustinsElite (our production lead gen platform). Each provider now has a profile: historical conversion rate, average deal size, time-of-day performance, and now, contextual sensitivity. When a new lead arrives, we stamp it with metadata: `provider: 'LeadGenius'`, `weather_impact: -0.34`, `time_of_week_score: 0.87`.
+
+This enriched data then flows into our GPT-style scoring logic. Instead of just asking "Is this lead likely to convert?", we prompt the model with:
+
+```
+Given:
+- Lead from provider X (historical CVR: 4.2%)
+- Current weather: thunderstorm, 90% rain probability
+- Time: Monday 8 AM local
+- User behavior: visited pricing page 3x
+
+Score intent on a scale of 1-10, adjusting for external friction.
+```
+
+The prompt structure forces the model to weigh real-world friction. A perfect behavioral profile might get a 9—but if it’s storming and the provider usually underperforms early week, the score drops to a 6. That nuance matters.
+
+## Results: Smarter Leads, Fewer False Positives
+
+Within two weeks of deploying this updated pipeline, we saw measurable improvements. The percentage of high-scored leads (8+) that resulted in sales-qualified meetings increased by 22%. More importantly, the noise in our system dropped—we were no longer chasing leads that looked good on paper but had low real-world momentum.
+
+One clear example: a lead from a new provider came in with strong engagement metrics. Old model: score 9.2. New model, after checking weather: downgraded to 6.1 because of a forecasted hurricane watch. The lead didn’t respond for five days—then came back post-storm with a booking request. Our system had correctly flagged timing risk.
+
+We also gained operational flexibility. By decoupling provider logic and external data sources, we can now A/B test scoring strategies per provider or region. Want to know if cold weather suppresses solar leads in Denver? We can measure it and adjust the model accordingly.
+
+This wasn’t just an AI upgrade—it was a data architecture shift. We moved from reactive scoring to anticipatory intelligence. And it all started by asking: *What does the model not know that it should?*
+
+If you're building AI-driven systems, don’t just feed it more user data. Look outside. The weather matters. The source matters. Context is everything.

@@ -1,0 +1,49 @@
+---
+title: "How We Automated Portal Feature Generation in HomeForged Using Modular Pipelines"
+date: "2025-10-23"
+excerpt: "We replaced a brittle monolithic code generator with a modular pipeline—fixing 72+ test failures and fully automating portal UIs in Laravel."
+tags: ["Laravel", "Filament PHP", "Code Generation", "Pipeline Architecture", "Developer Tooling"]
+author: "Ryan Dashwood"
+---
+## The Generator That Broke More Than It Built
+
+Early in HomeForged’s development, we leaned hard on code generation to scaffold out portal features—resources, pages, forms, the works. It made sense at the time: Laravel’s Artisan commands gave us a clean entry point, and with Filament PHP powering our admin interface, we could spin up CRUD interfaces in seconds. But our first-gen generator was a monolith—a single, tangled command that tried to do everything at once: parse config, generate models, wire up Filament resources, and scaffold UI components. It worked… until it didn’t.
+
+We hit the wall when we added Phase 5 portal features. Suddenly, 72+ tests started failing—mostly around schema mismatches, incorrect relation handling, and inconsistent policy bindings. Debugging meant stepping through hundreds of lines of procedural logic. Worse, every new feature required fragile string-based templating overrides. We weren’t shipping faster—we were breaking faster.
+
+The kicker? We were generating *less* over time because the cost of maintaining the generator outweighed the time saved. That’s when we decided to rebuild from the ground up—not just fix it, but reframe it.
+
+## Enter the Pipeline: Small Stages, Big Wins
+
+We scrapped the monolith and rebuilt the generator as a modular pipeline. Instead of one command doing everything, we broke the process into discrete, testable stages:
+
+- **Parse Schema** →
+- **Generate Models & Migrations** →
+- **Build Filament Resources** →
+- **Scaffold Pages & Forms** →
+- **Wire Up Policies & Tests**
+
+Each stage is a lightweight, reusable class that accepts a context object and returns an updated one. We leaned into Laravel’s pipeline pattern—yes, the same one used in middleware—but applied it to code generation. Now, when we add a new portal feature, we don’t touch the core logic. We just plug in a new stage or tweak an existing one.
+
+The impact was immediate. We reran our test suite and watched 72+ failures drop to zero. Why? Because each stage could be tested in isolation. We could mock input, assert output, and verify side effects—something impossible with the old monolith. We even added snapshot testing for generated files using Pest, so we’d catch unintended changes early.
+
+But the real win was flexibility. One team needed enum-based status fields auto-injected into forms. Another wanted soft deletes toggled via config. With the pipeline, these weren’t special cases—they were just new transforms. We added a `HandleEnums` stage and a `ApplySoftDeletes` stage, and suddenly, customization became trivial.
+
+## Auto-Generated Portals, Zero Manual UI
+
+The end goal wasn’t just stable generation—it was full automation. And with the pipeline in place, we got there.
+
+Today, when we define a new portal feature in config (think: `portal: { resource: 'ClientProject', with: ['team', 'budget', 'status'] }`), the generator runs through the pipeline and spits out:
+
+- A fully-structured Eloquent model
+- A database migration with relationships
+- A Filament Resource with List, View, and Edit pages
+- Pre-wired form components (including enums, file uploads, and relation managers)
+- Policy-based authorization hooks
+- A starter test suite with CRUD coverage
+
+All of it generated. All of it consistent. And all of it editable—because we’re not locking devs in. If someone needs a custom form layout or a computed field, they can safely override just that part. The rest stays in sync.
+
+We’re now using this to spin up entire portal modules in under five minutes. No copy-pasting, no missed migrations, no forgotten policies. It’s not magic—it’s just well-structured code doing what code should: automating the boring stuff so we can focus on the hard problems.
+
+If you’re building internal tools with Laravel and Filament, don’t write a monolithic generator. Build a pipeline. Break it down. Test each piece. Let the machine do the typing. You’ll ship faster, break less, and actually enjoy maintaining your tooling.
