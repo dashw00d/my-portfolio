@@ -13,23 +13,23 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Fix Your Tech Problems - Business-Focused Developer | Ryan Stefan</title>
-        <meta name="description" content="I fix the tech problems that cost you customers. Slow sites, email deliverability, lead tracking, SEO. Laravel, Tailwind, modern tools." />
+        <title>AI Automation + Revenue Engineering | Ryan Stefan</title>
+        <meta name="description" content="I turn messy operations into growth systems. From converting a client's 15 years of staff logs into a 20x marketing boost to building adaptive AI agent automation platforms for any use case." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="keywords" content="web developer, Laravel, SEO, email deliverability, lead tracking, business websites, Ryan Stefan, dashwood" />
+        <meta name="keywords" content="AI automation platform, agent orchestration, Laravel 12, revenue engineering, SEO automation, marketing intelligence, Ryan Stefan, dashwood" />
         <meta name="author" content="Ryan Stefan" />
 
         {/* Open Graph */}
-        <meta property="og:title" content="Fix Your Tech Problems - Business-Focused Developer" />
-        <meta property="og:description" content="I solve tech problems that cost businesses customers. Performance, email, SEO, and custom development." />
+        <meta property="og:title" content="AI Automation + Revenue Engineering | Ryan Stefan" />
+        <meta property="og:description" content="I build adaptive agent automation systems and revenue engines: from legacy data unlocks to production-grade AI workflows." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://dashwood.net" />
         <meta property="og:site_name" content="Ryan Stefan - Dashwood" />
 
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Fix Your Tech Problems - Business-Focused Developer" />
-        <meta name="twitter:description" content="I solve tech problems that cost businesses customers. Performance, email, SEO, and custom development." />
+        <meta name="twitter:title" content="AI Automation + Revenue Engineering | Ryan Stefan" />
+        <meta name="twitter:description" content="Adaptive agent automation and real-world growth systems built on modern 2026 stacks." />
 
         <link rel="icon" href="/favicon.ico" />
         <link rel="canonical" href="https://dashwood.net" />
@@ -42,18 +42,18 @@ export default function Home() {
               "@context": "https://schema.org",
               "@type": "ProfessionalService",
               "name": "Dashwood - Ryan Stefan",
-              "description": "Business-focused web development solving technical problems that cost you customers.",
+              "description": "Revenue-focused engineering and AI automation systems that convert operational complexity into measurable growth.",
               "url": "https://dashwood.net",
               "telephone": "(737) 205-9226",
               "email": "ryan@dashwood.net",
               "founder": {
                 "@type": "Person",
                 "name": "Ryan Stefan",
-                "jobTitle": "Web Developer",
+                "jobTitle": "Automation Systems Engineer",
                 "email": "ryan@dashwood.net"
               },
               "areaServed": "Worldwide",
-              "serviceType": ["Web Development", "SEO Optimization", "Email Deliverability", "Performance Optimization"]
+              "serviceType": ["AI Agent Automation", "Revenue Systems Engineering", "SEO Automation", "Marketing Intelligence", "Performance Optimization"]
             })
           }}
         />

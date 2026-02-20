@@ -3,12 +3,12 @@ import Link from "next/link";
 
 const CASES = [
   {
-    sector: "Local Services",
-    title: "Invisible on Google → booked out",
-    summary: "Comprehensive local SEO overhaul: virtual address setup, internal linking architecture, location pages, review engine automation, structured data markup, GMB optimization, and citation building moved them from page 4 to top map pack position.",
-    before: "12 organic leads/mo",
-    after: "42 organic leads/mo",
-    tags: ["Local SEO", "Virtual Address", "Internal Linking", "GMB Optimization"],
+    sector: "Marketing Intelligence",
+    title: "A client’s 15 years of staff logs → 20× marketing boost",
+    summary: "Converted historical staffing and event logs into structured growth intelligence: trend extraction, segment mapping, content triggers, and campaign direction tied to real demand data.",
+    before: "Siloed historical logs",
+    after: "20× marketing lift",
+    tags: ["Data Intelligence", "Laravel 12", "Growth Automation", "SEO Systems"],
     accentColor: "brand",
   },
   {
@@ -21,12 +21,12 @@ const CASES = [
     accentColor: "success",
   },
   {
-    sector: "Staffing & Events",
-    title: "Event staffing platform shipped in 6 weeks",
-    summary: "Complete staffing management system with event calendar, hire/assign/pay staff, automated email & SMS notifications, role-based access, comprehensive reporting, and payment processing.",
-    before: "Manual Excel spreadsheets & phone calls",
-    after: "500+ events staffed, 2k+ staff managed",
-    tags: ["Laravel", "Livewire", "Event Management", "SMS Integration"],
+    sector: "Agent Automation",
+    title: "Elite automation platform adaptable to any use case",
+    summary: "Built a reusable multi-agent orchestration layer with shared context, queue controls, remediation guidance, and support payload exports so teams can ship automations safely at scale.",
+    before: "One-off scripts and manual ops",
+    after: "Composable automation workflows",
+    tags: ["Agent Orchestration", "Automation", "ChromaDB", "Operational Reliability"],
     accentColor: "accent",
   },
   {
@@ -60,7 +60,9 @@ export default function Examples() {
             </div>
             <h2 className="text-4xl font-bold bg-gradient-to-r from-zinc-900 to-brand-800 bg-clip-text text-transparent md:text-5xl">Proof it works in the real world</h2>
             <p className="mt-3 max-w-2xl text-lg text-zinc-600">
-              Each project starts by quantifying the leak, then ends with a before/after you can show investors, partners, or your team.
+              Real before/after outcomes: legacy data converted into growth,
+              automation platforms that adapt by use case, and modern stack
+              upgrades that keep revenue systems current in 2026.
             </p>
           </div>
           <Link

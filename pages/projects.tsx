@@ -8,39 +8,39 @@ import CustomBuildCta from "../components/CustomBuildCta";
 
 const DEMOS = [
   {
-    title: "Conversion-Ready Service Landing Page",
-    caption: "Speed + authority for local operators",
+    title: "Client Staff Log Intelligence Engine",
+    caption: "15 years of ops data → measurable demand",
     description:
-      "A modular Next.js build that scores 99/100 on Lighthouse, includes pre-written testimonials, FAQs, and contact forms wired to HubSpot.",
+      "Converted long-tail staffing logs into clean, queryable marketing intelligence. Built extraction + normalization + insight loops that unlocked campaign targeting and content velocity.",
     metrics: [
-      { label: "Page load", value: "0.9s" },
-      { label: "Lead uplift", value: "+180%" },
+      { label: "Marketing impact", value: "20× boost" },
+      { label: "Historical depth", value: "15 years" },
     ],
-    technologies: ["Next.js", "Tailwind", "HubSpot"],
+    technologies: ["Laravel 12", "Data Normalization", "SEO Automation"],
     previewLink: "",
   },
   {
-    title: "Deliverability Dashboard",
-    caption: "Keep email revenue online",
+    title: "Elite Agent Automation Platform",
+    caption: "Adaptable automation for any use case",
     description:
-      "A Laravel + Livewire console that monitors SPF/DKIM, bounce rates, and sender scores. Alerts your team in Slack before deliverability drops.",
+      "A modular multi-agent system with shared context, recovery guardrails, and role-based orchestration. Designed to adapt quickly to ops, support, growth, and content workflows.",
     metrics: [
-      { label: "Inbox rate", value: "98%" },
-      { label: "Setup time", value: "5 days" },
+      { label: "Deployment mode", value: "Composable" },
+      { label: "Use-case fit", value: "Cross-domain" },
     ],
-    technologies: ["Laravel", "Livewire", "Postmark"],
+    technologies: ["OpenClaw", "ChromaDB", "Workflow Orchestration"],
     previewLink: "",
   },
   {
-    title: "Attribution Scorecard",
-    caption: "See where every lead came from",
+    title: "2026 Revenue Systems Modernization",
+    caption: "Current stack, practical execution",
     description:
-      "Client-ready Notion-style dashboard backed by Supabase. Breaks down traffic sources, revenue, and campaign ROI with exportable reports.",
+      "Production modernization across legacy and current systems: Laravel 12 hardening, AI-assisted automation, SEO infrastructure, and observability that ties engineering output to growth outcomes.",
     metrics: [
-      { label: "Integrations", value: "GA4, Meta, GSheets" },
-      { label: "Launch", value: "2 weeks" },
+      { label: "Core stack", value: "Laravel 12 + AI" },
+      { label: "Delivery style", value: "Build + prove" },
     ],
-    technologies: ["Next.js", "Supabase", "Notion API"],
+    technologies: ["Laravel 12", "AI Automation", "Observability"],
     previewLink: "",
   },
 ];
@@ -49,26 +49,26 @@ export default function Projects() {
   return (
     <>
       <Head>
-        <title>Project Demos - Ryan Stefan | Web Development Portfolio</title>
+        <title>Project Demos - Ryan Stefan | AI Automation + Revenue Systems</title>
         <meta
           name="description"
-          content="Preview demo builds and case studies that show how Ryan Stefan helps business owners fix tech pain points fast. Landing pages, dashboards, and automation systems."
+          content="Case studies and demos: a 20× marketing boost from a client's 15 years of staff logs, adaptive agent automation platforms, and 2026-ready revenue engineering systems."
         />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="keywords" content="web development portfolio, project demos, Laravel projects, Next.js projects, case studies, Ryan Stefan, dashwood" />
+        <meta name="keywords" content="AI automation portfolio, Laravel 12 projects, agent orchestration, marketing intelligence, revenue systems, Ryan Stefan, dashwood" />
         <meta name="author" content="Ryan Stefan" />
 
         {/* Open Graph */}
-        <meta property="og:title" content="Project Demos - Ryan Stefan" />
-        <meta property="og:description" content="Preview demo builds and case studies showing real-world solutions: landing pages, deliverability dashboards, and attribution scorecards." />
+        <meta property="og:title" content="Project Demos - Ryan Stefan | AI Automation + Revenue Systems" />
+        <meta property="og:description" content="See how legacy data became a 20× marketing boost, and how adaptive agent automation platforms are built for real operations." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://dashwood.net/projects" />
         <meta property="og:site_name" content="Ryan Stefan - Dashwood" />
 
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Project Demos - Ryan Stefan" />
-        <meta name="twitter:description" content="Preview demo builds and case studies showing real-world solutions for business tech problems." />
+        <meta name="twitter:title" content="Project Demos - Ryan Stefan | AI Automation + Revenue Systems" />
+        <meta name="twitter:description" content="20× marketing lift case study + adaptive agent automation systems built on modern 2026 stacks." />
 
         <link rel="icon" href="/favicon.ico" />
         <link rel="canonical" href="https://dashwood.net/projects" />
@@ -81,7 +81,7 @@ export default function Projects() {
               "@context": "https://schema.org",
               "@type": "CollectionPage",
               "name": "Project Demos - Ryan Stefan",
-              "description": "A curated collection of web development projects and case studies by Ryan Stefan.",
+              "description": "A curated collection of revenue-focused engineering case studies by Ryan Stefan, including AI automation and legacy-data intelligence projects.",
               "url": "https://dashwood.net/projects",
               "author": {
                 "@type": "Person",
@@ -95,20 +95,20 @@ export default function Projects() {
                 "itemListElement": [
                   {
                     "@type": "SoftwareApplication",
-                    "name": "Conversion-Ready Service Landing Page",
-                    "description": "A modular Next.js build that scores 99/100 on Lighthouse, includes pre-written testimonials, FAQs, and contact forms wired to HubSpot.",
+                    "name": "Client Staff Log Intelligence Engine",
+                    "description": "Transformed a client's 15 years of staffing logs into actionable marketing intelligence and campaign acceleration.",
                     "applicationCategory": "WebApplication"
                   },
                   {
                     "@type": "SoftwareApplication",
-                    "name": "Deliverability Dashboard",
-                    "description": "A Laravel + Livewire console that monitors SPF/DKIM, bounce rates, and sender scores.",
+                    "name": "Elite Agent Automation Platform",
+                    "description": "Composable multi-agent orchestration platform adaptable across operations, support, content, and growth workflows.",
                     "applicationCategory": "WebApplication"
                   },
                   {
                     "@type": "SoftwareApplication",
-                    "name": "Attribution Scorecard",
-                    "description": "Client-ready dashboard that breaks down traffic sources, revenue, and campaign ROI with exportable reports.",
+                    "name": "2026 Revenue Systems Modernization",
+                    "description": "Modern Laravel 12 + AI automation architecture with SEO infrastructure and observability tied to growth outcomes.",
                     "applicationCategory": "WebApplication"
                   }
                 ]
@@ -130,13 +130,15 @@ export default function Projects() {
 
           <div className="mx-auto flex max-w-4xl flex-col gap-6 text-center">
             <p className="mx-auto inline-flex items-center gap-2 rounded-full border border-brand-200/60 bg-white/70 px-4 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-brand-600 shadow-sm">
-              Demo library
+              2026 featured systems
             </p>
             <h1 className="text-4xl font-black tracking-tight md:text-6xl">
-              See the playbooks in action
+              High-leverage builds, not portfolio fluff
             </h1>
             <p className="text-lg leading-relaxed text-zinc-600">
-              A curated look at systems I deliver for owners—landing pages, dashboards, and automations that solve the problems we chat about on our intro call.
+              From turning a client’s 15 years of staffing logs into a 20× marketing boost
+              to building adaptable agent automation platforms, these are the
+              systems I deploy when outcomes matter.
             </p>
             <div className="mt-2">
               <CustomBuildCta
