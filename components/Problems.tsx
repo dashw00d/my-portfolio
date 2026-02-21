@@ -372,7 +372,7 @@ function ProblemCard({ problem }: { problem: Problem }) {
         <div className="pointer-events-none absolute inset-0 paw-trail-layer paw-trail-layer--reverse opacity-15" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(3,101,100,0.1),_transparent_60%)]" />
 
-      <div className="relative mx-auto max-w-6xl px-6">
+      <div className="relative mx-auto max-w-7xl px-6">
         <div className="mb-12 text-center">
           <h2 id="problems-hero" className="mx-auto mb-4 max-w-3xl text-4xl font-bold text-zinc-900 lg:text-5xl">
             Spot the leak → deploy the fix

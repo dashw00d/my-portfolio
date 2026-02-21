@@ -8,7 +8,7 @@ export default function Services() {
       <div className="pointer-events-none absolute inset-x-0 -bottom-24 h-32 bg-gradient-to-t from-zinc-900 via-zinc-900/40 to-transparent" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(3,54,73,0.32),_transparent_60%)]" />
       <div className="absolute inset-0 bg-service-grid opacity-40 animate-grid-wave" />
-      <div className="relative mx-auto flex max-w-6xl flex-col gap-16 px-6">
+      <div className="relative mx-auto flex max-w-7xl flex-col gap-16 px-6">
         <div className="max-w-3xl">
           <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-brand-200">
             Fixed-fee playbooks

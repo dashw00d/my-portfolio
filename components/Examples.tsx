@@ -46,7 +46,7 @@ export default function Examples() {
       <div className="pointer-events-none absolute inset-x-0 -top-24 h-32 bg-gradient-to-b from-highlight-100/60 via-white/60 to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 -bottom-24 h-32 bg-gradient-to-t from-brand-900/15 via-brand-800/5 to-transparent" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(3,101,100,0.08),_transparent_65%)]" />
-      <div className="relative mx-auto max-w-6xl px-6">
+      <div className="relative mx-auto max-w-7xl px-6">
         {/* Decorative elements */}
         <div className="pointer-events-none absolute left-4 top-16 h-3 w-3 rounded-full bg-success-400/20 animate-ping" />
         <div className="pointer-events-none absolute right-8 top-24 h-1 w-12 rounded-full bg-brand-400/15 animate-pulse" style={{animationDelay: '0.5s'}} />

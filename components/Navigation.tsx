@@ -26,7 +26,7 @@ export default function Navigation() {
     <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${
       isScrolled ? 'bg-white/95 backdrop-blur-sm shadow-lg border-b border-brand-100/50' : 'bg-transparent'
     }`}>
-      <div className="mx-auto max-w-6xl px-6">
+      <div className="mx-auto max-w-7xl px-6">
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="text-xl font-bold flex items-baseline hover:cursor-pointer group">
             <span className="text-zinc-900 font-light group-hover:font-bold transition-all duration-300">Ryan</span>

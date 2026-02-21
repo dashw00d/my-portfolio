@@ -55,7 +55,7 @@ export default function Process() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(205,179,128,0.18),_transparent_65%)]" />
       </div>
 
-      <div className="relative mx-auto max-w-6xl px-6">
+      <div className="relative mx-auto max-w-7xl px-6">
         {/* Decorative elements */}
         <div className="pointer-events-none absolute left-8 top-20 h-2 w-2 rounded-full bg-brand-400/30 animate-ping" />
         <div className="pointer-events-none absolute right-12 top-32 h-1 w-8 rounded-full bg-accent-400/20 animate-pulse" style={{animationDelay: '1s'}} />

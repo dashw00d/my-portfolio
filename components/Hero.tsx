@@ -51,7 +51,7 @@ export default function Hero() {
         <div className="absolute right-0 top-1/3 w-px h-24 bg-gradient-to-b from-transparent via-accent-300/20 to-transparent" />
       </div>
 
-      <div className="mx-auto grid max-w-6xl items-center gap-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+      <div className="mx-auto grid max-w-7xl items-center gap-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <div className="max-w-3xl">
           <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-brand-200/70 bg-white/70 px-4 py-1.5 text-sm font-medium text-brand-700 shadow-sm backdrop-blur">
             <div className="h-2 w-2 animate-pulse rounded-full bg-success-500" />
