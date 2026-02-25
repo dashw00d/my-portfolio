@@ -1,0 +1,36 @@
+---
+title: "Hardening User Impersonation and Search State in Legacy AustinsElite Systems"
+date: "2026-02-23"
+excerpt: "Today focused on securing staff impersonation sessions and preserving UI state during tab navigation in the legacy AustinsElite app."
+tags: ["Laravel", "PHP", "Security", "Frontend", "Hybrid Architecture", "Session Management"]
+author: "Ryan Dashwood"
+---
+## Securing Impersonation with Timeouts and Scope Isolation
+
+One of the more sensitive features in AustinsElite’s legacy system is staff impersonation — allowing admins to temporarily assume the identity of a user for debugging or support. While powerful, this capability introduces real risks if sessions aren’t properly isolated or if they persist longer than necessary. Today, I addressed two critical gaps in this flow.
+
+The first fix ([commit 1857c385](#)) resolves a session leak where staff role flags were incorrectly persisting into the admin’s primary session after impersonation ended. This happened because the impersonation context wasn’t fully encapsulated — certain role indicators were being written directly into the session namespace shared with the admin’s original identity. The fix ensures that all impersonated user attributes, especially role-related flags, are stored in a dedicated, isolated context and are completely purged upon exit. This prevents privilege escalation scenarios where an admin might unknowingly retain elevated or conflicting permissions.
+
+Following that, I implemented a session timeout for active impersonation ([commit a854be25](#)). Now, any impersonation session automatically terminates after 15 minutes of inactivity. This aligns with internal security policies for elevated access and reduces the window of exposure in cases where an admin walks away from their machine. The timeout is enforced via a timestamp check on each request within the impersonation context, and users are redirected back to their admin dashboard with a clear notice. This was implemented using Laravel’s session helpers rather than relying on PHP’s native garbage collection, giving us more predictable and application-level control.
+
+## Preserving View State Across Tab Navigation
+
+The user management interface includes a tabbed layout — allowing admins to switch between active, suspended, and deleted user views. A long-standing issue was that performing a search on the 'deleted users' tab and then switching to 'active users' would reset the search form, but the underlying filter state wasn’t properly synchronized when returning.
+
+Today’s fix ([commit 95d90d86](#)) ensures the filter form is included in the DOM targets swapped during tab transitions. Previously, only the result container was being updated via Turbo or AJAX (depending on context), leaving the form state out of sync. By including the form in the swapped targets, the search query and filters now persist correctly across tab switches. This creates a more predictable UX, especially for admins who need to compare results across user states without re-entering criteria.
+
+This might seem like a minor UI detail, but in practice, it prevents erroneous actions — such as applying bulk operations to the wrong subset of users due to stale or invisible filter states. The change was implemented within the Blade template structure, ensuring the form and results are part of the same fragment boundary. No JavaScript logic was required, which keeps the solution durable and easier to debug.
+
+## Fixing Closure Use in Deleted User Search
+
+The third commit ([e361689a](#)) addressed a PHP runtime error that occasionally surfaced during searches within the deleted users list. The issue stemmed from a closure in a query builder chain that improperly captured a variable reference in a loop context. Specifically, a `use ($query)` closure inside a conditional block was referencing a variable that had been redefined in an outer scope, leading to unpredictable filtering behavior or fatal errors in edge cases.
+
+The fix involved restructuring the conditional logic to ensure the closure captures the correct instance of `$query` by explicitly passing it through each chain link and avoiding late binding in dynamic conditions. This is a classic PHP gotcha, especially in legacy Laravel versions where query scopes aren’t always used consistently. While AustinsElite has evolved to use more Laravel patterns over time, this module predates that shift and still mixes raw query building with Eloquent, so these edge cases require careful attention.
+
+This kind of issue doesn’t always surface in testing — it often depends on data shape and execution path — so I added a debug assertion in the dev environment to log the query structure when soft-deleted records are involved. This will help catch similar scoping issues in other admin tools.
+
+## Moving Toward a More Maintainable Hybrid Architecture
+
+These four commits might seem small in isolation, but they reflect a broader effort: stabilizing the hybrid nature of AustinsElite’s legacy codebase. We’re not rewriting everything, but we are incrementally raising the floor on security, consistency, and developer clarity. Each fix strengthens the boundary between user contexts, improves state predictability, or reduces technical debt in ways that compound over time.
+
+The fact that we’re able to implement session timeouts, fix closure scoping, and improve UI state management without major refactors speaks to the flexibility of Laravel’s components — even when embedded in a primarily legacy PHP application. This hybrid approach isn’t ideal long-term, but it’s pragmatic, and today’s work proves we can make meaningful improvements without rewriting the world.
