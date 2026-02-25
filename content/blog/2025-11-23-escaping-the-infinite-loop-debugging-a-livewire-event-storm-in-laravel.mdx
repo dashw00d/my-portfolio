@@ -21,7 +21,7 @@ I started isolating components. Disabling sections of the builder. Adding `dd()`
 
 That action dispatched a `BuilderEvent::MODULE_ADDED` event, which several Livewire components were listening for. Pretty standard pub/sub stuff. But when I checked the listener setup, something felt off.
 
-We’d recently refactored our event system. The old `BuilderEvent` enum—used everywhere—had been deprecated in favor of a more granular system. But while the *dispatchers* had been updated, some *listeners* were still referencing the old enum values.
+I’d recently refactored my event system. The old `BuilderEvent` enum—used everywhere—had been deprecated in favor of a more granular system. But while the *dispatchers* had been updated, some *listeners* were still referencing the old enum values.
 
 Here’s where Livewire’s magic became a trap.
 

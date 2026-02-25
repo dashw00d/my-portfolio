@@ -7,7 +7,7 @@ author: "Ryan Dashwood"
 ---
 ## Setting Up Eloquent Models for Vendors and Ads
 
-When building the vendor ad system for AustinsElite, the first step was modeling the data correctly. We needed vendors, their ads, and a clean way to manage them both in the admin and on the frontend. Using Laravel 12’s Eloquent, I set up a `Vendor` model and a `VendorAd` model with a one-to-many relationship—each vendor can have multiple ads, but each ad belongs to one vendor.
+When building the vendor ad system for AustinsElite, the first step was modeling the data correctly. I needed vendors, their ads, and a clean way to manage them both in the admin and on the frontend. Using Laravel 12’s Eloquent, I set up a `Vendor` model and a `VendorAd` model with a one-to-many relationship—each vendor can have multiple ads, but each ad belongs to one vendor.
 
 The `VendorAd` model includes fields like `title`, `description`, `image_url`, `is_active`, and `position`—the last two being critical for admin control and frontend rendering. I added soft deletes and timestamps for auditability, and scoped queries to only return active ads (`where('is_active', true)`) to keep the frontend lean.
 
@@ -45,7 +45,7 @@ This not only prevented timeouts but made the import idempotent and resumable. I
 
 ## Integrating Ads into the Next.js Frontend
 
-Even though AustinsElite’s primary app runs on Laravel 12, we’re using a Next.js frontend for specific dynamic pages—like the vendor directory and ad carousel. So the final step was getting ad data from Laravel to Next.js.
+Even though AustinsElite’s primary app runs on Laravel 12, I’m using a Next.js frontend for specific dynamic pages—like the vendor directory and ad carousel. So the final step was getting ad data from Laravel to Next.js.
 
 I created a simple API route in Laravel (`/api/vendor-ads`) that returns active ads with vendor info via resource collections.
 
@@ -72,4 +72,4 @@ One gotcha: CORS. I used Laravel Sanctum to secure the endpoint and set proper h
 
 The result? A snappy, admin-managed ad carousel that updates in real time—no rebuilds, no deploys, just data changes in Filament.
 
-This project reinforced something I’ve learned the hard way: a great admin panel isn’t just about CRUD. It’s about import resilience, data hygiene, and making frontend integration dead simple. Filament + Laravel 12 nails the backend; Next.js gives us the flexibility we need up front. Together, they’re a solid combo for content-heavy, admin-driven apps.
+This project reinforced something I’ve learned the hard way: a great admin panel isn’t just about CRUD. It’s about import resilience, data hygiene, and making frontend integration dead simple. Filament + Laravel 12 nails the backend; Next.js gives me the flexibility I need up front. Together, they’re a solid combo for content-heavy, admin-driven apps.

@@ -7,9 +7,9 @@ author: "Ryan Dashwood"
 ---
 ## The Challenge: Breathing Life into a Legacy Homepage
 
-AustinsElite has been running on Laravel for years—solid backend, reliable, battle-tested. But the frontend? Stale. The homepage felt like a time capsule: flat design, zero interactivity, and no visual hierarchy to guide users. Our migration plan isn’t a big-bang rewrite; it’s incremental. We’re modernizing piece by piece while keeping the Laravel 12 core intact. So the challenge wasn’t about swapping frameworks—it was about delivering a modern user experience *within* the constraints of a legacy stack.
+AustinsElite has been running on Laravel for years—solid backend, reliable, battle-tested. But the frontend? Stale. The homepage felt like a time capsule: flat design, zero interactivity, and no visual hierarchy to guide users. My migration plan isn’t a big-bang rewrite; it’s incremental. I’m modernizing piece by piece while keeping the Laravel 12 core intact. So the challenge wasn’t about swapping frameworks—it was about delivering a modern user experience *within* the constraints of a legacy stack.
 
-Enter Alpine.js and CSS gradients. No React, no Vue, no overhead. Just lightweight enhancements that could plug right into our existing Blade templates and make an immediate visual impact.
+Enter Alpine.js and CSS gradients. No React, no Vue, no overhead. Just lightweight enhancements that could plug right into my existing Blade templates and make an immediate visual impact.
 
 ## Adding Motion with Alpine.js—No Framework Required
 
@@ -29,7 +29,7 @@ Here’s how I implemented a float effect on the hero headline:
 
 This sets up reactive state (`x-data`) and listens to the scroll event (`x-init`). When the user scrolls past 50px, the `float` flag flips, and the `translate-y-1` class applies a slight downward shift—creating the illusion of weightlessness.
 
-I also added an ID to the hero section (`id="hero"`) so we could smoothly scroll to it from navigation links. Small detail, big usability win:
+I also added an ID to the hero section (`id="hero"`) so I could smoothly scroll to it from navigation links. Small detail, big usability win:
 
 ```html
 <a href="#hero" class="scroll-link">Home</a>
@@ -68,8 +68,8 @@ And none of it requires a CSS framework. Just a few lines of modern CSS, progres
 
 ## Why This Approach Wins in Hybrid Migrations
 
-This wasn’t about rewriting the app. It was about proving that modern UX doesn’t require modern stacks. By using Alpine.js for lightweight interactivity and CSS for visual polish, we upgraded the user experience without touching the Laravel backend or committing to a full frontend overhaul.
+This wasn’t about rewriting the app. It was about proving that modern UX doesn’t require modern stacks. By using Alpine.js for lightweight interactivity and CSS for visual polish, I upgraded the user experience without touching the Laravel backend or committing to a full frontend overhaul.
 
-The January sprint focused heavily on frontend refinement—gradients, shadows, carousel improvements—all while keeping the Laravel 12 core humming. This change, captured in the commit `imrpoved homepage style`, is a microcosm of our broader strategy: small, focused updates that compound into a dramatically better product.
+The January sprint focused heavily on frontend refinement—gradients, shadows, carousel improvements—all while keeping the Laravel 12 core humming. This change, captured in the commit `imrpoved homepage style`, is a microcosm of my broader strategy: small, focused updates that compound into a dramatically better product.
 
 If you’re working on a legacy app, don’t wait for the perfect rewrite. Start small. Add motion. Add depth. Use tools that fit your stack, not fight it. Sometimes, the most powerful upgrades are the ones that don’t need a new framework—just a fresh perspective.

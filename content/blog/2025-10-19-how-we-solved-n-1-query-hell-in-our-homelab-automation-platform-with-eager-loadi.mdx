@@ -1,5 +1,5 @@
 ---
-title: "How We Solved N+1 Query Hell in Our Homelab Automation Platform with Eager Loading"
+title: "How I Solved N+1 Query Hell in My Homelab Automation Platform with Eager Loading"
 date: "2025-10-19"
 excerpt: "How a simple Laravel eager loading fix slashed query counts from 101 to 2 on HomeForged's events dashboard."
 tags: ["Laravel", "Performance", "Eager Loading", "N+1 Query", "Homelab", "Optimization"]
@@ -54,7 +54,7 @@ That one change dropped the total query count from 101 to 2. The page load time?
 
 ## Seeding for Consistency (and Fewer Surprises)
 
-While fixing the N+1, I also realized our seeders weren’t consistent. Some events were being created without valid positions, which led to both bugs and misleading performance tests.
+While fixing the N+1, I also realized my seeders weren’t consistent. Some events were being created without valid positions, which led to both bugs and misleading performance tests.
 
 So I updated the seeders to ensure every event has a properly linked position:
 
@@ -65,7 +65,7 @@ Event::factory()
     ->create();
 ```
 
-This not only made the test data more realistic but also ensured that our optimization was being tested under real-world conditions. No more phantom null relationships skewing results.
+This not only made the test data more realistic but also ensured that my optimization was being tested under real-world conditions. No more phantom null relationships skewing results.
 
 ## The Bigger Picture: Why This Matters
 

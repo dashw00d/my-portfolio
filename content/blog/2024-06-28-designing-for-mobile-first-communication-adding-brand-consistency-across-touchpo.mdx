@@ -7,21 +7,21 @@ author: "Ryan Dashwood"
 ---
 ## From Forgotten Footer to Branded Experience
 
-Let’s be real—emails are an afterthought for most devs. You build a slick form, wire up the backend, and slap together a plain text notification. It works, sure. But "works" isn’t the same as "delivers a great user experience."
+I’ll be real—emails are an afterthought for most devs. You build a slick form, wire up the backend, and slap together a plain text notification. It works, sure. But "works" isn’t the same as "delivers a great user experience."
 
-At AustinsElite, our contact form used to send bare-bones text emails. No branding. No visual hierarchy. Just a wall of data dumped into an inbox. Not exactly the vibe we wanted for a site that prides itself on polish.
+At AustinsElite, my contact form used to send bare-bones text emails. No branding. No visual hierarchy. Just a wall of data dumped into an inbox. Not exactly the vibe I wanted for a site that prides itself on polish.
 
-So I decided to treat our form response emails like any other user-facing interface: design them intentionally, make them responsive, and align them with our brand. The result? A cohesive, professional touchpoint that feels like part of the same product—not an overlooked backend artifact.
+So I decided to treat my form response emails like any other user-facing interface: design them intentionally, make them responsive, and align them with my brand. The result? A cohesive, professional touchpoint that feels like part of the same product—not an overlooked backend artifact.
 
 ## Mobile-First Branding: More Than Just a Logo
 
-One of the first things I noticed was how weak our branding looked on mobile. The desktop logo didn’t scale down well, and without any visual anchor, the email felt anonymous.
+One of the first things I noticed was how weak my branding looked on mobile. The desktop logo didn’t scale down well, and without any visual anchor, the email felt anonymous.
 
 The fix? A dedicated mobile-optimized logo asset. I added a simplified, horizontal version of the AustinsElite logo—clean, legible, and sized to fit comfortably in a 320px viewport. This wasn’t just about shrinking the image; it was about designing for the context where most people read emails: on their phones.
 
 But adding the logo was only half the battle. The real win came from extending the site’s design language into the email template. Using Tailwind CSS (yes, even in emails—more on that in a sec), I replicated the color scheme, typography, and spacing system from the main site. Buttons got the same rounded corners and hover states. Headings used the same font weights. Even the padding felt familiar.
 
-This consistency matters. When a user submits a form on the site and gets an email that looks like it came from the same universe, trust increases. They’re not second-guessing if it’s spam or a third-party service. It feels like *us*.
+This consistency matters. When a user submits a form on the site and gets an email that looks like it came from the same universe, trust increases. They’re not second-guessing if it’s spam or a third-party service. It feels like *me*.
 
 ## Building Emails That Actually Work (Everywhere)
 
@@ -29,7 +29,7 @@ Here’s the hard truth: email clients are the IE6 of 2024. Gmail doesn’t supp
 
 The answer: strategic inlining and a hybrid approach. I used Laravel’s Markdown Mailables (yes, AustinsElite runs on Laravel 12—shoutout to the backend) to generate the base structure, then manually inlined critical styles using Tailwind’s `@apply` directives and a post-processing step to ensure compatibility.
 
-Here’s a snippet of how we structured the responsive container:
+Here’s a snippet of how I structured the responsive container:
 
 ```blade
 <div class="bg-gray-50 px-4 py-8" style="background-color: #f9fafb; padding: 1.5rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">

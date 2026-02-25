@@ -5,11 +5,11 @@ excerpt: "How I used htmx and SQLite in Docker to build a fast, live-editable ad
 tags: ["htmx", "Flask", "SQLite", "Docker", "admin interface", "Python"]
 author: "Ryan Dashwood"
 ---
-## Why We Needed a Smarter Admin Panel
+## Why I Needed a Smarter Admin Panel
 
-Lockline AI started as a lean internal tool, but as our team grew, so did the need for non-engineers to tweak configurations—things like feature flags, user roles, and workflow rules. Our original admin interface was static. Any change meant opening a PR or running a script. That wasn’t sustainable.
+Lockline AI started as a lean internal tool, but as my team grew, so did the need for non-engineers to tweak configurations—things like feature flags, user roles, and workflow rules. My original admin interface was static. Any change meant opening a PR or running a script. That wasn’t sustainable.
 
-We needed something live, intuitive, and editable in place—without dragging in React or Vue. The goal: let product managers and ops folks make safe, immediate changes while keeping the stack simple and maintainable.
+I needed something live, intuitive, and editable in place—without dragging in React or Vue. The goal: let product managers and ops folks make safe, immediate changes while keeping the stack simple and maintainable.
 
 Enter htmx.
 
@@ -34,13 +34,13 @@ The best part? The team didn’t need training. They just clicked and edited, li
 
 ## SQLite + Docker: Consistent, Shareable State
 
-Early versions of Lockline AI used in-memory storage, which made admin changes vanish on restart. Not ideal. We needed persistence, but without the ops burden of PostgreSQL or MongoDB.
+Early versions of Lockline AI used in-memory storage, which made admin changes vanish on restart. Not ideal. I needed persistence, but without the ops burden of PostgreSQL or MongoDB.
 
-Switching to SQLite was a no-brainer. Lightweight, file-based, zero-config. But we still had to solve environment parity—dev, staging, and preview instances needed the same schema and seed data.
+Switching to SQLite was a no-brainer. Lightweight, file-based, zero-config. But I still had to solve environment parity—dev, staging, and preview instances needed the same schema and seed data.
 
 Solution: Docker with an initialized SQLite volume.
 
-Our `Dockerfile` now runs a setup script that:
+My `Dockerfile` now runs a setup script that:
 
 - Creates the SQLite DB file if it doesn’t exist
 - Applies migrations via Flask-SQLAlchemy
@@ -54,17 +54,17 @@ CMD ["/bin/sh", "-c", "/app/init-db.sh && python app.py"]
 
 Now every instance starts with the same baseline. When a teammate pulls the latest image, they get a working admin panel—editable from minute one. No "ask Ryan to send the dump file."
 
-This combo—SQLite for simplicity, Docker for consistency—turned our admin from a fragile script into a shared, mutable control plane.
+This combo—SQLite for simplicity, Docker for consistency—turned my admin from a fragile script into a shared, mutable control plane.
 
 ## Faster UX, Faster Iterations
 
-Since deploying the htmx-powered interface, we’ve seen real gains:
+Since deploying the htmx-powered interface, I’ve seen real gains:
 
 - **Edit-to-commit time dropped from hours to seconds**
 - **Zero frontend bugs reported** (seriously)
 - **Team confidence in self-service ops is up**
 
-We’re also seeing fewer "staging vs prod" surprises because everyone’s testing against the same initialized state. That predictability is gold.
+I’m also seeing fewer "staging vs prod" surprises because everyone’s testing against the same initialized state. That predictability is gold.
 
 More than that, the stack feels *calm*. No Webpack errors, no hydration mismatches. Just HTML, a Flask backend, and a few smart attributes doing heavy lifting.
 

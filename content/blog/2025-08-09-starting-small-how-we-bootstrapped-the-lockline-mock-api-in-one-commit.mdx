@@ -1,23 +1,23 @@
 ---
-title: "Starting Small: How We Bootstrapped the Lockline Mock API in One Commit"
+title: "Starting Small: How I Bootstrapped the Lockline Mock API in One Commit"
 date: "2025-08-09"
-excerpt: "We built a minimal, production-aligned mock API in Python to unblock frontend work and reduce integration risk from day one."
+excerpt: "I built a minimal, production-aligned mock API in Python to unblock frontend work and reduce integration risk from day one."
 tags: ["API Development", "Python", "Mock API", "Full-Stack Workflow", "Rapid Prototyping"]
 author: "Ryan Dashwood"
 ---
 ## Introducing the Lockline Mock API: Purpose Over Perfection
 
-When you're building something fast—like Lockline AI in August 2025—you don’t have the luxury of waiting for backend completeness before frontend work kicks off. That’s why, in a single early commit, we spun up the Lockline Mock API: a minimal, self-contained service designed to mimic the real API’s behavior, structure, and endpoints.
+When you're building something fast—like Lockline AI in August 2025—you don’t have the luxury of waiting for backend completeness before frontend work kicks off. That’s why, in a single early commit, I spun up the Lockline Mock API: a minimal, self-contained service designed to mimic the real API’s behavior, structure, and endpoints.
 
-The goal wasn’t to simulate every edge case or replicate business logic. It was to give frontend developers something real to call—status codes, JSON payloads, consistent routes—so they could build, test, and iterate without blocking on backend implementation. This wasn’t a placeholder. It was a signal: we’re building in parallel, and we’re building together.
+The goal wasn’t to simulate every edge case or replicate business logic. It was to give frontend developers something real to call—status codes, JSON payloads, consistent routes—so they could build, test, and iterate without blocking on backend implementation. This wasn’t a placeholder. It was a signal: I’m building in parallel, and I’m building together.
 
-The mock API mirrors the expected contract of the future production service. That means the same route paths, the same field names, and the same response shapes. Even errors follow a predictable format. By aligning early, we avoid the "oh wait, that field is actually called `userId` not `user_id`" chaos that derails sprints.
+The mock API mirrors the expected contract of the future production service. That means the same route paths, the same field names, and the same response shapes. Even errors follow a predictable format. By aligning early, I avoid the "oh wait, that field is actually called `userId` not `user_id`" chaos that derails sprints.
 
 ## Design Decisions in the Initial Commit: Simplicity with Foresight
 
 The first commit of the Lockline Mock API wasn’t flashy. No CI/CD, no auth, no database sync. But it was intentional.
 
-We chose Python—not because it’s the sexiest backend language, but because it’s fast to prototype in, widely understood, and fits cleanly into our broader tooling. Flask was the natural pick: lightweight, explicit, and perfect for a service whose job is to return JSON and stay out of the way.
+I chose Python—not because it’s the sexiest backend language, but because it’s fast to prototype in, widely understood, and fits cleanly into my broader tooling. Flask was the natural pick: lightweight, explicit, and perfect for a service whose job is to return JSON and stay out of the way.
 
 Here’s what that first commit included:
 
@@ -26,11 +26,11 @@ Here’s what that first commit included:
 - A `requirements.txt` with Flask and nothing else
 - A `Dockerfile` to ensure environment parity from day one
 
-That last point is critical. We knew early that Lockline would containerize its services, so we baked Docker in immediately. No "we’ll add it later"—because later never comes. The mock API runs in the same kind of container the real backend will, which means no "works on my machine" surprises when we swap in real logic.
+That last point is critical. I knew early that Lockline would containerize its services, so I baked Docker in immediately. No "I’ll add it later"—because later never comes. The mock API runs in the same kind of container the real backend will, which means no "works on my machine" surprises when I swap in real logic.
 
-We also structured the routes to mirror the anticipated API surface. Instead of `/test` or `/mock-user`, we went straight for `/api/v1/users/me`. That consistency means frontend code written against the mock will work unchanged when we plug in the real backend.
+I also structured the routes to mirror the anticipated API surface. Instead of `/test` or `/mock-user`, I went straight for `/api/v1/users/me`. That consistency means frontend code written against the mock will work unchanged when I plug in the real backend.
 
-And yes, we used SQLite in early companion work—not because we plan to run the production API on it, but because it lets us simulate persistence quickly. The mock doesn’t need scalability; it needs believability. When the frontend sees a `404 Not Found` because a mock user ID doesn’t exist in the SQLite file, that’s a win. It means we’re testing real flows, not just happy paths.
+And yes, I used SQLite in early companion work—not because I plan to run the production API on it, but because it lets me simulate persistence quickly. The mock doesn’t need scalability; it needs believability. When the frontend sees a `404 Not Found` because a mock user ID doesn’t exist in the SQLite file, that’s a win. It means I’m testing real flows, not just happy paths.
 
 ## How This Mock Enables Parallel Workstreams and Reduces Integration Risk
 
@@ -42,8 +42,8 @@ Meanwhile, backend engineers can focus on core logic—authentication, data vali
 
 But the biggest win? Confidence at integration time.
 
-When we eventually replace the mock with the real Flask service (backed by proper auth, real databases, and AI-driven logic), the frontend shouldn’t need major changes. The contract was respected from commit one. That means integration isn’t a big-bang rewrite—it’s a smooth handoff. We’re not merging two separate worlds; we’re upgrading one.
+When I eventually replace the mock with the real Flask service (backed by proper auth, real databases, and AI-driven logic), the frontend shouldn’t need major changes. The contract was respected from commit one. That means integration isn’t a big-bang rewrite—it’s a smooth handoff. I’m not merging two separate worlds; I’m upgrading one.
 
-This approach also sets a cultural tone: we value alignment, clarity, and working software over speculation. By shipping a mock API early, we’re saying, "We don’t need to know everything to start building. We just need to agree on the interface."
+This approach also sets a cultural tone: I value alignment, clarity, and working software over speculation. By shipping a mock API early, I’m saying, "I don’t need to know everything to start building. I just need to agree on the interface."
 
-And that, more than any line of code, is what lets us move fast without breaking things.
+And that, more than any line of code, is what lets me move fast without breaking things.

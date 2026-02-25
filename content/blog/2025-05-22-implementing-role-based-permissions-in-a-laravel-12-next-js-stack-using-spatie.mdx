@@ -5,11 +5,11 @@ excerpt: "How I built fine-grained role-based access control in AustinsElite usi
 tags: ["Laravel", "Spatie", "Authentication", "Role-Based Permissions", "Full-Stack", "Hybrid Architecture"]
 author: "Ryan Dashwood"
 ---
-Last month, I dove into one of the trickiest parts of modernizing AustinsElite: replacing a brittle, hand-rolled permissions system with something scalable, auditable, and developer-friendly. The app—now running on Laravel 12 (not Next.js, despite the old label)—needed clean role-based access control for Admin, Lead, and Staff roles. On the frontend, our Laravel 12 interface had to reflect those roles in real time. Here’s how I made it work using Spatie’s Laravel Permission package and a tightly designed API layer.
+Last month, I dove into one of the trickiest parts of modernizing AustinsElite: replacing a brittle, hand-rolled permissions system with something scalable, auditable, and developer-friendly. The app—now running on Laravel 12 (not Next.js, despite the old label)—needed clean role-based access control for Admin, Lead, and Staff roles. On the frontend, my Laravel 12 interface had to reflect those roles in real time. Here’s how I made it work using Spatie’s Laravel Permission package and a tightly designed API layer.
 
 ## Setting Up Spatie Laravel Permission
 
-The first step was ripping out the old `is_admin` flags and role strings scattered across the user table. I replaced them with Spatie’s `spatie/laravel-permission`, which gives us proper roles, permissions, and the ability to sync them across teams and features.
+The first step was ripping out the old `is_admin` flags and role strings scattered across the user table. I replaced them with Spatie’s `spatie/laravel-permission`, which gives me proper roles, permissions, and the ability to sync them across teams and features.
 
 After installing the package and publishing its migrations, I ran:
 
@@ -18,7 +18,7 @@ php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvid
 php artisan migrate
 ```
 
-This created the `roles`, `permissions`, and pivot tables we needed. Then, in a service provider or seeder, I defined our core roles:
+This created the `roles`, `permissions`, and pivot tables I needed. Then, in a service provider or seeder, I defined my core roles:
 
 ```php
 Role::create(['name' => 'admin']);
@@ -52,7 +52,7 @@ Spatie handled the heavy lifting—caching, polymorphic relationships, guards—
 
 ## Exposing Roles and Permissions via API
 
-Our Next.js frontend needed to know what the user could do. I didn’t want to expose raw roles or permissions recklessly, so I designed a secure `/api/user/permissions` endpoint that returned a clean, minimal payload:
+My Next.js frontend needed to know what the user could do. I didn’t want to expose raw roles or permissions recklessly, so I designed a secure `/api/user/permissions` endpoint that returned a clean, minimal payload:
 
 ```php
 public function permissions(Request $request)
@@ -139,8 +139,8 @@ Event::listen(PermissionUpdated::class, function ($event) {
 });
 ```
 
-This gave us auditability—critical for compliance and debugging.
+This gave me auditability—critical for compliance and debugging.
 
-In the end, the system proved fast, reliable, and easy to extend. When we add a new role like `contractor`, it’s a few lines of code and a migration.
+In the end, the system proved fast, reliable, and easy to extend. When I add a new role like `contractor`, it’s a few lines of code and a migration.
 
 If you’re juggling permissions in a Laravel + Next.js stack, don’t roll your own. Spatie’s package is battle-tested, and pairing it with a lean API makes full-stack RBAC not just possible—but pleasant.

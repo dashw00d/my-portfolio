@@ -16,7 +16,7 @@ The first step wasn’t coding—it was mapping. I spent days tracing requests m
 - **No reusable components**—the same database queries were copy-pasted across pages.
 - **Zero tests, zero docs**—nobody knew how it *really* worked, including me.
 
-This wasn’t just messy—it was dangerous. Every change risked breaking something three files over. We couldn’t scale, onboard, or sleep well.
+This wasn’t just messy—it was dangerous. Every change risked breaking something three files over. I couldn’t scale, onboard, or sleep well.
 
 ## Introducing Laravel-Inspired Structure (Without Rewriting Everything)
 
@@ -74,13 +74,13 @@ Now, typos like `'admn'` fail at compile time. Simple, but it’s already caught
 The biggest win wasn’t code—it was the 867-line `ARCHITECTURE.md` I wrote to capture the new structure. It outlines:
 
 - How HTTP requests flow from router → controller → repository
-- Where templates live and how they’re rendered (Blade, now that we have structure)
+- Where templates live and how they’re rendered (Blade, now that I have structure)
 - Component responsibilities and boundaries
 - Migration strategy for legacy pages
 
 This doc isn’t for me—it’s for the next developer (or future me) who needs to understand *why* things are where they are. It turned tribal knowledge into shared truth.
 
-We’ve already used it to onboard a contractor who got up to speed in hours, not days. That’s the real ROI of architecture: velocity through clarity.
+I’ve already used it to onboard a contractor who got up to speed in hours, not days. That’s the real ROI of architecture: velocity through clarity.
 
 ## What Changed? Less Chaos, More Confidence
 
@@ -92,6 +92,6 @@ The impact?
 - **Maintainability**: Fixing a bug in role logic means one place to look.
 - **Reduced bug surface**: Enums and repositories prevent entire classes of errors.
 
-We’re not done. Next up: automated tests and gradual deprecation of the old scripts. But for the first time in years, the codebase feels *alive*—not just surviving, but evolving.
+I’m not done. Next up: automated tests and gradual deprecation of the old scripts. But for the first time in years, the codebase feels *alive*—not just surviving, but evolving.
 
 If you’re staring at a legacy PHP monolith, don’t reach for the rewrite button. Start with structure. Start with docs. And start today.

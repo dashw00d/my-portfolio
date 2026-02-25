@@ -7,11 +7,11 @@ author: "Ryan Dashwood"
 ---
 ## The Lead That Wasn’t Last
 
-It started with a Slack message from our product lead: “The new leads aren’t showing up at the top anymore.” Simple enough. Except the logs said otherwise. Our AI model was scoring and returning fresh leads as expected. The API response looked correct. And yet—on the frontend, they were buried.
+It started with a Slack message from my product lead: “The new leads aren’t showing up at the top anymore.” Simple enough. Except the logs said otherwise. My AI model was scoring and returning fresh leads as expected. The API response looked correct. And yet—on the frontend, they were buried.
 
-This wasn’t a UI rendering bug. No missing re-renders. No stale state. The data arriving in the browser was already out of order. That meant the problem wasn’t in the frontend, or even in the API formatting. It was upstream—somewhere between the database and the response payload. And since Lockline AI relies on timely lead prioritization (we’re combining AI-generated insights with real-time weather triggers), this wasn’t just a cosmetic issue. It was eroding trust in the system.
+This wasn’t a UI rendering bug. No missing re-renders. No stale state. The data arriving in the browser was already out of order. That meant the problem wasn’t in the frontend, or even in the API formatting. It was upstream—somewhere between the database and the response payload. And since Lockline AI relies on timely lead prioritization (I’m combining AI-generated insights with real-time weather triggers), this wasn’t just a cosmetic issue. It was eroding trust in the system.
 
-I knew we were pulling leads from a Postgres-backed service, enriched with AI scores from multiple providers and layered with external weather data. The sorting logic *should* have been straightforward: latest leads first, weighted by AI confidence. But somewhere, that order was getting scrambled.
+I knew I was pulling leads from a Postgres-backed service, enriched with AI scores from multiple providers and layered with external weather data. The sorting logic *should* have been straightforward: latest leads first, weighted by AI confidence. But somewhere, that order was getting scrambled.
 
 ## Tracing the Data Flow (And the Missing Sort)
 
@@ -59,7 +59,7 @@ const leads = await db.lead.findMany({
 });
 ```
 
-Now, we’re sorting by creation time first, then by AI confidence. This ensures the newest leads bubble up, but within that, the highest-priority ones (based on model output) are surfaced first.
+Now, I’m sorting by creation time first, then by AI confidence. This ensures the newest leads bubble up, but within that, the highest-priority ones (based on model output) are surfaced first.
 
 But I didn’t stop there. I added a schema-level comment:
 
@@ -85,12 +85,12 @@ if (process.env.NODE_ENV === 'development') {
 
 It’s overkill for production, but in dev, it’s a safety net.
 
-The commit was small—just a few lines—but the impact was immediate. Leads started appearing in the right order. The product team stopped getting Slack pings. And more importantly, we preserved the integrity of the AI-driven workflow.
+The commit was small—just a few lines—but the impact was immediate. Leads started appearing in the right order. The product team stopped getting Slack pings. And more importantly, I preserved the integrity of the AI-driven workflow.
 
 ## Lessons from the Trenches
 
 Data ordering bugs are silent killers in AI systems. They don’t crash your app. They don’t log errors. But they *do* make your AI look broken—even when it’s working perfectly.
 
-At Lockline AI, we’re stitching together dynamic data from multiple sources. When the presentation layer depends on temporal or priority-based ordering, you can’t leave it to chance. You have to own it—at the query, validate it in tests, and document it for the next engineer.
+At Lockline AI, I’m stitching together dynamic data from multiple sources. When the presentation layer depends on temporal or priority-based ordering, you can’t leave it to chance. You have to own it—at the query, validate it in tests, and document it for the next engineer.
 
 So next time your AI output feels ‘off’ but the model metrics look good? Check the data pipeline. The bug might not be in the model. It might just be that your leads aren’t where you think they are.

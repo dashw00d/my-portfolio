@@ -1,7 +1,7 @@
 ---
 title: "The Ripple Effect of a Patch Bump: How a Minor Dependency Update Exposed Hidden Coupling in Component Gen"
 date: "2025-09-09"
-excerpt: "A tiny patch update in a Filament plugin triggered unexpected lockfile changes, revealing hidden coupling in our Laravel component library."
+excerpt: "A tiny patch update in a Filament plugin triggered unexpected lockfile changes, revealing hidden coupling in my Laravel component library."
 tags: ["Laravel", "Composer", "Dependency Management", "PHP", "Component Architecture"]
 author: "Ryan Dashwood"
 ---
@@ -13,9 +13,9 @@ It started with a single, seemingly harmless line:
 "z3d0x/filament-fabricator": "^2.6.0" -> "^2.6.1"
 ```
 
-A patch-level bump. No breaking changes. No new features. Just a dot-increment in a third-party Filament plugin we use across several admin panels. I ran `composer update z3d0x/filament-fabricator`, expecting a clean update. What I got was a 300-line `composer.lock` diff spread across unrelated packages.
+A patch-level bump. No breaking changes. No new features. Just a dot-increment in a third-party Filament plugin I use across several admin panels. I ran `composer update z3d0x/filament-fabricator`, expecting a clean update. What I got was a 300-line `composer.lock` diff spread across unrelated packages.
 
-This wasn’t just noise—it was a red flag. In Component Gen, our internal Laravel package for shared UI components, we pride ourselves on clean, isolated dependencies. So why did updating a single dev tool trigger cascading resolution changes in production packages?
+This wasn’t just noise—it was a red flag. In Component Gen, my internal Laravel package for shared UI components, I pride ourselves on clean, isolated dependencies. So why did updating a single dev tool trigger cascading resolution changes in production packages?
 
 ## The Cascade Nobody Saw Coming
 
@@ -25,22 +25,22 @@ How?
 
 The culprit wasn’t the package itself, but its updated dependency tree. `filament-fabricator@2.6.1` pulled in a newer version of `filament/core` that, in turn, tightened its own constraints on `laravel/framework`. That tiny shift forced Composer to re-evaluate the entire dependency graph—not just in the immediate project, but in every package that shared even a sliver of that tree.
 
-Component Gen, despite not depending on Filament directly, was built against a version of Laravel that now conflicted with the newly resolved constraints. Composer’s solver did its job—just not in a way we anticipated. The result? A ripple effect where a patch update in a dev-only tool altered the resolved versions of core framework components in production.
+Component Gen, despite not depending on Filament directly, was built against a version of Laravel that now conflicted with the newly resolved constraints. Composer’s solver did its job—just not in a way I anticipated. The result? A ripple effect where a patch update in a dev-only tool altered the resolved versions of core framework components in production.
 
-This wasn’t a bug. It was a feature of how Composer works. But it exposed a blind spot: we’d assumed our components were isolated, but they were quietly coupled through shared transitive dependencies.
+This wasn’t a bug. It was a feature of how Composer works. But it exposed a blind spot: I’d assumed my components were isolated, but they were quietly coupled through shared transitive dependencies.
 
 ## Lessons from the Lockfile Trenches
 
-This one-line update taught us three hard lessons about dependency hygiene in Laravel package development:
+This one-line update taught me three hard lessons about dependency hygiene in Laravel package development:
 
 ### 1. Patch Versions Aren’t Always Safe
-We treat `^2.6.0` as "safe" because SemVer promises no breaking changes. But SemVer applies to *public APIs*, not dependency resolution. A patch release can—and will—update transitive dependencies, and those updates can break *your* compatibility if you’re not careful.
+I treat `^2.6.0` as "safe" because SemVer promises no breaking changes. But SemVer applies to *public APIs*, not dependency resolution. A patch release can—and will—update transitive dependencies, and those updates can break *your* compatibility if you’re not careful.
 
 ### 2. Lockfiles Are a Snapshot, Not a Guarantee
-We’d been relying on `composer.lock` to ensure consistency. But lockfiles only lock *resolved* versions—they don’t protect against changes in *how* those versions are resolved. When a new patch alters dependency constraints, the next `composer update` can produce a completely different lockfile, even without changing your `composer.json`.
+I’d been relying on `composer.lock` to ensure consistency. But lockfiles only lock *resolved* versions—they don’t protect against changes in *how* those versions are resolved. When a new patch alters dependency constraints, the next `composer update` can produce a completely different lockfile, even without changing your `composer.json`.
 
 ### 3. Hidden Coupling Is Everywhere
-We thought Component Gen was decoupled from Filament. But because both depend on Laravel, and Laravel’s ecosystem is tightly interwoven, we were implicitly coupled. The moment Filament’s dependency tree shifted, our package felt the tremor.
+I thought Component Gen was decoupled from Filament. But because both depend on Laravel, and Laravel’s ecosystem is tightly interwoven, I was implicitly coupled. The moment Filament’s dependency tree shifted, my package felt the tremor.
 
 So what’s the fix?
 

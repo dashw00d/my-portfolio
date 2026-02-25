@@ -1,21 +1,21 @@
 ---
 title: "Securing Admin Access in Laravel Filament: A Real-World Migration Guide"
 date: "2024-06-29"
-excerpt: "How we upgraded Laravel Filament's access control to align with the latest API changes and secure admin routes using role-based logic."
+excerpt: "How I upgraded Laravel Filament's access control to align with the latest API changes and secure admin routes using role-based logic."
 tags: ["Laravel", "Filament", "Authentication", "Security", "PHP", "Migration"]
 author: "Ryan Dashwood"
 ---
-## The Filament Access Control Shift That Broke Our Admin Panel
+## The Filament Access Control Shift That Broke My Admin Panel
 
-Last week, our Laravel-based admin panel—integrated with Filament—stopped letting authorized users in. No errors. No warnings. Just a silent redirect back to the login screen. At first, we thought it was a session issue. Then a caching problem. But after digging through the logs and recent commits, we found the real culprit: a seemingly small API change in Filament that broke our entire access control flow.
+Last week, my Laravel-based admin panel—integrated with Filament—stopped letting authorized users in. No errors. No warnings. Just a silent redirect back to the login screen. At first, I thought it was a session issue. Then a caching problem. But after digging through the logs and recent commits, I found the real culprit: a seemingly small API change in Filament that broke my entire access control flow.
 
-Filament recently deprecated the `canAccessFilament()` method in favor of `canAccessPanel()`. This wasn’t just a rename—it was a signal that the way we handle admin authorization needed to evolve. Our app, AustinsElite, runs on Laravel 12 with Filament powering the admin interface, and we’d been relying on the old method across our `User` model. When the update rolled in via a dependency bump, our access logic silently failed.
+Filament recently deprecated the `canAccessFilament()` method in favor of `canAccessPanel()`. This wasn’t just a rename—it was a signal that the way I handle admin authorization needed to evolve. My app, AustinsElite, runs on Laravel 12 with Filament powering the admin interface, and I’d been relying on the old method across my `User` model. When the update rolled in via a dependency bump, my access logic silently failed.
 
-This wasn’t just a code break—it was a security red flag. We needed to fix it fast, but also make sure the fix was future-proof.
+This wasn’t just a code break—it was a security red flag. I needed to fix it fast, but also make sure the fix was future-proof.
 
 ## Migrating from canAccessFilament to canAccessPanel
 
-The first step was updating the method signature. We opened our `User` model and located the old method:
+The first step was updating the method signature. I opened my `User` model and located the old method:
 
 ```php
 public function canAccessFilament(): bool
@@ -24,7 +24,7 @@ public function canAccessFilament(): bool
 }
 ```
 
-Simple, right? But Filament 3.x now expects `canAccessPanel()`—and it’s not backward compatible. So we renamed it:
+Simple, right? But Filament 3.x now expects `canAccessPanel()`—and it’s not backward compatible. So I renamed it:
 
 ```php
 public function canAccessPanel(): bool
@@ -33,7 +33,7 @@ public function canAccessPanel(): bool
 }
 ```
 
-But that wasn’t enough. We also had to ensure our `User` model implemented the `FilamentUser` interface. Without it, Filament wouldn’t recognize the method at all. So we added the import and interface:
+But that wasn’t enough. I also had to ensure my `User` model implemented the `FilamentUser` interface. Without it, Filament wouldn’t recognize the method at all. So I added the import and interface:
 
 ```php
 use Filament\Models\Contracts\FilamentUser;
@@ -44,7 +44,7 @@ class User extends Authenticatable implements FilamentUser
 }
 ```
 
-This forced us to define `canAccessPanel()` properly—and it gave us a clean contract to build on. We also took the opportunity to tighten our logic. Instead of a simple role check, we added explicit permissions:
+This forced me to define `canAccessPanel()` properly—and it gave me a clean contract to build on. I also took the opportunity to tighten my logic. Instead of a simple role check, I added explicit permissions:
 
 ```php
 public function canAccessPanel(): bool
@@ -59,14 +59,14 @@ Now, only users with specific elevated roles can enter the panel. No more accide
 
 At first glance, this felt like a trivial rename. But it’s actually part of a bigger shift in how Filament handles security. The `canAccessPanel()` method isn’t just a gatekeeper—it’s a contract. It tells Filament, "This user knows how to handle admin access," and it encourages developers to think deliberately about who gets in and why.
 
-We also caught a namespace issue in one of our service providers. A stale reference to `PanelProvider` was using an old path. One of our June commits—'fixed panel namespace'—cleaned that up. Without it, even the correct `canAccessPanel()` method wouldn’t have fired.
+I also caught a namespace issue in one of my service providers. A stale reference to `PanelProvider` was using an old path. One of my June commits—'fixed panel namespace'—cleaned that up. Without it, even the correct `canAccessPanel()` method wouldn’t have fired.
 
-This migration taught us three things:
+This migration taught me three things:
 
 1. **Package updates can break security silently.** No error messages doesn’t mean everything’s fine. Monitor changelogs, especially for admin tools.
-2. **Interfaces enforce consistency.** Implementing `FilamentUser` didn’t just fix the method call—it made our code more predictable.
-3. **Access control should be explicit.** We used to rely on implicit roles. Now, we define access at the code level, making audits and future changes easier.
+2. **Interfaces enforce consistency.** Implementing `FilamentUser` didn’t just fix the method call—it made my code more predictable.
+3. **Access control should be explicit.** I used to rely on implicit roles. Now, I define access at the code level, making audits and future changes easier.
 
-We’ve since rolled this update to production, and our admin panel is secure again. More importantly, we’ve built a pattern we can reuse across future Laravel + Filament projects.
+I’ve since rolled this update to production, and my admin panel is secure again. More importantly, I’ve built a pattern I can reuse across future Laravel + Filament projects.
 
 If you’re using Filament, check your `User` model *today*. Make sure you’re using `canAccessPanel()`, you’re implementing `FilamentUser`, and your logic is intentional—not inherited. Because in admin security, the smallest method rename can be the difference between locked down and wide open.

@@ -1,7 +1,7 @@
 ---
-title: "How We Unified Entity Management in HomeForged’s Schema Pipeline"
+title: "How I Unified Entity Management in HomeForged’s Schema Pipeline"
 date: "2025-11-20"
-excerpt: "We refactored HomeForged's schema analysis system to unify entity handling—here's how pure analyzers and canonical structures changed the game."
+excerpt: "I refactored HomeForged's schema analysis system to unify entity handling—here's how pure analyzers and canonical structures changed the game."
 tags: ["schema design", "data pipelines", "refactoring", "TypeScript", "entity management"]
 author: "Ryan Dashwood"
 ---
@@ -11,13 +11,13 @@ When I first dug into HomeForged’s schema analysis pipeline, I was met with a 
 
 Validation logic was duplicated across multiple callback handlers. Normalization happened inconsistently, depending on who wrote the traversal step. And worst of all, extending the system meant touching fragile, interdependent code. Adding a new schema feature often broke unrelated parts of the output because entities weren’t treated as first-class, consistent structures.
 
-We needed a shift from "do stuff as we walk" to "analyze, then act." That meant getting rid of traversal-side mutations and building a pipeline where entities were defined clearly, handled uniformly, and extended predictably.
+I needed a shift from "do stuff as I walk" to "analyze, then act." That meant getting rid of traversal-side mutations and building a pipeline where entities were defined clearly, handled uniformly, and extended predictably.
 
 ## Phase 2: Moving to Pure Analyzers
 
-The first real pivot came with replacing the `AnalysisTraverser` with functional, pure analyzers. Instead of letting traversal logic dictate behavior, we inverted control: the traversal became a dumb iterator, and analysis became a set of composable functions.
+The first real pivot came with replacing the `AnalysisTraverser` with functional, pure analyzers. Instead of letting traversal logic dictate behavior, I inverted control: the traversal became a dumb iterator, and analysis became a set of composable functions.
 
-We introduced analyzers like `analyzeObjectEntity`, `analyzeArrayEntity`, and `analyzeScalarEntity`—each responsible for taking a schema node and returning a structured analysis result. These functions didn’t mutate anything. They didn’t write to shared state. They just *computed*.
+I introduced analyzers like `analyzeObjectEntity`, `analyzeArrayEntity`, and `analyzeScalarEntity`—each responsible for taking a schema node and returning a structured analysis result. These functions didn’t mutate anything. They didn’t write to shared state. They just *computed*.
 
 ```typescript
 function analyzeObjectEntity(node: SchemaNode): ObjectAnalysis {
@@ -30,13 +30,13 @@ function analyzeObjectEntity(node: SchemaNode): ObjectAnalysis {
 }
 ```
 
-This shift alone made the system easier to test and debug. Each analyzer could be unit tested in isolation. We could simulate edge cases without spinning up the entire traversal context. And because the output was deterministic, we started catching inconsistencies in how different node types were interpreted.
+This shift alone made the system easier to test and debug. Each analyzer could be unit tested in isolation. I could simulate edge cases without spinning up the entire traversal context. And because the output was deterministic, I started catching inconsistencies in how different node types were interpreted.
 
-But we weren’t done. While the analyzers were pure, the *entities* they produced still lacked a unified shape. An object entity looked different from an array entity, not just in structure but in how metadata was attached, how references were resolved, and how validation rules were applied. That inconsistency was a tax on every new feature.
+But I weren’t done. While the analyzers were pure, the *entities* they produced still lacked a unified shape. An object entity looked different from an array entity, not just in structure but in how metadata was attached, how references were resolved, and how validation rules were applied. That inconsistency was a tax on every new feature.
 
 ## Phase 3: Enforcing Canonical Entity Structures
 
-The real breakthrough came in Phase 3: entity unification. We defined a canonical interface for all schema entities, regardless of type:
+The real breakthrough came in Phase 3: entity unification. I defined a canonical interface for all schema entities, regardless of type:
 
 ```typescript
 interface SchemaEntity {
@@ -49,13 +49,13 @@ interface SchemaEntity {
 }
 ```
 
-Every analyzer now returns a structure that conforms to this contract. This wasn’t just a typing exercise—it forced us to standardize how we handle identity, location, and rules across the board.
+Every analyzer now returns a structure that conforms to this contract. This wasn’t just a typing exercise—it forced me to standardize how I handle identity, location, and rules across the board.
 
-With canonical entities in place, we could build shared tooling on top. A single validation engine processes all entities. A unified normalizer ensures consistent defaults. And cross-cutting concerns like deprecation tracking or documentation generation became trivial to implement.
+With canonical entities in place, I could build shared tooling on top. A single validation engine processes all entities. A unified normalizer ensures consistent defaults. And cross-cutting concerns like deprecation tracking or documentation generation became trivial to implement.
 
-More importantly, the pipeline became *extensible*. When we added support for custom field directives, we didn’t need to modify traversal or rewrite validation logic. We just updated the entity schema and plugged in a new analyzer. The rest of the system just worked.
+More importantly, the pipeline became *extensible*. When I added support for custom field directives, I didn’t need to modify traversal or rewrite validation logic. I just updated the entity schema and plugged in a new analyzer. The rest of the system just worked.
 
-This unification also paved the way for better YAML output stability—something we’ll dive into in a future post—because now we’re generating from consistent, well-validated entities instead of raw, uneven schema nodes.
+This unification also paved the way for better YAML output stability—something I’ll dive into in a future post—because now I’m generating from consistent, well-validated entities instead of raw, uneven schema nodes.
 
 ## What This Means Going Forward
 

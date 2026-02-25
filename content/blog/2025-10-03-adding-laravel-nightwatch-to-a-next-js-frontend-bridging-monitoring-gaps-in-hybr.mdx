@@ -5,19 +5,19 @@ excerpt: "How I integrated Laravel Nightwatch into a decoupled Next.js frontend 
 tags: ["Laravel", "observability", "full-stack", "Nightwatch", "Hybrid Architecture"]
 author: "Ryan Dashwood"
 ---
-## The Monitoring Blind Spot in Our Hybrid Stack
+## The Monitoring Blind Spot in My Hybrid Stack
 
-We’re modernizing AustinsElite, a long-running application with a fresh Laravel 12 frontend layered over a Laravel 12 backend. It’s a classic decoupled setup: React handles the UI, Laravel serves JSON via APIs. Clean separation, right? But there’s a catch—while we can track frontend performance with ease, the backend often runs blind.
+I’m modernizing AustinsElite, a long-running application with a fresh Laravel 12 frontend layered over a Laravel 12 backend. It’s a classic decoupled setup: React handles the UI, Laravel serves JSON via APIs. Clean separation, right? But there’s a catch—while I can track frontend performance with ease, the backend often runs blind.
 
-Until recently, we had no real-time insight into Laravel’s health. Was the queue backing up? Were there memory leaks in artisan commands? Was MySQL choking on slow queries? We’d only find out *after* users reported timeouts or broken pages. That’s not proactive engineering—that’s firefighting.
+Until recently, I had no real-time insight into Laravel’s health. Was the queue backing up? Were there memory leaks in artisan commands? Was MySQL choking on slow queries? I’d only find out *after* users reported timeouts or broken pages. That’s not proactive engineering—that’s firefighting.
 
-This month, as part of our broader push toward infrastructure maturity (including dependency updates and architectural cleanup), I tackled this gap by integrating Laravel Nightwatch directly into the Laravel 12 backend—despite the frontend being entirely Next.js. The goal: gain visibility without coupling the frontend to PHP tooling.
+This month, as part of my broader push toward infrastructure maturity (including dependency updates and architectural cleanup), I tackled this gap by integrating Laravel Nightwatch directly into the Laravel 12 backend—despite the frontend being entirely Next.js. The goal: gain visibility without coupling the frontend to PHP tooling.
 
 ## Integrating Nightwatch Without Breaking the Contract
 
-The key was remembering that Nightwatch runs on the backend, not the frontend. Even though our users interact with a Next.js app, every API call still hits Laravel. So instead of trying to "connect" Nightwatch to React, I treated it as a backend observability layer—because that’s exactly what it is.
+The key was remembering that Nightwatch runs on the backend, not the frontend. Even though my users interact with a Next.js app, every API call still hits Laravel. So instead of trying to "connect" Nightwatch to React, I treated it as a backend observability layer—because that’s exactly what it is.
 
-The integration started with a simple `composer require laravel/nightwatch` in the Laravel 12 codebase. Yes, the commit showed up in the AustinsElite (Laravel 12) project repo, but that’s because our monorepo structure includes both frontend and backend. The actual change was purely server-side.
+The integration started with a simple `composer require laravel/nightwatch` in the Laravel 12 codebase. Yes, the commit showed up in the AustinsElite (Laravel 12) project repo, but that’s because my monorepo structure includes both frontend and backend. The actual change was purely server-side.
 
 Once installed, I configured `nightwatch.php` to monitor:
 
@@ -27,9 +27,9 @@ Once installed, I configured `nightwatch.php` to monitor:
 - 5xx error rates
 - Artisan command execution times
 
-No frontend changes were needed. The Next.js app kept making the same API calls; Laravel just started watching itself more closely. I set up webhooks to ping our internal status dashboard whenever thresholds were breached—say, if job failures spiked above 5% in a 5-minute window.
+No frontend changes were needed. The Next.js app kept making the same API calls; Laravel just started watching itself more closely. I set up webhooks to ping my internal status dashboard whenever thresholds were breached—say, if job failures spiked above 5% in a 5-minute window.
 
-One gotcha: we had to ensure Nightwatch’s internal metrics endpoint (`/nightwatch/api/metrics`) was secured and not exposed publicly. A quick middleware rule restricted access to internal IPs and our CI environment. Safety first.
+One gotcha: I had to ensure Nightwatch’s internal metrics endpoint (`/nightwatch/api/metrics`) was secured and not exposed publicly. A quick middleware rule restricted access to internal IPs and my CI environment. Safety first.
 
 ## Surfacing Backend Health in Developer Workflows
 
@@ -41,8 +41,8 @@ Visibility is useless if no one sees it. So I built a tiny dev-only widget in th
 
 This isn’t for production users. It’s for developers and QA during testing. Now, when someone’s clicking through a feature and the badge turns yellow, they don’t just see a slow response—they *know* it’s because the queue worker is backed up. That context changes everything.
 
-We also pipe Nightwatch data into our Grafana dashboards using a simple Laravel command that exports metrics to Prometheus. It runs every minute via cron and pushes key signals like `laravel_queue_jobs_failed_total` and `laravel_memory_usage_bytes`. Now, on-call engineers can correlate frontend latency spikes with backend events—no guesswork.
+I also pipe Nightwatch data into my Grafana dashboards using a simple Laravel command that exports metrics to Prometheus. It runs every minute via cron and pushes key signals like `laravel_queue_jobs_failed_total` and `laravel_memory_usage_bytes`. Now, on-call engineers can correlate frontend latency spikes with backend events—no guesswork.
 
-This wasn’t about replacing existing monitoring. It was about filling the blind spot between our shiny React UI and the battle-tested Laravel core that powers it. Nightwatch didn’t need to "work with" Next.js—it just needed to run where the PHP does, and expose what it finds in ways the frontend team could understand.
+This wasn’t about replacing existing monitoring. It was about filling the blind spot between my shiny React UI and the battle-tested Laravel core that powers it. Nightwatch didn’t need to "work with" Next.js—it just needed to run where the PHP does, and expose what it finds in ways the frontend team could understand.
 
-Hybrid stacks aren’t going away. Many of us are stuck (blessed?) with the joy of maintaining legacy backends while shipping modern frontends. Tools like Laravel Nightwatch don’t magically unify the stack—but they *do* give us a shared language for health, performance, and reliability. And that’s half the battle won.
+Hybrid stacks aren’t going away. Many of me are stuck (blessed?) with the joy of maintaining legacy backends while shipping modern frontends. Tools like Laravel Nightwatch don’t magically unify the stack—but they *do* give me a shared language for health, performance, and reliability. And that’s half the battle won.

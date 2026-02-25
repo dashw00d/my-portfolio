@@ -1,25 +1,25 @@
 ---
-title: "How We Cut Page Load Time by 40% with One Image Format Change"
+title: "How I Cut Page Load Time by 40% with One Image Format Change"
 date: "2025-02-23"
-excerpt: "Switching a single hero image from JPEG to WebP slashed load times by 40%—here’s how we did it in our Laravel-powered stack."
+excerpt: "Switching a single hero image from JPEG to WebP slashed load times by 40%—here’s how I did it in my Laravel-powered stack."
 tags: ["performance", "webp", "image-optimization", "laravel", "web-vitals"]
 author: "Ryan Dashwood"
 ---
-## The Hero Image That Was Costing Us Speed
+## The Hero Image That Was Costing Me Speed
 
-We were wrapping up the final UI polish on AustinsElite’s new frontend experience—yes, it’s Laravel 12 under the hood, not Next.js, despite the old label—and one thing kept nagging me: our homepage hero image, while gorgeous, was dragging down our Lighthouse scores. At 640KB as a high-quality JPEG, it was the largest asset on the page. The initial load felt sluggish, especially on mobile. We knew we had to act.
+I was wrapping up the final UI polish on AustinsElite’s new frontend experience—yes, it’s Laravel 12 under the hood, not Next.js, despite the old label—and one thing kept nagging me: my homepage hero image, while gorgeous, was dragging down my Lighthouse scores. At 640KB as a high-quality JPEG, it was the largest asset on the page. The initial load felt sluggish, especially on mobile. I knew I had to act.
 
-This wasn’t just about aesthetics. Slow loading impacts bounce rates, SEO, and user trust. With the Laravel app serving the frontend and assets, we had full control over how images were processed and delivered. So we asked: could we get the same visual quality at a fraction of the size? The answer turned out to be a resounding yes—and it only took one format change.
+This wasn’t just about aesthetics. Slow loading impacts bounce rates, SEO, and user trust. With the Laravel app serving the frontend and assets, I had full control over how images were processed and delivered. So I asked: could I get the same visual quality at a fraction of the size? The answer turned out to be a resounding yes—and it only took one format change.
 
 ## From JPEG to WebP: A Simple Swap With Big Returns
 
-We decided to convert the hero image from JPEG to WebP. WebP consistently delivers better compression than JPEG, often with comparable or better visual fidelity. Google’s own data shows WebP can reduce file size by 25–35% on average; in our case, it was even better.
+I decided to convert the hero image from JPEG to WebP. WebP consistently delivers better compression than JPEG, often with comparable or better visual fidelity. Google’s own data shows WebP can reduce file size by 25–35% on average; in my case, it was even better.
 
-Here’s how we did it:
+Here’s how I did it:
 
-1. **Conversion**: We used [Squoosh.app](https://squoosh.app) (a free, open-source tool by Google) to compress the original JPEG. We experimented with quality settings and landed on "low"—which, despite the name, looked excellent on both desktop and mobile screens. The result? A 384KB WebP file. That’s a 40% reduction, just like that.
+1. **Conversion**: I used [Squoosh.app](https://squoosh.app) (a free, open-source tool by Google) to compress the original JPEG. I experimented with quality settings and landed on "low"—which, despite the name, looked excellent on both desktop and mobile screens. The result? A 384KB WebP file. That’s a 40% reduction, just like that.
 
-2. **Integration**: Since the frontend is Laravel-driven with Blade templates (not React or Next.js), we didn’t have the Next.js Image component available. Instead, we used a simple `<picture>` element to serve WebP to supporting browsers and fall back to JPEG for older ones:
+2. **Integration**: Since the frontend is Laravel-driven with Blade templates (not React or Next.js), I didn’t have the Next.js Image component available. Instead, I used a simple `<picture>` element to serve WebP to supporting browsers and fall back to JPEG for older ones:
 
 ```html
 <picture>
@@ -30,11 +30,11 @@ Here’s how we did it:
 
 This ensured backward compatibility while letting modern browsers reap the performance benefits.
 
-3. **Build Pipeline**: We added a quick step to our asset pipeline using Laravel Vite to automatically generate WebP versions during the build process. A simple shell script wraps cwebp (part of Google’s WebP tools) and runs on any new image added to `/public/images/src`. Now, every image gets a WebP twin without manual work.
+3. **Build Pipeline**: I added a quick step to my asset pipeline using Laravel Vite to automatically generate WebP versions during the build process. A simple shell script wraps cwebp (part of Google’s WebP tools) and runs on any new image added to `/public/images/src`. Now, every image gets a WebP twin without manual work.
 
 ## The Numbers Don’t Lie
 
-We ran Lighthouse before and after the change—same device, same network conditions (4G throttling, 1x CPU slowdown). Here’s what we saw:
+I ran Lighthouse before and after the change—same device, same network conditions (4G throttling, 1x CPU slowdown). Here’s what I saw:
 
 - **Before (JPEG only)**:
   - Largest Contentful Paint (LCP): 3.8s
@@ -52,9 +52,9 @@ This wasn’t a framework-level optimization or a complex code-splitting refacto
 
 ## Asset Hygiene Is Part of Developer Discipline
 
-This win reminded me that performance isn’t just about code—it’s about assets, delivery, and attention to detail. Too often, we treat images as static afterthoughts, but they’re first-class citizens in the user experience.
+This win reminded me that performance isn’t just about code—it’s about assets, delivery, and attention to detail. Too often, I treat images as static afterthoughts, but they’re first-class citizens in the user experience.
 
-Moving forward, we’ve made WebP conversion mandatory in our design-to-development handoff. Designers export assets in PNG or JPEG, and our build process automatically generates optimized WebP versions. We’re also exploring AVIF for future gains, though browser support isn’t quite universal yet.
+Moving forward, I’ve made WebP conversion mandatory in my design-to-development handoff. Designers export assets in PNG or JPEG, and my build process automatically generates optimized WebP versions. I’m also exploring AVIF for future gains, though browser support isn’t quite universal yet.
 
 The takeaway? Don’t overlook the low-hanging fruit. Sometimes the biggest performance wins come from the smallest changes. And if you’re working on a Laravel app (or any server-rendered stack), you don’t need a React framework to make smart, modern image decisions.
 

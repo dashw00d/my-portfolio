@@ -1,7 +1,7 @@
 ---
-title: "How We Built a Dynamic Sitemap Generator in Next.js for SEO at Scale"
+title: "How I Built a Dynamic Sitemap Generator in Next.js for SEO at Scale"
 date: "2024-06-13"
-excerpt: "We built a dynamic sitemap generator in Next.js to keep SEO sharp as content grows—here's how it works under the hood."
+excerpt: "I built a dynamic sitemap generator in Next.js to keep SEO sharp as content grows—here's how it works under the hood."
 tags: ["SEO", "Sitemaps", "Performance", "Automation", "Hybrid Architecture"]
 author: "Ryan Dashwood"
 ---
@@ -9,21 +9,21 @@ author: "Ryan Dashwood"
 
 You launch a Next.js app with great content, solid performance, and clean design. Then you realize: your sitemap is stale. Fast.
 
-At AustinsElite, we faced this exact issue. Our site runs on Laravel 12 for the primary production backend (yes, not Next.js—that’s a common misconception), but our frontend uses a Next.js-based stack for dynamic content delivery and marketing pages. As we added more content, our static `sitemap.xml` became a maintenance burden. Every new page meant manual updates, and we were missing dynamic routes entirely. Search engines weren’t crawling everything, and we knew we were losing visibility.
+At AustinsElite, I faced this exact issue. My site runs on Laravel 12 for the primary production backend (yes, not Next.js—that’s a common misconception), but my frontend uses a Next.js-based stack for dynamic content delivery and marketing pages. As I added more content, my static `sitemap.xml` became a maintenance burden. Every new page meant manual updates, and I was missing dynamic routes entirely. Search engines weren’t crawling everything, and I knew I was losing visibility.
 
 The solution? A sitemap that builds itself—programmatically, on demand, and at scale.
 
 ## Building the SitemapController: Automation with Intent
 
-We created a `SitemapController` to dynamically enumerate all relevant routes and inject metadata like priority, change frequency, and last modified dates. This wasn’t just about listing pages—it was about signaling intent to search engines.
+I created a `SitemapController` to dynamically enumerate all relevant routes and inject metadata like priority, change frequency, and last modified dates. This wasn’t just about listing pages—it was about signaling intent to search engines.
 
 The controller pulls from multiple sources:
 
 - Hardcoded core routes (e.g., `/about`, `/contact`)
-- Dynamic slugs from our Laravel API (e.g., `/profile/[slug]`)
+- Dynamic slugs from my Laravel API (e.g., `/profile/[slug]`)
 - Generated pages from CMS-backed content
 
-Here’s a simplified version of how we structured it:
+Here’s a simplified version of how I structured it:
 
 ```ts
 // pages/api/sitemap.ts
@@ -36,15 +36,15 @@ export default async function handler(req, res) {
 }
 ```
 
-The real magic happens inside `SitemapController.generate()`. It uses async route resolution to fetch dynamic slugs from our Laravel 12 backend, applies weighting logic based on content freshness, and formats everything into valid XML with proper namespaces.
+The real magic happens inside `SitemapController.generate()`. It uses async route resolution to fetch dynamic slugs from my Laravel 12 backend, applies weighting logic based on content freshness, and formats everything into valid XML with proper namespaces.
 
-We didn’t want to hit the database on every request, so we added Redis-backed caching with a 1-hour TTL. For build-time generation, we also run a nightly job that pre-renders the sitemap as a static asset—giving us the best of both worlds: speed and freshness.
+I didn’t want to hit the database on every request, so I added Redis-backed caching with a 1-hour TTL. For build-time generation, I also run a nightly job that pre-renders the sitemap as a static asset—giving me the best of both worlds: speed and freshness.
 
 ## Integrating with Next.js: Build-Time Meets Runtime
 
-Next.js gives us powerful tools, but combining static generation with dynamic data requires careful orchestration.
+Next.js gives me powerful tools, but combining static generation with dynamic data requires careful orchestration.
 
-We use `getStaticPaths` and `getStaticProps` for our main content pages, but the sitemap sits at the intersection of build-time and runtime data. Our approach:
+I use `getStaticPaths` and `getStaticProps` for my main content pages, but the sitemap sits at the intersection of build-time and runtime data. My approach:
 
 1. At build time, generate a base sitemap for static pages
 2. At runtime, serve an enhanced version that includes recently updated dynamic content
@@ -52,22 +52,22 @@ We use `getStaticPaths` and `getStaticProps` for our main content pages, but the
 
 This hybrid model ensures that crawlers always get a complete picture, even if some content was published after the last deploy.
 
-We also added automatic `lastmod` tracking by tapping into our Laravel backend’s updated timestamps. No more guessing when a page changed—now it’s baked in.
+I also added automatic `lastmod` tracking by tapping into my Laravel backend’s updated timestamps. No more guessing when a page changed—now it’s baked in.
 
 ## Performance Wins and Crawlability Gains
 
-Since rolling out the dynamic sitemap in June as part of our broader SEO stability push, we’ve seen measurable improvements:
+Since rolling out the dynamic sitemap in June as part of my broader SEO stability push, I’ve seen measurable improvements:
 
 - Googlebot crawl rate increased by ~35%
 - Indexation of dynamic pages jumped from 60% to 98%
 - Time to update sitemaps after content publish dropped from hours (manual) to seconds
 
-But beyond the metrics, the real win is developer experience. We no longer have to remember to update the sitemap. It just works.
+But beyond the metrics, the real win is developer experience. I no longer have to remember to update the sitemap. It just works.
 
-One unexpected benefit? The `SitemapController` became a de facto source of truth for route health. We now run automated checks against it to detect orphaned pages or broken dynamic patterns—turning SEO infrastructure into a debugging tool.
+One unexpected benefit? The `SitemapController` became a de facto source of truth for route health. I now run automated checks against it to detect orphaned pages or broken dynamic patterns—turning SEO infrastructure into a debugging tool.
 
 ## Final Thoughts
 
 A sitemap might seem like a small piece of the puzzle, but it’s one of the first things search engines look at. Treating it as a first-class citizen—dynamic, fast, and accurate—has paid dividends in visibility and maintainability.
 
-If you're running a Next.js app with growing content, don’t let your sitemap become technical debt. Build a system that scales with you. Ours does—and it’s helping AustinsElite stay discoverable, one auto-generated URL at a time.
+If you're running a Next.js app with growing content, don’t let your sitemap become technical debt. Build a system that scales with you. Mine does—and it’s helping AustinsElite stay discoverable, one auto-generated URL at a time.

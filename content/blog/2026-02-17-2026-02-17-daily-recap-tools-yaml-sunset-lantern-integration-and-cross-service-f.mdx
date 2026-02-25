@@ -1,37 +1,37 @@
 ---
 title: "2026-02-17 Daily Recap: Tools.yaml Sunset, Lantern Integration, and Cross-Service Fixes"
 date: "2026-02-17"
-excerpt: "We retired tools.yaml across Loom, streamlined service discovery via Lantern, and shipped critical fixes in GhostGraph, Browser, and Git Chronicle."
+excerpt: "I retired tools.yaml across Loom, streamlined service discovery via Lantern, and shipped critical fixes in GhostGraph, Browser, and Git Chronicle."
 tags: ["Loom", "Lantern", "Service Discovery", "Git Chronicle", "Browser", "Hybrid Architecture"]
 author: "Ryan Dashwood"
 ---
 ## Loom: Retiring tools.yaml and Embracing Lantern Service Discovery
 
-Today marks a major milestone in Loom’s evolution: the complete removal of `tools.yaml` and its associated loader stack. With 21 commits, we finalized the migration to Lantern-based service discovery, eliminating technical debt that had lingered since early prototypes. We deleted `tools.yaml`, `loader.py`, `validate.py`, and associated CLI commands—cleaning up both runtime code and test suites. The `job_hunt` pipeline now dynamically resolves `git-chronicle` and `browser` endpoints through Lantern, ensuring consistency across environments.
+Today marks a major milestone in Loom’s evolution: the complete removal of `tools.yaml` and its associated loader stack. With 21 commits, I finalized the migration to Lantern-based service discovery, eliminating technical debt that had lingered since early prototypes. I deleted `tools.yaml`, `loader.py`, `validate.py`, and associated CLI commands—cleaning up both runtime code and test suites. The `job_hunt` pipeline now dynamically resolves `git-chronicle` and `browser` endpoints through Lantern, ensuring consistency across environments.
 
-We also refactored core logic, extracting entity and schedule detection from `categorize.py` into dedicated modules and moving classification logic into `loom.core.classify`. This improves testability and paves the way for modular pipeline extensions. Several fixes addressed ChromaDB integration, including implementing required `EmbeddingFunction` static methods (`name()` and `get_config()`) to silence deprecation warnings and rewriting tests to reflect the new migration state.
+I also refactored core logic, extracting entity and schedule detection from `categorize.py` into dedicated modules and moving classification logic into `loom.core.classify`. This improves testability and paves the way for modular pipeline extensions. Several fixes addressed ChromaDB integration, including implementing required `EmbeddingFunction` static methods (`name()` and `get_config()`) to silence deprecation warnings and rewriting tests to reflect the new migration state.
 
 Documentation caught up too—`SKILL.md` was updated to reflect 17 newly added endpoints, remove stale port references (8410 is now a fallback, not a default), and clarify that ports are Lantern-assigned. API docstrings were updated accordingly.
 
 ## GhostGraph & Lantern: Strengthening Health Checks, Configuration, and Observability
 
-GhostGraph saw 12 commits focused on stability, configuration hygiene, and observability. We fixed a critical `fleet-status` 500 error caused by Redis scan behavior and inaccurate `last_heartbeat` counts. Workers now periodically update their heartbeat in Postgres, and the status endpoint correctly reflects fleet health. These issues are now marked as resolved in `TOFIX.md` and `README.md`.
+GhostGraph saw 12 commits focused on stability, configuration hygiene, and observability. I fixed a critical `fleet-status` 500 error caused by Redis scan behavior and inaccurate `last_heartbeat` counts. Workers now periodically update their heartbeat in Postgres, and the status endpoint correctly reflects fleet health. These issues are now marked as resolved in `TOFIX.md` and `README.md`.
 
-A key improvement was aligning `application_generator` with centralized config—replacing hardcoded `localhost:8000` and stale LLM defaults with dynamic settings from `get_settings().api_base_url`. This ensures consistency across deployment contexts. We also added company intel and job discovery recipe templates, expanding GhostGraph’s utility for targeted research workflows.
+A key improvement was aligning `application_generator` with centralized config—replacing hardcoded `localhost:8000` and stale LLM defaults with dynamic settings from `get_settings().api_base_url`. This ensures consistency across deployment contexts. I also added company intel and job discovery recipe templates, expanding GhostGraph’s utility for targeted research workflows.
 
-Lantern itself received 12 commits, primarily focused on robustness. We added `lantern.yaml` for self-registration, enabling Lantern to participate in its own service discovery. Health checks were hardened: the checker now falls back to `upstream_url` when `base_url` is nil, and stale health results for removed or non-checkable projects are pruned automatically. We also fixed a dev environment issue where `dev-up.sh` would leave behind orphaned uvicorn processes—now, managed projects are gracefully stopped via API before Lantern restarts.
+Lantern itself received 12 commits, primarily focused on robustness. I added `lantern.yaml` for self-registration, enabling Lantern to participate in its own service discovery. Health checks were hardened: the checker now falls back to `upstream_url` when `base_url` is nil, and stale health results for removed or non-checkable projects are pruned automatically. I also fixed a dev environment issue where `dev-up.sh` would leave behind orphaned uvicorn processes—now, managed projects are gracefully stopped via API before Lantern restarts.
 
-Testing improved significantly: we added 5 unit tests for `Project.with_computed_base_url/1`, ensuring dynamic base URLs are recomputed when ports change. The `maybe_compute_base_url` logic was refactored into this new method, preventing stale health checks on localhost services.
+Testing improved significantly: I added 5 unit tests for `Project.with_computed_base_url/1`, ensuring dynamic base URLs are recomputed when ports change. The `maybe_compute_base_url` logic was refactored into this new method, preventing stale health checks on localhost services.
 
 ## Browser, Git Chronicle, and Cross-Project Hygiene
 
-The Browser module (8 commits) transitioned fully to Camoufox with the deletion of `chrome.py` and introduction of `settings.toml`. We implemented a Browser Daemon service with enhanced session management and added `scrape_own_posts`—a new action enabling feedback loop tracking for engagement metrics. The `BrowserMode` enum was removed as part of final cleanup, and tests were expanded with 29 new cases covering settings loading, profile management, and site defaults.
+The Browser module (8 commits) transitioned fully to Camoufox with the deletion of `chrome.py` and introduction of `settings.toml`. I implemented a Browser Daemon service with enhanced session management and added `scrape_own_posts`—a new action enabling feedback loop tracking for engagement metrics. The `BrowserMode` enum was removed as part of final cleanup, and tests were expanded with 29 new cases covering settings loading, profile management, and site defaults.
 
 `SKILL.md` was updated to reflect that the Browser port is dynamic (assigned by Lantern), not fixed at 41001. This aligns documentation with runtime behavior.
 
-Git Chronicle (8 commits) added a `/match` endpoint for job requirement matching and introduced TTL caching on `/projects` and `/stats` to reduce load. We fixed environment variable overrides for `CHROMA_HOST`, `OLLAMA_URL`, and others, documenting them in the README. A `/health` endpoint was added, and the `lantern.yaml` health check was updated from `/stats` to `/health`—backed by two new tests. We also added 36 new tests covering parser, embedder, and API logic, significantly improving coverage.
+Git Chronicle (8 commits) added a `/match` endpoint for job requirement matching and introduced TTL caching on `/projects` and `/stats` to reduce load. I fixed environment variable overrides for `CHROMA_HOST`, `OLLAMA_URL`, and others, documenting them in the README. A `/health` endpoint was added, and the `lantern.yaml` health check was updated from `/stats` to `/health`—backed by two new tests. I also added 36 new tests covering parser, embedder, and API logic, significantly improving coverage.
 
-Auto-Shorts (6 commits) removed the deprecated `TILVideo` template and introduced new video templates with 3D effects and particle animations. We improved error handling, added composition selection, and reused the `httpx` client for efficiency. Documentation was updated to replace hardcoded `localhost:8000` with Lantern port instructions. Testing expanded with 36 new cases for schema validation, API endpoints, and ComfyUI integration.
+Auto-Shorts (6 commits) removed the deprecated `TILVideo` template and introduced new video templates with 3D effects and particle animations. I improved error handling, added composition selection, and reused the `httpx` client for efficiency. Documentation was updated to replace hardcoded `localhost:8000` with Lantern port instructions. Testing expanded with 36 new cases for schema validation, API endpoints, and ComfyUI integration.
 
 OpenClaw Workspace saw minor updates confirming completion of Browser fixes and `tools.yaml` elimination. The legacy Social Autopilot service received a single commit adding bootstrap scripts—likely for archival or migration purposes.
 

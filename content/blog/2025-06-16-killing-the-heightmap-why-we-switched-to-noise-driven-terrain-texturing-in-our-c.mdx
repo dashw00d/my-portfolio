@@ -1,34 +1,34 @@
 ---
-title: "Killing the Heightmap: Why We Switched to Noise-Driven Terrain Texturing in Our Civ-Style RTS"
+title: "Killing the Heightmap: Why I Switched to Noise-Driven Terrain Texturing in My Civ-Style RTS"
 date: "2025-06-16"
-excerpt: "We ditched rigid height-based terrain blending for a noise-driven system that creates natural biome transitions in our hex-based RTS."
+excerpt: "I ditched rigid height-based terrain blending for a noise-driven system that creates natural biome transitions in my hex-based RTS."
 tags: ["game development", "procedural terrain", "Godot", "shaders", "RTS"]
 author: "Ryan Dashwood"
 ---
 ## The Problem with Height-Based Terrain
 
-For weeks, I was stuck on a classic trap: using elevation alone to determine terrain texturing in our Civ-style RTS. Grass at low elevations, dirt in the mid, rock up top—simple, predictable, and *boring*. Worse, it didn’t reflect how real biomes work. Deserts aren’t just lowlands. Forests don’t avoid hills just because they’re tall. By tying texture choice strictly to height, we were forcing artificial boundaries and missing out on organic variety.
+For weeks, I was stuck on a classic trap: using elevation alone to determine terrain texturing in my Civ-style RTS. Grass at low elevations, dirt in the mid, rock up top—simple, predictable, and *boring*. Worse, it didn’t reflect how real biomes work. Deserts aren’t just lowlands. Forests don’t avoid hills just because they’re tall. By tying texture choice strictly to height, I was forcing artificial boundaries and missing out on organic variety.
 
-The rigidity showed in gameplay too. Players could *predict* terrain types from contour lines. That kills exploration. It also meant transitions were either hardcoded or precomputed—leading to bloated tilesets and brittle logic. One commit summed it up: `[Civ RTS] cleanup, decent trantions, textures wrong but placed well`. We had clean code, decent transitions, but the *textures themselves* were still off. Why? Because we were still feeding the wrong inputs into a system that couldn’t adapt.
+The rigidity showed in gameplay too. Players could *predict* terrain types from contour lines. That kills exploration. It also meant transitions were either hardcoded or precomputed—leading to bloated tilesets and brittle logic. One commit summed it up: `[Civ RTS] cleanup, decent trantions, textures wrong but placed well`. I had clean code, decent transitions, but the *textures themselves* were still off. Why? Because I was still feeding the wrong inputs into a system that couldn’t adapt.
 
 ## Enter Noise-Driven Influence Maps
 
-So we killed the heightmap’s authority.
+So I killed the heightmap’s authority.
 
-Not literally—we still use elevation as *one* factor—but we stopped letting it dictate texture choice. Instead, we built a noise-driven influence system that blends multiple procedural inputs: moisture, temperature, erosion, and regional variation—all generated via 2D noise fields sampled per-tile.
+Not literally—I still use elevation as *one* factor—but I stopped letting it dictate texture choice. Instead, I built a noise-driven influence system that blends multiple procedural inputs: moisture, temperature, erosion, and regional variation—all generated via 2D noise fields sampled per-tile.
 
-Each terrain type (grass, sand, forest, rock, etc.) now has an ‘influence weight’ calculated using a blend of these noise values. Instead of saying *“if height > 0.7, use rock”*, we now say *“rock gets +0.3 from height, +0.4 from low moisture, +0.2 from high erosion”*, and so on. The final texture is a weighted blend of the top 2–3 contenders.
+Each terrain type (grass, sand, forest, rock, etc.) now has an ‘influence weight’ calculated using a blend of these noise values. Instead of saying *“if height > 0.7, use rock”*, I now say *“rock gets +0.3 from height, +0.4 from low moisture, +0.2 from high erosion”*, and so on. The final texture is a weighted blend of the top 2–3 contenders.
 
-This lets us do things like:
+This lets me do things like:
 - Generate rocky deserts at high elevations in arid zones
 - Place lush forests in mid-height, high-moisture valleys
 - Scatter grasslands across rolling lowlands with moderate variation
 
-And because the inputs are procedural, we don’t need to store transition maps. No more precomputed tilesets for ‘grass-to-rock-slope-north’. The shader handles blending on the fly based on live weights.
+And because the inputs are procedural, I don’t need to store transition maps. No more precomputed tilesets for ‘grass-to-rock-slope-north’. The shader handles blending on the fly based on live weights.
 
 ## Blending Smarter in the Shader
 
-The real win came when we moved the blending logic into the GPU. Here’s a stripped-down version of the fragment shader we’re now using in Godot (via a custom `ShaderMaterial` on our tile mesh):
+The real win came when I moved the blending logic into the GPU. Here’s a stripped-down version of the fragment shader I’m now using in Godot (via a custom `ShaderMaterial` on my tile mesh):
 
 ```glsl
 shader_type spatial;
@@ -61,8 +61,8 @@ void fragment() {
 }
 ```
 
-The `v_weights` are calculated on the CPU during tile generation and passed as vertex attributes—cheap, predictable, and flexible. The noise map breaks up tiling without adding draw calls. And because we’re not relying on atlas indices or prebuilt transition tiles, our asset pipeline is simpler and more scalable.
+The `v_weights` are calculated on the CPU during tile generation and passed as vertex attributes—cheap, predictable, and flexible. The noise map breaks up tiling without adding draw calls. And because I’m not relying on atlas indices or prebuilt transition tiles, my asset pipeline is simpler and more scalable.
 
 Today’s commit—`[Civ RTS] needs tweaking, but textures are blending`—feels like a milestone. It’s not perfect yet. The weights need tuning. Some biomes still look off. But for the first time, the terrain *feels* alive. It’s not just height. It’s context. It’s climate. It’s chance.
 
-And that’s the point. In a strategy game about civilizations rising and falling, the world should feel unpredictable, varied, and full of possibility. We’re not there yet—but now, at least, the ground beneath their feet is starting to earn its place.
+And that’s the point. In a strategy game about civilizations rising and falling, the world should feel unpredictable, varied, and full of possibility. I’m not there yet—but now, at least, the ground beneath their feet is starting to earn its place.

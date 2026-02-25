@@ -1,17 +1,17 @@
 ---
-title: "How We Decoupled PDF Generation in Next.js Using Queued Workers"
+title: "How I Decoupled PDF Generation in Next.js Using Queued Workers"
 date: "2025-05-14"
-excerpt: "We moved PDF generation out of our form flow and into a queued worker—here’s how it improved reliability and response times in our Laravel 12 app."
+excerpt: "I moved PDF generation out of my form flow and into a queued worker—here’s how it improved reliability and response times in my Laravel 12 app."
 tags: ["PDF Generation", "Background Jobs", "Form Optimization", "Performance"]
 author: "Ryan Dashwood"
 ---
 ## The Problem: Forms Were Timing Out (and Users Were Paying the Price)
 
-A few weeks ago, our form submissions on AustinsElite started failing more often than we liked. Not with flashy errors—just silent timeouts. Users would click submit, wait… wait… and eventually see a blank screen or a 504. Frustrating? Absolutely.
+A few weeks ago, my form submissions on AustinsElite started failing more often than I liked. Not with flashy errors—just silent timeouts. Users would click submit, wait… wait… and eventually see a blank screen or a 504. Frustrating? Absolutely.
 
 The culprit? PDF generation.
 
-We generate a custom PDF confirmation for every form submission—think client summaries, service agreements, things that need to be archived. Originally, we handled this synchronously inside the Next.js API route. The flow looked like this:
+I generate a custom PDF confirmation for every form submission—think client summaries, service agreements, things that need to be archived. Originally, I handled this synchronously inside the Next.js API route. The flow looked like this:
 
 1. User submits form
 2. Server validates data
@@ -19,21 +19,21 @@ We generate a custom PDF confirmation for every form submission—think client s
 4. Server saves data + PDF
 5. Responds to client
 
-Simple, right? But as our forms grew more complex and traffic picked up in early May, step 3 started taking 4–6 seconds. On a good day. On a bad day? Timeout city.
+Simple, right? But as my forms grew more complex and traffic picked up in early May, step 3 started taking 4–6 seconds. On a good day. On a bad day? Timeout city.
 
-We couldn’t keep blocking the main thread. It wasn’t just slow—it was unreliable. If PDF generation failed, the whole submission failed. That’s not a user experience; it’s a user trap.
+I couldn’t keep blocking the main thread. It wasn’t just slow—it was unreliable. If PDF generation failed, the whole submission failed. That’s not a user experience; it’s a user trap.
 
-We needed to decouple.
+I needed to decouple.
 
 ## The Fix: Introducing Asynchronous Workers via a Job Queue
 
 The solution wasn’t to make PDF generation faster—it was to stop making the user wait for it entirely.
 
-We refactored our `POST /api/submit-form` route to do one thing: validate and persist the form data. Then, instead of generating the PDF inline, we dispatch a job.
+I refactored my `POST /api/submit-form` route to do one thing: validate and persist the form data. Then, instead of generating the PDF inline, I dispatch a job.
 
 Enter: `ProcessFormSubmissionJob`.
 
-This wasn’t a full-blown queue system like BullMQ or RabbitMQ—yet. For now, we’re using a lightweight in-memory worker pattern with async function queuing, which fits our current scale on the Next.js edge runtime.
+This wasn’t a full-blown queue system like BullMQ or RabbitMQ—yet. For now, I’m using a lightweight in-memory worker pattern with async function queuing, which fits my current scale on the Next.js edge runtime.
 
 Here’s the simplified structure:
 
@@ -89,9 +89,9 @@ The impact was immediate:
 - Form submission success rate jumped from 89% to 99.6%
 - PDF generation errors became debuggable side issues, not user-facing catastrophes
 
-We also gained operational clarity. Now, if a PDF fails, we can see it in the DB, retry it, or alert a dev—without touching the core form flow.
+I also gained operational clarity. Now, if a PDF fails, I can see it in the DB, retry it, or alert a dev—without touching the core form flow.
 
-This pattern also sets us up for the next step: moving to a real queue (like Upstash Redis) when we need persistence and retry guarantees across deploys.
+This pattern also sets me up for the next step: moving to a real queue (like Upstash Redis) when I need persistence and retry guarantees across deploys.
 
 But even in its simple form, this refactor was a win. It’s a reminder that sometimes the best performance boost isn’t optimization—it’s *removal*. Remove the thing blocking the critical path. Do it later. Do it quietly.
 

@@ -7,9 +7,9 @@ author: "Ryan Dashwood"
 ---
 ## Why Secure Avatars Matter in Admin Panels
 
-Let’s be real: avatar uploads seem trivial until they’re exploited. A few months ago, while working on AustinsElite — our primary Laravel 12 app with a Filament-powered admin — I was tasked with building a user avatar system that was both developer-friendly and bulletproof. The goal? Make it reusable across multiple models (users, staff, clients) while ensuring no malicious file sneaks through.
+I’ll be real: avatar uploads seem trivial until they’re exploited. A few months ago, while working on AustinsElite — my primary Laravel 12 app with a Filament-powered admin — I was tasked with building a user avatar system that was both developer-friendly and bulletproof. The goal? Make it reusable across multiple models (users, staff, clients) while ensuring no malicious file sneaks through.
 
-At first glance, this sounds like a simple file input. But in admin systems, every upload is a potential attack vector. We’re not just storing images — we’re defending the backend from bad actors, preventing storage bloat, and maintaining performance. So I set three non-negotiables: strict validation, disk isolation, and consistent cropping. Here’s how I did it.
+At first glance, this sounds like a simple file input. But in admin systems, every upload is a potential attack vector. I’m not just storing images — I’m defending the backend from bad actors, preventing storage bloat, and maintaining performance. So I set three non-negotiables: strict validation, disk isolation, and consistent cropping. Here’s how I did it.
 
 ## Technical Choices: Validation, Disks, and Cropping
 
@@ -47,13 +47,13 @@ public function registerMediaCollections(): void
 
 This gave me fine-grained control. The `single()` constraint ensures only one avatar per model, and `acceptsMimeTypes()` acts as a second layer of validation. Even if someone bypasses the frontend, the backend blocks non-image types.
 
-Storage isolation was critical. We already use multiple disks for different content types (private documents, public assets, etc.), so putting avatars on the `public` disk with a dedicated `avatars/` prefix keeps things clean and auditable. No mixing user uploads with system files.
+Storage isolation was critical. I already use multiple disks for different content types (private documents, public assets, etc.), so putting avatars on the `public` disk with a dedicated `avatars/` prefix keeps things clean and auditable. No mixing user uploads with system files.
 
-For cropping, I used Spatie’s `responsiveImages()` and a frontend-friendly approach: the uploaded image is displayed in a 1:1 crop zone in the Filament form using a custom Livewire component. This doesn’t crop the file server-side — instead, it guides the user to upload a properly framed image. True cropping happens via CDN later (we use Cloudinary), but the UX nudge reduces misaligned avatars by 90%.
+For cropping, I used Spatie’s `responsiveImages()` and a frontend-friendly approach: the uploaded image is displayed in a 1:1 crop zone in the Filament form using a custom Livewire component. This doesn’t crop the file server-side — instead, it guides the user to upload a properly framed image. True cropping happens via CDN later (I use Cloudinary), but the UX nudge reduces misaligned avatars by 90%.
 
 ## Reusability Across Models and Roles
 
-The real test was reuse. We needed avatars for Users, Staff, and Client representatives — all different models, all needing the same secure flow.
+The real test was reuse. I needed avatars for Users, Staff, and Client representatives — all different models, all needing the same secure flow.
 
 Enter the `AvatarUpload` component. I extracted the form field logic into a reusable Filament component:
 
@@ -88,6 +88,6 @@ AvatarUpload::make(),
 
 The `ProcessAvatarUpload` job handles attaching the file to the model’s `avatar` media collection, ensuring consistent logic. Now, any model with `HasMedia` can support avatars with zero duplication.
 
-This pattern also made it easier to fix global N+1 issues elsewhere in the app. By standardizing how media is loaded and displayed, we reduced unnecessary queries in user listings and admin dashboards — a win for performance and scalability.
+This pattern also made it easier to fix global N+1 issues elsewhere in the app. By standardizing how media is loaded and displayed, I reduced unnecessary queries in user listings and admin dashboards — a win for performance and scalability.
 
 Building secure features isn’t about complexity — it’s about consistency. This avatar system is now used across AustinsElite’s admin panel, handling uploads safely while staying easy to maintain. If you’re using Filament PHP, don’t treat uploads as an afterthought. Define your rules, isolate your storage, and build reusable components from day one.

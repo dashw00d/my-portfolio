@@ -13,7 +13,7 @@ The default Laravel layout is great for small apps, but it falls apart fast when
 
 So here’s what I did instead: I carved out a `Services` directory under `App\Services` and grouped everything billing-related under `Billing`. Inside, you’ll find dedicated classes like `SubscriptionManager`, `PaymentGateway`, and `WebhookHandler`. This isn’t overengineering—it’s *preventative*. It forces me to think in terms of contracts and boundaries from day one.
 
-For example, instead of calling `Stripe::createCustomer()` directly in a controller, I route it through a `PaymentGateway` interface. That way, if we ever need to support multiple providers (Stripe *and* Paddle, for instance), the switch becomes configuration, not a rewrite.
+For example, instead of calling `Stripe::createCustomer()` directly in a controller, I route it through a `PaymentGateway` interface. That way, if I ever need to support multiple providers (Stripe *and* Paddle, for instance), the switch becomes configuration, not a rewrite.
 
 ## Designing for State, Not Just Code
 

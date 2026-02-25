@@ -17,6 +17,11 @@ interface BlogPageProps {
 }
 
 type PageToken = number | "ellipsis";
+const FEATURED_POST_SLUGS = [
+  "2026-02-25-from-legacy-rat-nest-to-laravel-unpoly-hybrid-modernization-without-a-rewrite",
+  "2026-01-31-how-we-fixed-hung-connections-in-our-distributed-crawler-with-hard-timeout-enfor",
+  "2025-02-20-how-we-secured-game-saves-with-client-side-encryption-in-gear-to-glory",
+] as const;
 
 function getSingleQueryParam(param: string | string[] | undefined): string {
   return typeof param === "string" ? param : "";
@@ -61,9 +66,33 @@ export default function BlogPage({ posts, tagCounts }: BlogPageProps) {
   }, [isReady, query.page, query.q, query.tag]);
 
   const trimmedQuery = searchQuery.trim().toLowerCase();
+  const featuredPosts = useMemo(() => {
+    const selected = FEATURED_POST_SLUGS
+      .map((slug) => posts.find((post) => post.slug === slug))
+      .filter((post): post is BlogPostMeta => Boolean(post));
+
+    if (selected.length >= FEATURED_POST_SLUGS.length) {
+      return selected.slice(0, FEATURED_POST_SLUGS.length);
+    }
+
+    const selectedSet = new Set(selected.map((post) => post.slug));
+    const filler = posts
+      .filter((post) => !selectedSet.has(post.slug))
+      .slice(0, FEATURED_POST_SLUGS.length - selected.length);
+
+    return [...selected, ...filler];
+  }, [posts]);
+  const featuredSlugSet = useMemo(
+    () => new Set(featuredPosts.map((post) => post.slug)),
+    [featuredPosts]
+  );
+  const sourcePosts = useMemo(() => {
+    if (trimmedQuery || selectedTagKey) return posts;
+    return posts.filter((post) => !featuredSlugSet.has(post.slug));
+  }, [posts, trimmedQuery, selectedTagKey, featuredSlugSet]);
 
   const filteredPosts = useMemo(() => {
-    return posts.filter((post) => {
+    return sourcePosts.filter((post) => {
       const matchesTag =
         !selectedTagKey ||
         post.tags.some((tag) => normalizeTag(tag) === selectedTagKey);
@@ -75,7 +104,7 @@ export default function BlogPage({ posts, tagCounts }: BlogPageProps) {
       const haystack = `${post.title} ${post.excerpt} ${post.tags.join(" ")}`.toLowerCase();
       return haystack.includes(trimmedQuery);
     });
-  }, [posts, selectedTagKey, trimmedQuery]);
+  }, [sourcePosts, selectedTagKey, trimmedQuery]);
 
   useEffect(() => {
     setPage(1);
@@ -83,6 +112,8 @@ export default function BlogPage({ posts, tagCounts }: BlogPageProps) {
 
   const totalPages = Math.max(1, Math.ceil(filteredPosts.length / POSTS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
+  const showFeaturedSection =
+    !trimmedQuery && !selectedTagKey && currentPage === 1 && featuredPosts.length > 0;
 
   useEffect(() => {
     if (!isReady) return;
@@ -217,26 +248,60 @@ export default function BlogPage({ posts, tagCounts }: BlogPageProps) {
       <Navigation />
 
       <main className="min-h-screen bg-gradient-to-b from-white via-brand-50/30 to-white text-zinc-900">
-        <section className="relative overflow-hidden px-6 pb-14 pt-32">
+        <section className="relative overflow-hidden px-6 pb-8 pt-24 md:pt-28">
           <div className="pointer-events-none absolute inset-0 -z-10">
             <div className="absolute left-1/4 top-10 h-64 w-64 rounded-full bg-brand-200/30 blur-3xl" />
             <div className="absolute right-0 top-1/3 h-80 w-80 rounded-full bg-highlight-200/40 blur-3xl" />
           </div>
 
-          <div className="mx-auto flex max-w-5xl flex-col gap-6 text-center">
+          <div className="mx-auto flex max-w-5xl flex-col gap-4 text-center">
             <p className="mx-auto inline-flex items-center gap-2 rounded-full border border-brand-200/60 bg-white/70 px-4 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-brand-600 shadow-sm">
               Dev Blog
             </p>
-            <h1 className="text-4xl font-black tracking-tight md:text-6xl">
+            <h1 className="text-4xl font-black tracking-tight md:text-5xl">
               Build logs worth reading
             </h1>
-            <p className="mx-auto max-w-3xl text-lg leading-relaxed text-zinc-600">
+            <p className="mx-auto max-w-3xl text-base leading-relaxed text-zinc-600 md:text-lg">
               Search across production lessons, architecture decisions, and
               debugging wins. Filter by tag, paginate through history, and find
               the exact post you need.
             </p>
           </div>
         </section>
+
+        {showFeaturedSection ? (
+          <section className="px-6 pb-6">
+            <div className="mx-auto max-w-7xl">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">
+                    Featured
+                  </p>
+                  <h2 className="mt-1 text-2xl font-bold tracking-tight text-zinc-900 md:text-3xl">
+                    Featured posts
+                  </h2>
+                </div>
+                <span className="hidden rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700 md:inline-flex">
+                  Core case studies
+                </span>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {featuredPosts.map((post) => (
+                  <BlogCard
+                    key={post.slug}
+                    title={post.title}
+                    date={post.date}
+                    excerpt={post.excerpt}
+                    slug={post.slug}
+                    tags={post.tags}
+                    readingTime={post.readingTime}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <section className="px-6 pb-24">
           <div className="mx-auto grid w-full max-w-7xl gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">

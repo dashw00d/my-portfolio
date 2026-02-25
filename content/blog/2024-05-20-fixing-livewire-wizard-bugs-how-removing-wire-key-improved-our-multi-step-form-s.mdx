@@ -1,23 +1,23 @@
 ---
-title: "Fixing Livewire Wizard Bugs: How Removing wire:key Improved Our Multi-Step Form Stability"
+title: "Fixing Livewire Wizard Bugs: How Removing wire:key Improved My Multi-Step Form Stability"
 date: "2024-05-20"
-excerpt: "Removing redundant wire:key attributes fixed a stubborn state duplication bug in our Livewire multi-step form—sometimes less is more."
+excerpt: "Removing redundant wire:key attributes fixed a stubborn state duplication bug in my Livewire multi-step form—sometimes less is more."
 tags: ["Livewire", "Laravel", "Debugging", "Form Wizards", "Frontend"]
 author: "Ryan Dashwood"
 ---
 ## The Bug That Made No Sense
 
-We were deep in development on a new quote request wizard for AustinsElite—a Laravel 12–powered platform where users step through a dynamic form to get personalized service pricing. Everything looked solid: components were scoped, state was managed, and navigation worked… until it didn’t.
+I was deep in development on a new quote request wizard for AustinsElite—a Laravel 12–powered platform where users step through a dynamic form to get personalized service pricing. Everything looked solid: components were scoped, state was managed, and navigation worked… until it didn’t.
 
 Users started reporting that after clicking "Next" on certain steps, they’d suddenly see *two* of the same form sections stacked on top of each other. Sometimes it was subtle—duplicate radio button groups. Other times, entire steps rendered twice. Worse, the duplicated state would persist, making validation unpredictable and submission unreliable.
 
-At first glance, it looked like a state hydration issue. Maybe we were mutating data incorrectly? Or not handling Livewire’s lifecycle hooks properly? I spent a full afternoon stepping through `$wire` calls, checking `updated()` methods, and auditing event dispatches. Nothing.
+At first glance, it looked like a state hydration issue. Maybe I was mutating data incorrectly? Or not handling Livewire’s lifecycle hooks properly? I spent a full afternoon stepping through `$wire` calls, checking `updated()` methods, and auditing event dispatches. Nothing.
 
 Then I noticed a pattern: duplication only happened when navigating *forward*, never backward. And it always occurred on steps that had `wire:key` set.
 
 ## The Real Culprit: Over-Optimization
 
-I’ll admit it—I added those `wire:key` attributes with the best intentions. We’d been burned before by Livewire re-rendering components unnecessarily, so I thought: *Let’s help Livewire out. Let’s give it a stable key so it knows what’s what.*
+I’ll admit it—I added those `wire:key` attributes with the best intentions. I’d been burned before by Livewire re-rendering components unnecessarily, so I thought: *I’ll help Livewire out. I’ll give it a stable key so it knows what’s what.*
 
 So I slapped `wire:key="step-{{ $currentStep }}"` onto each step’s wrapper, thinking I was being smart. Turns out, I was just getting in the way.
 
@@ -55,7 +55,7 @@ Livewire’s automatic diffing is smart. It knows when to preserve, update, or r
 
 3. **Debugging is about questioning your assumptions.** I spent hours auditing complex state logic because I assumed the problem was deep. It wasn’t. It was a two-line fix hiding in plain sight—once I stopped assuming I was being clever.
 
-This fix went out in a quiet commit titled *"removed redundant wire:key attributes from Livewire component steps"*—no fanfare, no drama. But it stabilized one of our most critical user flows.
+This fix went out in a quiet commit titled *"removed redundant wire:key attributes from Livewire component steps"*—no fanfare, no drama. But it stabilized one of my most critical user flows.
 
 So if you’re building a multi-step form with Livewire and seeing weird duplication, ghost inputs, or state leaks: check your keys. You might be over-engineering your way into a bug.
 

@@ -7,7 +7,7 @@ author: "Ryan Dashwood"
 ---
 ## The VAT Grind: Why Manual Workflows Don’t Scale
 
-If you’ve worked with vertex animation textures (VAT) in Unreal Engine, you know the drill: export EXRs from your DCC, import them one-by-one, set up material parameters, wire up timelines, and pray the UVs align. It’s tedious, error-prone, and doesn’t scale—especially when you’re iterating on multiple animated props or characters. At Austin’s Elite (legacy), we used VAT for cloth simulations and creature deformations, but each new asset meant 20 minutes of boilerplate setup. With UE 5.5’s improved texture streaming and Niagara integration, I saw a chance to build a pipeline that *just works*—so I did.
+If you’ve worked with vertex animation textures (VAT) in Unreal Engine, you know the drill: export EXRs from your DCC, import them one-by-one, set up material parameters, wire up timelines, and pray the UVs align. It’s tedious, error-prone, and doesn’t scale—especially when you’re iterating on multiple animated props or characters. At Austin’s Elite (legacy), I used VAT for cloth simulations and creature deformations, but each new asset meant 20 minutes of boilerplate setup. With UE 5.5’s improved texture streaming and Niagara integration, I saw a chance to build a pipeline that *just works*—so I did.
 
 The goal was simple: drop a set of EXRs into a folder, run a script, and have a fully tagged, material-ready VAT asset in the content browser. No manual tweaking. No missed parameters. Just animation, ready to play.
 
@@ -32,7 +32,7 @@ This step alone cut import time from 20 minutes to under 2. And because everythi
 
 ## Master Materials & Niagara: One Shader to Rule Them All
 
-With assets auto-imported, the next challenge was playback. We used to build a new material for every VAT, copying the same UV offset math and time sampling logic. Not anymore.
+With assets auto-imported, the next challenge was playback. I used to build a new material for every VAT, copying the same UV offset math and time sampling logic. Not anymore.
 
 I built a **VAT Master Material** that handles all standard playback modes: loop, ping-pong, play-once, and even speed ramping. It uses a `Scalar Parameter Collection` for global time control and dynamic parameters for per-instance overrides. The material reads the frame count and UV range from the metadata asset, so it adapts to any input resolution or length.
 
@@ -46,7 +46,7 @@ Instead of relying on Blueprints or timelines, I built a Niagara system that rea
 
 The Niagara module pulls frame count and FPS from the data asset via a custom `VAT Player` parameter initializer, then uses `Floor(Time * FPS) / TotalFrames` to index into the texture array. No external time input needed—just plug in the texture, and it plays.
 
-This system is now live in **Vertex Anim**, our internal toolkit, and has already been used to streamline animation for two prototype characters in **GhostGraph**. No more copy-pasting material graphs. No more broken references. Just drag, drop, and go.
+This system is now live in **Vertex Anim**, my internal toolkit, and has already been used to streamline animation for two prototype characters in **GhostGraph**. No more copy-pasting material graphs. No more broken references. Just drag, drop, and go.
 
 ## What’s Next?
 

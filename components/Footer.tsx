@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { Mail, MapPin, Github, Linkedin, Twitter } from "lucide-react";
 
 export default function Footer() {
@@ -11,7 +12,7 @@ export default function Footer() {
           <div>
             <h3 className="text-lg font-bold mb-4">Ryan Stefan</h3>
             <p className="text-zinc-400 text-sm leading-relaxed mb-6">
-              Fixing tech problems that cost businesses customers. Performance, email, SEO, and custom development.
+              Solo product engineer building automation systems, modernizing legacy stacks, and shipping practical AI tooling.
             </p>
             <div className="flex gap-4">
               <a
@@ -43,32 +44,38 @@ export default function Footer() {
             <nav aria-label="Footer navigation">
               <ul className="space-y-2 text-sm">
                 <li>
-                  <a href="#home" className="text-zinc-400 hover:text-white transition-colors">Home</a>
+                  <Link href="/#home" className="text-zinc-400 hover:text-white transition-colors">Home</Link>
                 </li>
                 <li>
-                  <a href="#problems" className="text-zinc-400 hover:text-white transition-colors">Problems</a>
+                  <Link href="/#problems" className="text-zinc-400 hover:text-white transition-colors">Problems</Link>
                 </li>
                 <li>
-                  <a href="#services" className="text-zinc-400 hover:text-white transition-colors">Services</a>
+                  <Link href="/#services" className="text-zinc-400 hover:text-white transition-colors">Services</Link>
                 </li>
                 <li>
-                  <a href="#examples" className="text-zinc-400 hover:text-white transition-colors">Examples</a>
+                  <Link href="/#examples" className="text-zinc-400 hover:text-white transition-colors">Examples</Link>
                 </li>
                 <li>
-                <a href="#contact-form" className="text-zinc-400 hover:text-white transition-colors">Contact</a>
+                  <Link href="/blog" className="text-zinc-400 hover:text-white transition-colors">Blog</Link>
+                </li>
+                <li>
+                  <Link href="/projects" className="text-zinc-400 hover:text-white transition-colors">Projects</Link>
+                </li>
+                <li>
+                  <Link href="/#contact-form" className="text-zinc-400 hover:text-white transition-colors">Contact</Link>
                 </li>
               </ul>
             </nav>
           </div>
 
           <div>
-            <h3 className="text-lg font-bold mb-4">Services</h3>
+            <h3 className="text-lg font-bold mb-4">Focus Areas</h3>
             <ul className="space-y-2 text-sm text-zinc-400">
-              <li>Performance Optimization</li>
-              <li>Email Deliverability</li>
-              <li>Lead Tracking & CRM</li>
-              <li>SEO & Technical Fixes</li>
-              <li>Custom Web Apps</li>
+              <li>Legacy PHP to Laravel modernization</li>
+              <li>AI agent and workflow automation</li>
+              <li>Data pipelines and crawler infrastructure</li>
+              <li>Production debugging and hardening</li>
+              <li>Performance and delivery reliability</li>
             </ul>
           </div>
 
@@ -92,9 +99,9 @@ export default function Footer() {
         <div className="border-t border-zinc-800 mt-12 pt-8 text-center text-sm text-zinc-500">
           <p>&copy; {currentYear} Ryan Stefan. All rights reserved.</p>
           <p className="mt-2">
-            <a href="/privacy" className="text-zinc-500 hover:text-zinc-400 transition-colors">Privacy Policy</a>
+            <Link href="/blog" className="text-zinc-500 hover:text-zinc-400 transition-colors">Read the dev blog</Link>
             {" • "}
-            <a href="/terms" className="text-zinc-500 hover:text-zinc-400 transition-colors">Terms of Service</a>
+            <Link href="/projects" className="text-zinc-500 hover:text-zinc-400 transition-colors">See shipped work</Link>
           </p>
         </div>
       </div>

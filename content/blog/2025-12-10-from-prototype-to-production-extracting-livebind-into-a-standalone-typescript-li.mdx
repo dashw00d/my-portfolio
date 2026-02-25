@@ -26,7 +26,7 @@ My goals were clear:
 
 Setting up the TypeScript project was straightforward: `tsc --init`, strict mode enabled, targeting ES2020. I structured it around three core modules: `Binder` (the main orchestrator), `Collector` (input gathering), and `Plugin` (extension interface). The `Collector` turned out to be the trickiest part.
 
-Originally, LiveBind assumed all inputs lived inside `<form>` elements. But in practice, we were binding to `<div class="staff-row">` containers with scattered inputs. So I had to generalize input collection—walking DOM subtrees, filtering by `name` attributes, and handling dynamic additions. I landed on a recursive strategy that respected container boundaries and ignored excluded elements:
+Originally, LiveBind assumed all inputs lived inside `<form>` elements. But in practice, I was binding to `<div class="staff-row">` containers with scattered inputs. So I had to generalize input collection—walking DOM subtrees, filtering by `name` attributes, and handling dynamic additions. I landed on a recursive strategy that respected container boundaries and ignored excluded elements:
 
 ```ts
 function collectInputs(container: Element): Record<string, any> {
@@ -67,7 +67,7 @@ But the real test was backward compatibility. The original LiveBind was already 
 
 So I built a compatibility layer: a UMD build that exposed `window.LiveBind` just like the old script. It wrapped the new `Binder` class and mimicked the old API. That way, the legacy app could keep calling `LiveBind.init('.staff-search')` while I worked toward a cleaner integration.
 
-One medium-sized headache? Non-form containers. The old code assumed `form` elements, but we were binding to generic divs. I fixed this by decoupling container type from functionality—now any element with `data-live-bind` works. This was a small change, but it unlocked reuse across the app.
+One medium-sized headache? Non-form containers. The old code assumed `form` elements, but I was binding to generic divs. I fixed this by decoupling container type from functionality—now any element with `data-live-bind` works. This was a small change, but it unlocked reuse across the app.
 
 ## What’s Next: Publishing and Letting Go
 
@@ -78,7 +78,7 @@ LiveBind is now a standalone project with a CI pipeline, typed API, and plugin a
 - Add basic docs and examples for Laravel/Blade use cases
 - Support community plugins (e.g., debounce, validation)
 
-But here’s the twist: even as I extract it, I’m also *removing* it from parts of AustinsElite. Why? Because sometimes the best outcome of a prototype isn’t adoption—it’s learning. In some cases, we realized a simpler Blade + Alpine.js combo worked better. In others, server-side rendering with Turbo-like patterns was overkill.
+But here’s the twist: even as I extract it, I’m also *removing* it from parts of AustinsElite. Why? Because sometimes the best outcome of a prototype isn’t adoption—it’s learning. In some cases, I realized a simpler Blade + Alpine.js combo worked better. In others, server-side rendering with Turbo-like patterns was overkill.
 
 So LiveBind isn’t about replacing everything. It’s about having the right tool for the job—and knowing when to walk away.
 

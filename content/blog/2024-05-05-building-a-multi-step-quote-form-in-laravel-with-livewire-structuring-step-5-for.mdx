@@ -1,23 +1,23 @@
 ---
 title: "Building a Multi-Step Quote Form in Laravel with Livewire: Structuring Step 5 for Specialized Services"
 date: "2024-05-05"
-excerpt: "How we isolated sushi catering and other niche services into a dedicated, dynamic step using Livewire in Laravel."
+excerpt: "How I isolated sushi catering and other niche services into a dedicated, dynamic step using Livewire in Laravel."
 tags: ["Laravel", "Livewire", "forms", "UX", "service-business", "state-management"]
 author: "Ryan Dashwood"
 ---
 ## Why Step 5 Needed Its Own World
 
-We’re rebuilding AustinsElite — a full-service event catering platform — and one of our core challenges is the quote wizard. It’s not just a contact form; it’s how clients define complex service bundles, from basic drop-off to full staffing with specialty offerings like sushi catering.
+I’m rebuilding AustinsElite — a full-service event catering platform — and one of my core challenges is the quote wizard. It’s not just a contact form; it’s how clients define complex service bundles, from basic drop-off to full staffing with specialty offerings like sushi catering.
 
-Early in the rebuild, we tried cramming all service options into a single step. Big mistake. The UI got noisy, validation was a mess, and users felt overwhelmed. So we made a call: niche services needed their own dedicated step — Step 5.
+Early in the rebuild, I tried cramming all service options into a single step. Big mistake. The UI got noisy, validation was a mess, and users felt overwhelmed. So I made a call: niche services needed their own dedicated step — Step 5.
 
 This wasn’t just about UX. It was about separation of concerns. Sushi catering has unique requirements: raw fish handling, chef certifications, plating preferences, dietary restrictions, and prep time. These fields don’t belong next to a checkbox for ‘chafing dishes.’
 
-So we carved out Step 5 as a conditional, service-specific gateway. If a user selects ‘Sushi’ or ‘Custom Dessert Stations’ in Step 3, Step 5 dynamically appears — tailored, focused, and loaded with only what matters.
+So I carved out Step 5 as a conditional, service-specific gateway. If a user selects ‘Sushi’ or ‘Custom Dessert Stations’ in Step 3, Step 5 dynamically appears — tailored, focused, and loaded with only what matters.
 
 ## Livewire as the State Glue (Without the JS Overhead)
 
-Here’s where Livewire shines. Even though AustinsElite’s frontend feels dynamic and responsive, we’re not running a full SPA. We’re using Laravel 12 with Livewire to manage state, handle validation, and render partials — all server-side.
+Here’s where Livewire shines. Even though AustinsElite’s frontend feels dynamic and responsive, I’m not running a full SPA. I’m using Laravel 12 with Livewire to manage state, handle validation, and render partials — all server-side.
 
 When the user selects specialty services in Step 3, Livewire tracks that in component state:
 
@@ -32,7 +32,7 @@ public function updatedSelectedServices($services)
 
 That single method controls both UI flow and backend logic. No API calls. No React context or Redux. Just PHP, reactivity, and zero frontend bloat.
 
-In Step 5, we load a dedicated Livewire component — `SushiQuoteForm` — that handles its own validation rules, file uploads (like menu proofs), and dynamic sub-fields. Need to show extra options if the client wants live sushi rolling? Just toggle a property:
+In Step 5, I load a dedicated Livewire component — `SushiQuoteForm` — that handles its own validation rules, file uploads (like menu proofs), and dynamic sub-fields. Need to show extra options if the client wants live sushi rolling? Just toggle a property:
 
 ```php
 public $hasLiveRolling = false;
@@ -43,15 +43,15 @@ public function updatedHasLiveRolling()
 }
 ```
 
-Livewire re-renders only the relevant section. The user sees instant feedback, and we keep the payload tiny.
+Livewire re-renders only the relevant section. The user sees instant feedback, and I keep the payload tiny.
 
-And because everything lives in the same request cycle, we don’t have to worry about syncing frontend and backend state. The form *is* the state.
+And because everything lives in the same request cycle, I don’t have to worry about syncing frontend and backend state. The form *is* the state.
 
 ## Conditional Fields, Clean Validation, and Real-World Edge Cases
 
 One of the trickiest parts of Step 5 was validation — especially when fields appear conditionally. Laravel’s validation rules are powerful, but you can’t just slap `required` on a field that’s sometimes hidden.
 
-Our solution? Dynamic rule arrays built in real time:
+My solution? Dynamic rule arrays built in real time:
 
 ```php
 protected function rules()
@@ -68,7 +68,7 @@ protected function rules()
 
 This keeps validation tight and context-aware. No more false positives from hidden fields.
 
-We also added real-time feedback using Livewire’s `$dispatch` to trigger toast notifications:
+I also added real-time feedback using Livewire’s `$dispatch` to trigger toast notifications:
 
 ```php
 $this->validate();
@@ -79,4 +79,4 @@ On the frontend, Alpine.js listens for these events and scrolls the user smoothl
 
 The result? A form that feels fast, smart, and forgiving — even when asking about nori sheet thickness.
 
-Building Step 5 taught us that complexity isn’t the enemy. Misplaced complexity is. By isolating specialized services and leaning into Livewire’s reactive PHP model, we kept the code clean, the UX focused, and the quote funnel converting. And honestly? It made building for niche catering a lot more fun.
+Building Step 5 taught me that complexity isn’t the enemy. Misplaced complexity is. By isolating specialized services and leaning into Livewire’s reactive PHP model, I kept the code clean, the UX focused, and the quote funnel converting. And honestly? It made building for niche catering a lot more fun.

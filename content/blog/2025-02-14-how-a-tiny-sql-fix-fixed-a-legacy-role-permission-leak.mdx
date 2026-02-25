@@ -21,7 +21,7 @@ But here’s the real issue: this wasn’t just a UI glitch. The same string-bas
 
 ## Why String-Based Role Checks Don’t Scale
 
-Let’s be clear: checking roles by name might seem fine in a small app with three roles. But in a system like AustinsElite (Legacy), where roles have evolved over a decade, it’s a ticking time bomb.
+I’ll be clear: checking roles by name might seem fine in a small app with three roles. But in a system like AustinsElite (Legacy), where roles have evolved over a decade, it’s a ticking time bomb.
 
 Names are for humans. IDs are for machines.
 
@@ -33,11 +33,11 @@ I’ve seen this go wrong in three ways:
 2. **Silent failures** when roles are renamed for branding or clarity.
 3. **Inconsistent checks** across the codebase—some places check `name`, others check `slug`, others use magic numbers.
 
-And because this was a legacy system with no centralized authorization layer, every new feature just copied whatever pattern was nearby. We had at least four different ways roles were being filtered or checked. That’s not just messy—it’s a security risk.
+And because this was a legacy system with no centralized authorization layer, every new feature just copied whatever pattern was nearby. I had at least four different ways roles were being filtered or checked. That’s not just messy—it’s a security risk.
 
 ## From Strings to Boundaries: A Smaller, Stronger Fix
 
-Rewriting the entire permission system wasn’t on the table. We’re in stabilization mode, not full rewrite. So I needed a surgical fix: one that would eliminate the string dependency without introducing risk.
+Rewriting the entire permission system wasn’t on the table. I’m in stabilization mode, not full rewrite. So I needed a surgical fix: one that would eliminate the string dependency without introducing risk.
 
 The solution? Switch to numeric `role_id` ranges.
 
@@ -59,7 +59,7 @@ No more string parsing. No more magic names. Just a numeric guardrail that’s e
 
 And because `role_id` is immutable and database-enforced, it’s not subject to the whims of a product manager who wants to rename 'Client' to 'End User'. The security boundary stays put.
 
-This also opened the door for future improvements. Now that we have a clear ID-based tier system, we can start adding role-based middleware that checks `role_id` ranges instead of names. We can log access attempts by tier. We can even build tooling to visualize role inheritance—all because we stopped treating role names as code.
+This also opened the door for future improvements. Now that I have a clear ID-based tier system, I can start adding role-based middleware that checks `role_id` ranges instead of names. I can log access attempts by tier. I can even build tooling to visualize role inheritance—all because I stopped treating role names as code.
 
 ## Refactoring Legacy Permissions Without Blowing It Up
 

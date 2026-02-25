@@ -48,6 +48,31 @@ PROJECT_LABEL_OVERRIDES = {
     "AustinsElite (Legacy)": "AustinsElite (Legacy PHP + some Laravel packages)",
 }
 
+VOICE_REPLACEMENTS: list[tuple[str, str]] = [
+    (r"\bWe’re\b", "I’m"),
+    (r"\bwe’re\b", "I’m"),
+    (r"\bWe're\b", "I'm"),
+    (r"\bwe're\b", "I'm"),
+    (r"\bWe’ve\b", "I’ve"),
+    (r"\bwe’ve\b", "I’ve"),
+    (r"\bWe've\b", "I've"),
+    (r"\bwe've\b", "I've"),
+    (r"\bWe’ll\b", "I’ll"),
+    (r"\bwe’ll\b", "I’ll"),
+    (r"\bWe'll\b", "I'll"),
+    (r"\bwe'll\b", "I'll"),
+    (r"\bWe’d\b", "I’d"),
+    (r"\bwe’d\b", "I’d"),
+    (r"\bWe'd\b", "I'd"),
+    (r"\bwe'd\b", "I'd"),
+    (r"\bWe\b", "I"),
+    (r"\bwe\b", "I"),
+    (r"\bOur\b", "My"),
+    (r"\bour\b", "my"),
+    (r"\bUs\b", "Me"),
+    (r"\bus\b", "me"),
+]
+
 
 @dataclass
 class Commit:
@@ -155,6 +180,35 @@ def slugify(text: str) -> str:
 
 def yaml_quote(text: str) -> str:
     return text.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def normalize_first_person(text: str, *, is_markdown: bool = False) -> str:
+    if not text:
+        return text
+
+    def normalize_line(line: str) -> str:
+        out = line
+        for pattern, repl in VOICE_REPLACEMENTS:
+            out = re.sub(pattern, repl, out)
+        out = re.sub(r"\bI were\b", "I was", out)
+        out = re.sub(r"\bI are\b", "I am", out)
+        return out
+
+    if not is_markdown:
+        return normalize_line(text)
+
+    lines = text.splitlines(keepends=True)
+    out_lines: list[str] = []
+    in_code_fence = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_code_fence = not in_code_fence
+            out_lines.append(line)
+            continue
+        out_lines.append(line if in_code_fence else normalize_line(line))
+
+    return "".join(out_lines)
 
 
 def write_mdx(path: Path, date: str, title: str, excerpt: str, tags: list[str], author: str, content: str):
@@ -281,6 +335,8 @@ Return STRICT JSON only (no markdown fences, no extra prose):
 
 Rules:
 - First-person voice, practical and specific.
+- Use singular first-person only: "I", "my", "me".
+- Never use collective voice ("we", "our", "us") unless directly quoting existing text.
 - 600-1200 words.
 - Must include at least 3 markdown section headings (## Heading).
 - Ground claims in commits above; do not invent fake work.
@@ -358,6 +414,10 @@ def main() -> int:
     tags = [str(t).strip() for t in tags if str(t).strip()][:6]
     if len(tags) < 3:
         tags = (tags + ["engineering", "git", "build-in-public"])[:3]
+
+    title = normalize_first_person(title)
+    excerpt = normalize_first_person(excerpt)
+    content = normalize_first_person(content, is_markdown=True)
 
     BLOG_DIR.mkdir(parents=True, exist_ok=True)
 

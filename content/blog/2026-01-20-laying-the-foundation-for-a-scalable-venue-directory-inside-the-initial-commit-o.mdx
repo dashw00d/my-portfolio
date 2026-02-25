@@ -17,7 +17,7 @@ From the start, I structured the app around isolation. The `/cities` directory i
 
 But the real win is in the `/components/venues` module. Instead of hardcoding venue types like "wedding venues" or "co-working spaces," I built a `VenueCard` and `VenueList` system that accepts a `type` and `amenities` array as props. That means the same component renders data for a rooftop bar in Austin or a podcast studio in Denver—no duplication.
 
-This pattern was battle-tested during the AustinsElite refactor, where we broke down a 2000-line Laravel blade into reusable React components. The lesson? Modularity isn’t overhead—it’s velocity. When your UI anticipates variety, adding new categories becomes a config change, not a code rewrite.
+This pattern was battle-tested during the AustinsElite refactor, where I broke down a 2000-line Laravel blade into reusable React components. The lesson? Modularity isn’t overhead—it’s velocity. When your UI anticipates variety, adding new categories becomes a config change, not a code rewrite.
 
 ## Data That Scales: Flexible Attributes and Future-Proof Tagging
 
@@ -42,9 +42,9 @@ In `venues.json`, each entry looks like this:
 
 By separating structured `attributes` from tag-like `amenities`, I enable two powerful things: flexible filtering (e.g., `sound_proofed:true`) and dynamic UI rendering (e.g., showing a parking icon only when relevant). The `amenities` array also ties into a shared taxonomy file, so frontend icons and labels stay consistent across cities.
 
-This approach mirrors the attribute system we evolved in AustinsElite’s venue pages—only this time, it’s built in from day zero. No technical debt for future-me to pay.
+This approach mirrors the attribute system I evolved in AustinsElite’s venue pages—only this time, it’s built in from day zero. No technical debt for future-me to pay.
 
-And yes, I’m using JSON for now. No database, no CMS. Why? Because in early-stage apps, friction kills momentum. Static files let me iterate fast. When we need CMS integration, the schema is already structured to map cleanly into Sanity or Payload.
+And yes, I’m using JSON for now. No database, no CMS. Why? Because in early-stage apps, friction kills momentum. Static files let me iterate fast. When I need CMS integration, the schema is already structured to map cleanly into Sanity or Payload.
 
 ## Integrating Without Coupling: Shared Systems and Analytics
 
@@ -52,12 +52,12 @@ Venue Scout isn’t an island. It needs to coexist with existing platforms like 
 
 A `scripts/sync-amenities.mjs` utility ensures the amenity taxonomy stays in sync across projects. No copy-pasting JSON. Run the script, get updated labels and icons everywhere. It’s small, but it prevents drift.
 
-Analytics are handled via a lightweight wrapper around our self-hosted Umami instance. The `usePageview` hook fires on route changes in Next.js App Router, tagging events with `app:venue-scout` for segmentation. No external SDKs, no bloat—just clean, privacy-conscious tracking that aligns with our stack.
+Analytics are handled via a lightweight wrapper around my self-hosted Umami instance. The `usePageview` hook fires on route changes in Next.js App Router, tagging events with `app:venue-scout` for segmentation. No external SDKs, no bloat—just clean, privacy-conscious tracking that aligns with my stack.
 
 These integrations aren’t afterthoughts. They’re guardrails. They ensure that even as Venue Scout grows, it doesn’t become a silo.
 
 ## What’s Next
 
-The first commit is just scaffolding, but it’s intentional scaffolding. With a modular city structure, scalable data model, and clean integration points, we’re set to add search, filtering, and user submissions without re-architecting.
+The first commit is just scaffolding, but it’s intentional scaffolding. With a modular city structure, scalable data model, and clean integration points, I’m set to add search, filtering, and user submissions without re-architecting.
 
 In the coming weeks, I’ll be adding dynamic filtering with URL sync, dark mode (because of course), and a submission flow. But none of that matters if the foundation cracks. This is me, building to last.

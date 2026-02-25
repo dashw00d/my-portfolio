@@ -7,9 +7,9 @@ author: "Ryan Dashwood"
 ---
 ## Why Exportable Forms Matter in Admin Panels
 
-If you’ve ever handed a client an admin panel full of form submissions, you’ve probably heard the next request within minutes: *"Can I export this?"* Not just CSVs—real, printable, shareable documents. At AustinsElite, we hit that moment in April 2025 when the team needed a way to turn form entries into PDFs and email them directly from the admin. We’re on Laravel 12 with Filament powering the backend, and while Filament handles data beautifully, exporting clean, styled PDFs isn’t built in. So I rolled up my sleeves and made it happen.
+If you’ve ever handed a client an admin panel full of form submissions, you’ve probably heard the next request within minutes: *"Can I export this?"* Not just CSVs—real, printable, shareable documents. At AustinsElite, I hit that moment in April 2025 when the team needed a way to turn form entries into PDFs and email them directly from the admin. I’m on Laravel 12 with Filament powering the backend, and while Filament handles data beautifully, exporting clean, styled PDFs isn’t built in. So I rolled up my sleeves and made it happen.
 
-This wasn’t just about convenience. Some submissions go to external partners who don’t have system access. Others need to be archived as signed-looking documents. A raw database dump won’t cut it. We needed something presentable—something you could actually attach to an email and send.
+This wasn’t just about convenience. Some submissions go to external partners who don’t have system access. Others need to be archived as signed-looking documents. A raw database dump won’t cut it. I needed something presentable—something you could actually attach to an email and send.
 
 ## Generating PDFs Inside Filament Actions
 
@@ -92,6 +92,6 @@ public function build()
 
 Now admins can preview the data, hit "Email PDF", type in an address, and send—no context switching, no extra tools. The whole flow lives inside Filament.
 
-This wasn’t a huge refactor, but it removed friction in a place where friction kills productivity. And honestly? The client loved it. They’re already asking what else we can automate.
+This wasn’t a huge refactor, but it removed friction in a place where friction kills productivity. And honestly? The client loved it. They’re already asking what else I can automate.
 
 If you're building admin panels in Laravel with Filament, don’t stop at data display. Think about what happens *after* the form is submitted. Because your users aren’t done when they click save—they’re just getting started.

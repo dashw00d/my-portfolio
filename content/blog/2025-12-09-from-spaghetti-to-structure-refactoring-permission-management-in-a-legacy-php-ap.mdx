@@ -11,7 +11,7 @@ I didn’t inherit a codebase—I inherited a fossil. AustinsElite, a legacy PHP
 
 There was no central authority for "who can do what." Roles? Sure. But they were strings in a column, checked via `if (user_role == 'admin')` blocks scattered across 40 files. Adding a new permission meant grepping through templates, hoping you didn’t miss a condition. It wasn’t just risky—it was unsustainable.
 
-I knew we couldn’t rewrite the whole thing. This wasn’t a greenfield project. So I asked: *Can we bring structure without breaking everything?*
+I knew I couldn’t rewrite the whole thing. This wasn’t a greenfield project. So I asked: *Can I bring structure without breaking everything?*
 
 ## Building a Permission Layer That Doesn’t Break the Past
 
@@ -22,7 +22,7 @@ The goal wasn’t elegance—it was survival. I needed a system that could coexi
 3. Build a sync job to keep legacy role flags in line with the new model
 4. Create a lightweight middleware for new routes
 
-The first step was defining the model. Simple: `id`, `name`, `description`, and a pivot table with `user_permissions`. But the real challenge was backward compatibility. We still had to support `user->is_admin` checks. So instead of ripping them out, I made them *derived*:
+The first step was defining the model. Simple: `id`, `name`, `description`, and a pivot table with `user_permissions`. But the real challenge was backward compatibility. I still had to support `user->is_admin` checks. So instead of ripping them out, I made them *derived*:
 
 ```php
 // Legacy getter, now powered by the new system
@@ -50,7 +50,7 @@ This wasn’t just cleanup—it was insurance. If someone manually flipped a rol
 
 ## From Fear to Flexibility: What Changed
 
-Six commits later, the transformation wasn’t flashy—but it was profound. We went from:
+Six commits later, the transformation wasn’t flashy—but it was profound. I went from:
 
 - Manual, error-prone permission checks
 - Zero visibility into who had what access
@@ -59,7 +59,7 @@ Six commits later, the transformation wasn’t flashy—but it was profound. We 
 To:
 
 - A single `@can('publish_content')` directive in Blade templates
-- A `/debug/permissions` admin page (yes, we still have those) showing real-time user abilities
+- A `/debug/permissions` admin page (yes, I still have those) showing real-time user abilities
 - Role changes taking effect immediately, with audit trails
 
 The best part? No outages. No angry support tickets. Just quieter logs and fewer edge cases.

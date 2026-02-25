@@ -1,5 +1,5 @@
 ---
-title: "Debugging the Invisible: How We Fixed a Race Condition in HomeForged’s Visual Workflow Engine"
+title: "Debugging the Invisible: How I Fixed a Race Condition in HomeForged’s Visual Workflow Engine"
 date: "2025-11-13"
 excerpt: "How a subtle race condition in HomeForged’s workflow builder was caught and fixed using timeline analysis and precise state sync."
 tags: ["React", "race-condition", "frontend", "debugging", "async-state", "visual-builder"]
@@ -9,11 +9,11 @@ author: "Ryan Dashwood"
 
 It started with a whisper—a single QA note: "Sometimes, action properties don’t show up until I click away and back."
 
-Inconsistent UI state is one of those maddening bugs that teases reproducibility. At first, I chalked it up to caching or a flaky API call. But after seeing it twice in a demo (once during a client walkthrough—*ouch*), I knew we had a real problem.
+Inconsistent UI state is one of those maddening bugs that teases reproducibility. At first, I chalked it up to caching or a flaky API call. But after seeing it twice in a demo (once during a client walkthrough—*ouch*), I knew I had a real problem.
 
 HomeForged’s Visual Builder lets users design AI-driven workflows by connecting actions in a node-based interface. When you select an action, its configurable properties should appear instantly in the right panel. But sometimes, they didn’t. The panel stayed blank. No errors. No loading spinners. Just… nothing.
 
-The kicker? The data was already there. The API had resolved. The component had rendered. And yet, the properties weren’t showing. That’s when I knew: we were dealing with a race condition in the frontend state orchestration layer.
+The kicker? The data was already there. The API had resolved. The component had rendered. And yet, the properties weren’t showing. That’s when I knew: I was dealing with a race condition in the frontend state orchestration layer.
 
 ## Peeling Back the Timeline
 
@@ -26,9 +26,9 @@ Here’s what I saw:
 3. The properties panel attempts to render before the full action object is available in the store.
 4. A re-render eventually happens—but too late. The UI stays stuck.
 
-React’s concurrent rendering was doing its job, but our `useEffect` dependencies weren’t tight enough. We were listening for "workflow loaded", but not "selected action fully hydrated".
+React’s concurrent rendering was doing its job, but my `useEffect` dependencies weren’t tight enough. I was listening for "workflow loaded", but not "selected action fully hydrated".
 
-The real trap? We were using a derived `selectedAction` from a global context, computed via `useMemo`. But the memoization dependency array didn’t include the full action map—only the ID. So when the action data arrived later, the selector didn’t recompute. The component received stale `undefined` props and rendered nothing. No errors, no warnings. Just silence.
+The real trap? I was using a derived `selectedAction` from a global context, computed via `useMemo`. But the memoization dependency array didn’t include the full action map—only the ID. So when the action data arrived later, the selector didn’t recompute. The component received stale `undefined` props and rendered nothing. No errors, no warnings. Just silence.
 
 I added a debug log:
 
@@ -60,15 +60,15 @@ useEffect(() => {
 
 This small change ensured the panel only attempts to render properties when both the ID *and* the data are present. I also added a minimal loading placeholder to avoid blank states.
 
-The key was tightening the dependency array and decoupling the rendering logic from optimistic assumptions. No more "hope the data is there." Now, it’s "render only when we know it’s there."
+The key was tightening the dependency array and decoupling the rendering logic from optimistic assumptions. No more "hope the data is there." Now, it’s "render only when I know it’s there."
 
-The commit—[HomeForged] cleaned up, fixed, and enhanced workflows actions show full properties—wasn’t flashy, but it closed a critical gap in our UI reliability. It also cleaned up redundant renders and improved hydration timing across the builder.
+The commit—[HomeForged] cleaned up, fixed, and enhanced workflows actions show full properties—wasn’t flashy, but it closed a critical gap in my UI reliability. It also cleaned up redundant renders and improved hydration timing across the builder.
 
 ## Lessons from the Trenches
 
-Race conditions in async UIs are stealthy because they often pass local tests. They only surface under real-world load, network variance, or after other system changes—like our recent schema refactor, which altered payload timing.
+Race conditions in async UIs are stealthy because they often pass local tests. They only surface under real-world load, network variance, or after other system changes—like my recent schema refactor, which altered payload timing.
 
-This fix was part of November’s stabilization wave, where we’re stress-testing the frontend after major backend shifts. What seemed like a "minor UI glitch" turned out to be a symptom of deeper state synchronization debt.
+This fix was part of November’s stabilization wave, where I’m stress-testing the frontend after major backend shifts. What seemed like a "minor UI glitch" turned out to be a symptom of deeper state synchronization debt.
 
 If you’re building visual orchestration layers—especially with AI workflows where actions are dynamic and async—here’s what I’d recommend:
 

@@ -5,13 +5,13 @@ excerpt: "How I untangled a messy PHP event filter system by building a centrali
 tags: ["PHP", "Laravel", "Legacy Code", "Refactoring", "Search Filtering", "Code Architecture"]
 author: "Ryan Dashwood"
 ---
-## The Filter Jungle We Inherited
+## The Filter Jungle I Inherited
 
 A few weeks ago, I dove back into AustinsElite (Legacy), a long-running PHP app built on a custom framework with sprinklings of Laravel components. It’s not flashy, but it’s *alive*—and that means years of feature creep, quick fixes, and copy-pasted logic. One area that had quietly become a nightmare? Event filtering.
 
 Originally, searching and filtering events was handled by a patchwork of controller methods, each with its own query logic. Want to filter by date? There’s a method for that. Location? Another one. Tags? Oh, and that one calls a helper function buried in `helpers.php` that nobody remembers writing. Pagination was bolted on inconsistently—sometimes handled in the controller, sometimes in the view, sometimes not at all. It wasn’t just messy; it was fragile. Adding a new filter meant touching five files and praying nothing broke.
 
-Worst of all, performance was creeping upward. Each filter path built queries differently—some used Eloquent inefficiently, others ran raw queries with duplicated conditions. We were fetching full datasets and slicing them in PHP instead of pushing limits down to the database. It was time to stop patching and start rebuilding.
+Worst of all, performance was creeping upward. Each filter path built queries differently—some used Eloquent inefficiently, others ran raw queries with duplicated conditions. I was fetching full datasets and slicing them in PHP instead of pushing limits down to the database. It was time to stop patching and start rebuilding.
 
 ## Building a Unified Search Router
 
@@ -43,7 +43,7 @@ foreach ($request->all() as $key => $value) {
 }
 ```
 
-Suddenly, every filter follows the same pattern. No more guessing where logic lives. No more duplicated pagination code. And because each filter operates on the same Eloquent builder instance, we can defer execution until the end—ensuring the final SQL query is lean and uses proper `LIMIT` and `OFFSET`.
+Suddenly, every filter follows the same pattern. No more guessing where logic lives. No more duplicated pagination code. And because each filter operates on the same Eloquent builder instance, I can defer execution until the end—ensuring the final SQL query is lean and uses proper `LIMIT` and `OFFSET`.
 
 I also cleaned up a handful of legacy helper functions that were doing things like date parsing or string sanitization. Instead of scattered `str_replace` calls, I moved that logic into dedicated value transformers tied to specific filters. This made the code more testable and reduced side effects.
 
@@ -52,7 +52,7 @@ I also cleaned up a handful of legacy helper functions that were doing things li
 The impact was immediate.
 
 - **Query performance improved by ~40%** on average, measured across common filter combinations. This came from eliminating in-memory filtering and reducing redundant database hits.
-- **Code duplication dropped sharply**. We deleted over 200 lines of redundant controller logic and consolidated five separate pagination implementations into one reusable trait.
+- **Code duplication dropped sharply**. I deleted over 200 lines of redundant controller logic and consolidated five separate pagination implementations into one reusable trait.
 - **New filters are now trivial to add**. Need to support `venue_id`? Drop in a new class, add it to the map, and you’re done. No touching controllers.
 
 But the real win wasn’t just technical—it was psychological. The team stopped dreading filter changes. QA reported fewer edge-case bugs. And because the logic is now predictable, onboarding new devs became easier.

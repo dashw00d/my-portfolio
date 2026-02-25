@@ -1,15 +1,15 @@
 ---
-title: "Building a Plugin Ecosystem for HomeForged: How We Designed a Lightweight Extension System in PHP"
+title: "Building a Plugin Ecosystem for HomeForged: How I Designed a Lightweight Extension System in PHP"
 date: "2025-10-17"
-excerpt: "How we built a modular plugin system in PHP for HomeForged using service providers, manifest files, and event hooks."
+excerpt: "How I built a modular plugin system in PHP for HomeForged using service providers, manifest files, and event hooks."
 tags: ["PHP", "Laravel", "Plugin Architecture", "Modular Design", "HomeLab", "Event Hooks"]
 author: "Ryan Dashwood"
 ---
 ## Why Modularity Matters in HomeForged
 
-HomeForged started as a simple automation tool for homelab environments—a way to script routine tasks, manage services, and keep configurations in sync. But as more users adopted it, a pattern emerged: everyone wanted different integrations. One person needed Slack alerts on backup completion. Another wanted dynamic DNS updates via Cloudflare. Someone else wanted to tie in their smart home stack. Building all of these into the core app wasn’t sustainable—or desirable. We needed modularity.
+HomeForged started as a simple automation tool for homelab environments—a way to script routine tasks, manage services, and keep configurations in sync. But as more users adopted it, a pattern emerged: everyone wanted different integrations. One person needed Slack alerts on backup completion. Another wanted dynamic DNS updates via Cloudflare. Someone else wanted to tie in their smart home stack. Building all of these into the core app wasn’t sustainable—or desirable. I needed modularity.
 
-The goal wasn’t just to support plugins, but to do it *lightly*. No heavy interfaces, no complex SDKs. We wanted developers (and tinkerers) to drop in a folder and have their code integrate cleanly. The solution? A plugin system built on PHP patterns we already trusted: service providers, event-driven hooks, and filesystem conventions.
+The goal wasn’t just to support plugins, but to do it *lightly*. No heavy interfaces, no complex SDKs. I wanted developers (and tinkerers) to drop in a folder and have their code integrate cleanly. The solution? A plugin system built on PHP patterns I already trusted: service providers, event-driven hooks, and filesystem conventions.
 
 ## Plugin Registration: Service Providers Meet Manifest Files
 
@@ -27,7 +27,7 @@ The manifest is minimal:
 
 On boot, HomeForged scans the plugins directory, reads each manifest, and registers the listed service provider in the app’s service container. This is done during the Laravel `register()` phase, so plugins can bind interfaces, publish configs, or register commands before the app fully boots.
 
-Here’s how we load them:
+Here’s how I load them:
 
 ```php
 $pluginsPath = base_path('plugins');
@@ -45,15 +45,15 @@ foreach (scandir($pluginsPath) as $folder) {
 }
 ```
 
-This approach keeps things predictable. The manifest acts as a contract. The service provider gives full access to Laravel’s boot cycle. And because each plugin is namespaced under `Plugins\{folder}`, we avoid class collisions while keeping autoloading simple via Composer’s PSR-4 rules.
+This approach keeps things predictable. The manifest acts as a contract. The service provider gives full access to Laravel’s boot cycle. And because each plugin is namespaced under `Plugins\{folder}`, I avoid class collisions while keeping autoloading simple via Composer’s PSR-4 rules.
 
-It also means plugin authors can use familiar tools: commands, config files, even migrations if needed. One plugin we built logs all automation runs to a custom database table—it ships with a migration and registers it via the provider’s `boot()` method. Another publishes a config file so users can set API keys. All of this works because we lean into Laravel’s existing patterns instead of inventing new ones.
+It also means plugin authors can use familiar tools: commands, config files, even migrations if needed. One plugin I built logs all automation runs to a custom database table—it ships with a migration and registers it via the provider’s `boot()` method. Another publishes a config file so users can set API keys. All of this works because I lean into Laravel’s existing patterns instead of inventing new ones.
 
 ## Extending Without Breaking: The Power of Event Hooks
 
-The real challenge wasn’t loading plugins—it was letting them *interact* with core logic safely. We didn’t want plugins reaching into private methods or relying on fragile internals. The answer? A lightweight event hook system.
+The real challenge wasn’t loading plugins—it was letting them *interact* with core logic safely. I didn’t want plugins reaching into private methods or relying on fragile internals. The answer? A lightweight event hook system.
 
-Instead of exposing APIs, we emit events at key points in automation workflows:
+Instead of exposing APIs, I emit events at key points in automation workflows:
 
 - `AutomationStarted`
 - `TaskCompleted`
@@ -76,7 +76,7 @@ class SendSlackNotification
 
 The beauty is in the isolation. The core doesn’t know about Slack. It doesn’t care. It just fires events. Plugins react. No tight coupling. No version lock-in. Even if the core changes how backups are run, as long as the event fires, the plugin keeps working.
 
-We also added a simple hook registry for cases where plugins need to *modify* data. Instead of events, we use a filter pattern:
+I also added a simple hook registry for cases where plugins need to *modify* data. Instead of events, I use a filter pattern:
 
 ```php
 $hostname = Hook::filter('hostname_normalized', $rawHostname);

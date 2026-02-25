@@ -1,35 +1,35 @@
 ---
-title: "How We Fixed File Attachments and Image Embeds in a Next.js Form Submission Flow"
+title: "How I Fixed File Attachments and Image Embeds in a Next.js Form Submission Flow"
 date: "2025-05-17"
-excerpt: "We debugged broken file uploads and image rendering in a Next.js form—here’s how proper validation, path resolution, and MIME handling saved the day."
+excerpt: "I debugged broken file uploads and image rendering in a Next.js form—here’s how proper validation, path resolution, and MIME handling saved the day."
 tags: ["file uploads", "form handling", "debugging", "MIME types", "image rendering", "Hybrid Architecture"]
 author: "Ryan Dashwood"
 ---
 ## The Problem: Broken Images and Missing Attachments
 
-Last week, a user submitted a form with two image uploads. The confirmation email came through—great. But the images were missing, and the PDF attachment showed broken embeds. This wasn’t a one-off. Over the past month, we’d seen intermittent reports of failed file attachments across our form flows, especially in the AustinsElite admin interface.
+Last week, a user submitted a form with two image uploads. The confirmation email came through—great. But the images were missing, and the PDF attachment showed broken embeds. This wasn’t a one-off. Over the past month, I’d seen intermittent reports of failed file attachments across my form flows, especially in the AustinsElite admin interface.
 
 At first glance, everything *looked* fine. The frontend showed successful uploads. The backend logged no errors. But somewhere between submission and output, files were getting lost or misreferenced. And since those files feed both email templates and dynamically generated PDFs, the impact was visible in multiple places.
 
-We needed to trace the full lifecycle: from client-side selection to server-side storage, then back out through rendering and attachment pipelines.
+I needed to trace the full lifecycle: from client-side selection to server-side storage, then back out through rendering and attachment pipelines.
 
 ## Diagnosing the Root Causes
 
-Our form submission flow in the Next.js frontend used a mix of React state and a custom file upload hook. On the surface, it worked—users selected files, previews loaded, and the form submitted. But digging into the payloads, we found the first clue: inconsistent file types.
+My form submission flow in the Next.js frontend used a mix of React state and a custom file upload hook. On the surface, it worked—users selected files, previews loaded, and the form submitted. But digging into the payloads, I found the first clue: inconsistent file types.
 
-Some images came through with `image/jpg` (invalid MIME), others as `image/jpeg`, and a few as `application/octet-stream`—a red flag that the browser couldn’t sniff the type. Our backend validation only checked file extensions, not actual MIME types. So malformed uploads slipped through, only to fail later during processing.
+Some images came through with `image/jpg` (invalid MIME), others as `image/jpeg`, and a few as `application/octet-stream`—a red flag that the browser couldn’t sniff the type. My backend validation only checked file extensions, not actual MIME types. So malformed uploads slipped through, only to fail later during processing.
 
-Next, we checked storage paths. Files were uploaded to a local `uploads/` directory during dev, but in production, we use a CDN-backed path via environment variables. The issue? The image `src` attributes in our email and PDF templates used relative paths like `/uploads/image.jpg`, which worked locally but broke in production where the base URL was `https://cdn.austinselite.com`.
+Next, I checked storage paths. Files were uploaded to a local `uploads/` directory during dev, but in production, I use a CDN-backed path via environment variables. The issue? The image `src` attributes in my email and PDF templates used relative paths like `/uploads/image.jpg`, which worked locally but broke in production where the base URL was `https://cdn.austinselite.com`.
 
-Worse, we weren’t verifying file existence on the server before embedding. If an upload failed silently or was cleaned up by a cron job, the system still tried to reference it. No fallback, no warning—just broken `<img>` tags and missing attachments.
+Worse, I weren’t verifying file existence on the server before embedding. If an upload failed silently or was cleaned up by a cron job, the system still tried to reference it. No fallback, no warning—just broken `<img>` tags and missing attachments.
 
-Finally, the attachment pipeline assumed all files were accessible via a single synchronous filesystem read. But with async uploads and CDN propagation delays, that assumption failed under load. We had no retry logic, no caching, and no way to validate that a file was *actually* ready to attach.
+Finally, the attachment pipeline assumed all files were accessible via a single synchronous filesystem read. But with async uploads and CDN propagation delays, that assumption failed under load. I had no retry logic, no caching, and no way to validate that a file was *actually* ready to attach.
 
 ## The Fix: Validation, Path Resolution, and Resilient Rendering
 
-We tackled this in three layers: client, server, and output.
+I tackled this in three layers: client, server, and output.
 
-First, on the client, we tightened file validation in our `useFileUpload` hook. Before adding a file to state, we now:
+First, on the client, I tightened file validation in my `useFileUpload` hook. Before adding a file to state, I now:
 
 - Read the file’s `type` property and cross-check it with a whitelist (`image/jpeg`, `image/png`, `image/webp`).
 - Fall back to a `FileReader` to inspect the first few bytes and detect actual MIME type, catching cases where the browser misreports.
@@ -59,13 +59,13 @@ const isValidImage = (file) => {
 };
 ```
 
-On the server (a standalone API route in Laravel 12, not Laravel—despite AustinsElite’s primary backend being Laravel 12), we added pre-attachment checks. Before generating a PDF or sending an email, we:
+On the server (a standalone API route in Laravel 12, not Laravel—despite AustinsElite’s primary backend being Laravel 12), I added pre-attachment checks. Before generating a PDF or sending an email, I:
 
 - Resolve the absolute public URL using `process.env.ASSET_BASE_URL` (set to the CDN in prod, localhost in dev).
 - Issue a `HEAD` request to verify the file exists and is accessible.
 - Cache the result for 5 minutes to avoid repeated checks during PDF/email batch jobs.
 
-For image rendering in templates, we added fallbacks:
+For image rendering in templates, I added fallbacks:
 
 ```jsx
 <img
@@ -77,8 +77,8 @@ For image rendering in templates, we added fallbacks:
 />
 ```
 
-And in the PDF generation service (a Puppeteer-based worker), we now await asset readiness before rendering. If a file isn’t available within 10 seconds, the job logs a warning and proceeds without it—better than failing the entire PDF.
+And in the PDF generation service (a Puppeteer-based worker), I now await asset readiness before rendering. If a file isn’t available within 10 seconds, the job logs a warning and proceeds without it—better than failing the entire PDF.
 
-The result? Zero missing attachments in the past five days. User-reported issues dropped to zero. And our form logic is finally decoupled from side effects: email and PDF services no longer assume files are ready—they check first.
+The result? Zero missing attachments in the past five days. User-reported issues dropped to zero. And my form logic is finally decoupled from side effects: email and PDF services no longer assume files are ready—they check first.
 
-It’s a small win, but it’s the kind that keeps users trusting your app. File uploads seem simple—until they’re not. Now, we treat every file like it might vanish, and build accordingly.
+It’s a small win, but it’s the kind that keeps users trusting your app. File uploads seem simple—until they’re not. Now, I treat every file like it might vanish, and build accordingly.

@@ -40,6 +40,31 @@ PROJECT_STACK_OVERRIDES: dict[str, str] = {
     "AustinsElite (Next.js)": "Primary AustinsElite production app on Laravel 12 (historical label is stale), not Next.js.",
 }
 
+VOICE_REPLACEMENTS: list[tuple[str, str]] = [
+    (r"\bWe’re\b", "I’m"),
+    (r"\bwe’re\b", "I’m"),
+    (r"\bWe're\b", "I'm"),
+    (r"\bwe're\b", "I'm"),
+    (r"\bWe’ve\b", "I’ve"),
+    (r"\bwe’ve\b", "I’ve"),
+    (r"\bWe've\b", "I've"),
+    (r"\bwe've\b", "I've"),
+    (r"\bWe’ll\b", "I’ll"),
+    (r"\bwe’ll\b", "I’ll"),
+    (r"\bWe'll\b", "I'll"),
+    (r"\bwe'll\b", "I'll"),
+    (r"\bWe’d\b", "I’d"),
+    (r"\bwe’d\b", "I’d"),
+    (r"\bWe'd\b", "I'd"),
+    (r"\bwe'd\b", "I'd"),
+    (r"\bWe\b", "I"),
+    (r"\bwe\b", "I"),
+    (r"\bOur\b", "My"),
+    (r"\bour\b", "my"),
+    (r"\bUs\b", "Me"),
+    (r"\bus\b", "me"),
+]
+
 
 def load_api_key() -> str:
     key = os.environ.get("OPENROUTER_API_KEY", "").strip()
@@ -136,6 +161,35 @@ def yaml_quote(text: str) -> str:
     return text.replace("\\", "\\\\").replace('"', '\\"')
 
 
+def normalize_first_person(text: str, *, is_markdown: bool = False) -> str:
+    if not text:
+        return text
+
+    def normalize_line(line: str) -> str:
+        out = line
+        for pattern, repl in VOICE_REPLACEMENTS:
+            out = re.sub(pattern, repl, out)
+        out = re.sub(r"\bI were\b", "I was", out)
+        out = re.sub(r"\bI are\b", "I am", out)
+        return out
+
+    if not is_markdown:
+        return normalize_line(text)
+
+    lines = text.splitlines(keepends=True)
+    out_lines: list[str] = []
+    in_code_fence = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_code_fence = not in_code_fence
+            out_lines.append(line)
+            continue
+        out_lines.append(line if in_code_fence else normalize_line(line))
+
+    return "".join(out_lines)
+
+
 def existing_posts_by_date() -> dict[str, list[Path]]:
     out: dict[str, list[Path]] = {}
     if not BLOG_DIR.exists():
@@ -213,6 +267,8 @@ Return STRICT JSON only (no markdown fences, no prose outside JSON):
 
 Rules:
 - First-person voice, practical, builder-focused.
+- Use singular first-person only: "I", "my", "me".
+- Never use collective voice ("we", "our", "us") unless directly quoting existing text.
 - 500-1100 words.
 - Must include at least 3 section headings using Markdown (## Heading).
 - Ground claims in the supplied context; do not invent fake projects/events.
@@ -271,6 +327,10 @@ def generate_one_post(
     tags = [str(t).strip() for t in tags if str(t).strip()][:6]
     if len(tags) < 3:
         tags = (tags + ["engineering", "software", "build-in-public"])[:3]
+
+    title = normalize_first_person(title)
+    excerpt = normalize_first_person(excerpt)
+    content = normalize_first_person(content, is_markdown=True)
 
     slug = slugify(title)
     out_path = BLOG_DIR / f"{day}-{slug}.mdx"

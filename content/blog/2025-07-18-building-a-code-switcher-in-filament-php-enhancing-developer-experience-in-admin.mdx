@@ -9,9 +9,9 @@ author: "Ryan Dashwood"
 
 If you’ve ever handed a new dev a Laravel admin panel built with Filament and said, “Here, figure it out,” you’ve probably seen the blank stare. Where do the forms come from? How does the table data get loaded? Is this logic in the resource or the model?
 
-At RyanDashwood, we’ve been building internal tools with Filament for years. With the recent launch of [DataAnno Fil Starter](https://github.com/ryandaswood/dataanno-fil-starter), a boilerplate for annotation-heavy data apps, we knew clarity was non-negotiable. Our users—mostly PHP devs working on data pipelines—needed to see code in context: not just *what* was written, but *how* it translated into UI or API output.
+At RyanDashwood, I’ve been building internal tools with Filament for years. With the recent launch of [DataAnno Fil Starter](https://github.com/ryandaswood/dataanno-fil-starter), a boilerplate for annotation-heavy data apps, I knew clarity was non-negotiable. My users—mostly PHP devs working on data pipelines—needed to see code in context: not just *what* was written, but *how* it translated into UI or API output.
 
-Static code blocks in documentation don’t cut it. You can’t learn Blade templating by staring at a PHP class. So we asked: what if you could toggle between representations—PHP, Blade, JSON response—right inside the admin panel?
+Static code blocks in documentation don’t cut it. You can’t learn Blade templating by staring at a PHP class. So I asked: what if you could toggle between representations—PHP, Blade, JSON response—right inside the admin panel?
 
 Enter the code switcher.
 
@@ -19,11 +19,11 @@ Enter the code switcher.
 
 The goal was simple: let developers view different code representations of the same component without leaving the page. No tabs, no external docs, no context switching.
 
-We built it using Livewire and Blade components—core tools in any Filament stack. The switcher needed to be lightweight, reactive, and integrate seamlessly with Filament’s page structure.
+I built it using Livewire and Blade components—core tools in any Filament stack. The switcher needed to be lightweight, reactive, and integrate seamlessly with Filament’s page structure.
 
 Here’s how it works:
 
-1. We created a Livewire component called `<livewire:code-switcher />` that accepts a `views` prop—an array of code snippets keyed by label (e.g., `['PHP', 'Blade', 'API']`).
+1. I created a Livewire component called `<livewire:code-switcher />` that accepts a `views` prop—an array of code snippets keyed by label (e.g., `['PHP', 'Blade', 'API']`).
 2. The component renders a tab-like header with buttons for each view.
 3. On click, Livewire updates the `$activeView` property and re-renders the displayed code block.
 
@@ -54,7 +54,7 @@ class CodeSwitcher extends Component
 
 The Blade template uses `@highlight` directives (powered by [Alpine.js](https://alpinejs.dev/) and [highlight.js](https://highlightjs.org/)) to preserve syntax coloring. No external JS framework—just vanilla interactivity layered on top of Laravel’s stack.
 
-We wrapped the whole thing in a Filament `Card` or `Section` component, so it fits naturally within page layouts.
+I wrapped the whole thing in a Filament `Card` or `Section` component, so it fits naturally within page layouts.
 
 ```blade
 <x-filament::card>
@@ -70,7 +70,7 @@ The `highlight()` helper escapes and wraps code in `<pre><code>` tags with the r
 
 ## Integration with Filament: Docs That Don’t Lie
 
-The real win? This isn’t just a demo widget. We baked it into the [DataAnno Fil Starter](https://github.com/ryandaswood/dataanno-fil-starter) docs pages—specifically on resource examples where a model’s data flows through a Filament form, gets rendered in a table, and exposed via API.
+The real win? This isn’t just a demo widget. I baked it into the [DataAnno Fil Starter](https://github.com/ryandaswood/dataanno-fil-starter) docs pages—specifically on resource examples where a model’s data flows through a Filament form, gets rendered in a table, and exposed via API.
 
 Now, when a developer looks at a page showing how annotations are stored, they can toggle between:
 
@@ -80,7 +80,7 @@ Now, when a developer looks at a page showing how annotations are stored, they c
 
 No guessing. No jumping between files. Just instant context.
 
-We’ve already seen faster onboarding times and fewer “how does this work?” Slack pings since rolling this out. That’s the power of aligning tooling with how developers actually think.
+I’ve already seen faster onboarding times and fewer “how does this work?” Slack pings since rolling this out. That’s the power of aligning tooling with how developers actually think.
 
 And because it’s built with Livewire and standard Blade, it’s easy to maintain. No NPM scripts, no build steps—just PHP and a little interactivity.
 

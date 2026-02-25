@@ -1,17 +1,17 @@
 ---
-title: "How We Cut Our Hero Image Size by 95% Without Losing Quality"
+title: "How I Cut My Hero Image Size by 95% Without Losing Quality"
 date: "2024-06-26"
 excerpt: "Reduced a 1.01 MB hero image to 53.5 KB using WebP conversion—without sacrificing visual fidelity."
 tags: ["image optimization", "WebP", "performance", "core web vitals", "Hybrid Architecture"]
 author: "Ryan Dashwood"
 ---
-## The Problem: A 1MB PNG Holding Back Our Page
+## The Problem: A 1MB PNG Holding Back My Page
 
-Last week, while auditing the AustinsElite landing page during our June performance push, I spotted a glaring bottleneck: a hero image weighing in at 1.01 MB. It was a PNG—crisp, detailed, and completely overkill.
+Last week, while auditing the AustinsElite landing page during my June performance push, I spotted a glaring bottleneck: a hero image weighing in at 1.01 MB. It was a PNG—crisp, detailed, and completely overkill.
 
-This wasn’t just a file size issue. That single asset was dragging down our Largest Contentful Paint (LCP), a core web vital that directly impacts SEO and user experience. On slower connections, the image took seconds to load, leaving users staring at a blank hero section.
+This wasn’t just a file size issue. That single asset was dragging down my Largest Contentful Paint (LCP), a core web vital that directly impacts SEO and user experience. On slower connections, the image took seconds to load, leaving users staring at a blank hero section.
 
-I knew we could do better. PNGs are great for transparency and sharp graphics, but for photographic or complex hero visuals? They’re rarely the right choice in 2024.
+I knew I could do better. PNGs are great for transparency and sharp graphics, but for photographic or complex hero visuals? They’re rarely the right choice in 2024.
 
 ## The Fix: Smarter Compression with WebP
 
@@ -66,7 +66,7 @@ And the fix doesn’t require a framework overhaul or a redesign. Just smart ass
 
 WebP is now supported in all modern browsers (caniuse.com says 98% global coverage). If you’re still shipping PNGs or JPEGs for hero visuals, you’re leaving performance on the table.
 
-At AustinsElite, we’re using Laravel 12 for the core application logic, but our frontend marketing pages—like the one this hero lives on—are built with Next.js. That means we get the best of both worlds: Laravel’s robust backend and Next.js’s optimized asset pipeline. Leveraging that pipeline correctly is key.
+At AustinsElite, I’m using Laravel 12 for the core application logic, but my frontend marketing pages—like the one this hero lives on—are built with Next.js. That means I get the best of both worlds: Laravel’s robust backend and Next.js’s optimized asset pipeline. Leveraging that pipeline correctly is key.
 
 So next time you’re polishing a production site, run an audit. Find that one bloated image. Convert it. You might be shocked by how much faster your page feels.
 

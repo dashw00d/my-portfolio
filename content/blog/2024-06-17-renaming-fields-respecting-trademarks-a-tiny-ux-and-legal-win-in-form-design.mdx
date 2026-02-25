@@ -13,14 +13,14 @@ Wait… what?
 
 Turns out, "ZIP Code" is a registered trademark of the United States Postal Service. Not just a generic term. Not public domain. *Trademarked.* And while enforcement might seem rare, the legal reality is clear: using "ZIP Code" in user-facing interfaces without permission could open up liability, especially at scale.
 
-So the field labeled "Zip Code" in our Laravel 12-backed app—served through a Next.js frontend—was technically non-compliant. And worse, it was misleading users and skewing data expectations. Time for a fix.
+So the field labeled "Zip Code" in my Laravel 12-backed app—served through a Next.js frontend—was technically non-compliant. And worse, it was misleading users and skewing data expectations. Time for a fix.
 
 
 ## The Rename: From `zipcode` to `postalCode` (and Why It Wasn’t Just Cosmetic)
 
 The change seemed trivial: swap the label, update the field name, adjust validation. But in practice, it rippled across layers.
 
-Our original field was named `zipcode` in the frontend form state, labeled "Zip Code" in the UI, and expected a 5-digit US format. But here’s the catch: we weren’t just serving US users. The app supports international signups, and slapping a US-centric, trademarked term on a global field was already a UX smell.
+My original field was named `zipcode` in the frontend form state, labeled "Zip Code" in the UI, and expected a 5-digit US format. But here’s the catch: I weren’t just serving US users. The app supports international signups, and slapping a US-centric, trademarked term on a global field was already a UX smell.
 
 So I made the move:
 
@@ -41,7 +41,7 @@ So I made the move:
 />
 ```
 
-The impact? Immediate. Fewer validation errors from non-US users. Cleaner data. And no more dancing around trademark law in our forms.
+The impact? Immediate. Fewer validation errors from non-US users. Cleaner data. And no more dancing around trademark law in my forms.
 
 But the real win wasn’t just compliance—it was *clarity*. "Postal Code" is the internationally recognized term. It sets the right expectation for users, regardless of where they’re from. And in form design, expectation alignment is everything.
 
@@ -61,6 +61,6 @@ Here’s what I now check for every form field:
 
 In AustinsElite’s case, this wasn’t just about avoiding a cease-and-desist. It was about building a form that *works*—for everyone, everywhere, without legal or UX debt.
 
-As we push forward on form validation and email workflows this June, I’m keeping this lesson front of mind: the smallest details often carry the most weight. A single field rename can improve data accuracy, expand global usability, and keep your app out of legal gray zones.
+As I push forward on form validation and email workflows this June, I’m keeping this lesson front of mind: the smallest details often carry the most weight. A single field rename can improve data accuracy, expand global usability, and keep your app out of legal gray zones.
 
 And honestly? That’s a win worth shipping.

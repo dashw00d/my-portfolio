@@ -7,17 +7,17 @@ author: "Ryan Dashwood"
 ---
 ## Why Lightweight Interactivity Wins on Marketing Pages
 
-Marketing sites need motion—not bloat. At AustinsElite, our Laravel 12 app drives conversions through clean, fast-loading pages. But when we wanted to highlight a hiring push, we needed more than static text. We wanted pulse. A banner that grabs attention without tanking performance.
+Marketing sites need motion—not bloat. At AustinsElite, my Laravel 12 app drives conversions through clean, fast-loading pages. But when I wanted to highlight a hiring push, I needed more than static text. I wanted pulse. A banner that grabs attention without tanking performance.
 
-Enter Alpine.js. Instead of pulling in React state or a full animation library, I reached for Alpine: a 10kB framework that feels like React’s little cousin who still knows all the cool tricks. It’s perfect for sprinkling reactivity onto server-rendered Blade templates—exactly what our Laravel 12 stack delivers.
+Enter Alpine.js. Instead of pulling in React state or a full animation library, I reached for Alpine: a 10kB framework that feels like React’s little cousin who still knows all the cool tricks. It’s perfect for sprinkling reactivity onto server-rendered Blade templates—exactly what my Laravel 12 stack delivers.
 
-The goal? An animated banner with a cycling gradient background and a blinking "We're Hiring!" CTA. All without hydration, without Webpack bloat, and without compromising load speed.
+The goal? An animated banner with a cycling gradient background and a blinking "I'm Hiring!" CTA. All without hydration, without Webpack bloat, and without compromising load speed.
 
 ## Integrating Alpine.js into Laravel with Blade Components
 
 Alpine plays nice with any backend that outputs HTML—Laravel included. The setup was dead simple:
 
-First, I pulled Alpine from the CDN and added it to our main layout:
+First, I pulled Alpine from the CDN and added it to my main layout:
 
 ```blade
 <!-- resources/views/layouts/app.blade.php -->
@@ -42,7 +42,7 @@ This generated `HiringBanner.php` and a corresponding view. In `resources/views/
 </div>
 ```
 
-The magic lives in the `x-data` attribute, which binds a JavaScript object to the DOM. I defined `hiringBanner()` in a global script block (loaded via Vite alongside our other assets):
+The magic lives in the `x-data` attribute, which binds a JavaScript object to the DOM. I defined `hiringBanner()` in a global script block (loaded via Vite alongside my other assets):
 
 ```js
 window.hiringBanner = () => ({
@@ -78,13 +78,13 @@ window.hiringBanner = () => ({
 });
 ```
 
-By keeping the logic encapsulated and tied to the component, we maintain reusability. Drop `<x-hiring-banner />` anywhere in our Blade templates, and it just works—no props, no imports, no fuss.
+By keeping the logic encapsulated and tied to the component, I maintain reusability. Drop `<x-hiring-banner />` anywhere in my Blade templates, and it just works—no props, no imports, no fuss.
 
 ## Animating with $nextTick and State Toggling
 
 The blinking effect was trickier than expected. Toggling `isVisible` to `false` and back wasn’t enough—the DOM needed a chance to repaint before restoring opacity. That’s where Alpine’s `$nextTick` saved the day.
 
-`$nextTick` waits for the next DOM update cycle, letting us force a reflow. Without it, the browser would batch the changes and the blink would be invisible. Here’s the blink logic again for clarity:
+`$nextTick` waits for the next DOM update cycle, letting me force a reflow. Without it, the browser would batch the changes and the blink would be invisible. Here’s the blink logic again for clarity:
 
 ```js
 this.isVisible = false;
@@ -102,12 +102,12 @@ This sequence:
 
 The result? A crisp, noticeable blink—like a UI heartbeat.
 
-Meanwhile, the gradient cycling runs independently via `setInterval`, rotating through three vibrant color combos. Because we’re using Tailwind’s utility classes, switching gradients is just a matter of updating a string. No CSS keyframes, no animation libraries.
+Meanwhile, the gradient cycling runs independently via `setInterval`, rotating through three vibrant color combos. Because I’m using Tailwind’s utility classes, switching gradients is just a matter of updating a string. No CSS keyframes, no animation libraries.
 
 ## Final Thoughts: Progressive Enhancement, Done Right
 
-This banner ships zero JavaScript beyond Alpine’s 10kB. It works without JS enabled (falls back to first gradient and static text). It’s built with Laravel’s native component system, so it integrates seamlessly into our existing workflow.
+This banner ships zero JavaScript beyond Alpine’s 10kB. It works without JS enabled (falls back to first gradient and static text). It’s built with Laravel’s native component system, so it integrates seamlessly into my existing workflow.
 
-At AustinsElite, we’re not chasing framework trends—we’re solving user problems with the right tool for the job. Sometimes that’s Laravel. Sometimes it’s Blade. And sometimes, it’s a tiny JS library that lets us animate a CTA like it’s 2024 and we still care about performance.
+At AustinsElite, I’m not chasing framework trends—I’m solving user problems with the right tool for the job. Sometimes that’s Laravel. Sometimes it’s Blade. And sometimes, it’s a tiny JS library that lets me animate a CTA like it’s 2024 and I still care about performance.
 
 If you’re working in a hybrid stack—PHP backend, dynamic frontend—give Alpine.js a shot. It’s not a replacement for React. It’s a reminder that not every interaction needs a megaton of code.

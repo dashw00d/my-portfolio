@@ -11,7 +11,7 @@ If you’ve ever written a scraper, you’ve probably been here: a script that p
 
 The first red flags showed up during maintenance. A schema change meant hunting down every `.execute()` call. Testing became a nightmare—mocking raw queries led to brittle tests that passed but masked real integration issues. And onboarding new logic? Forget about reusing data access patterns. Every new feature duplicated the same error-prone patterns.
 
-Worse, our domain logic was tangled with database details. Did the scraper really need to know about `ON CONFLICT` clauses or connection pooling? No. It needed to *save pricing data*—not manage SQL syntax. We were violating one of the oldest rules in software: separate concerns.
+Worse, my domain logic was tangled with database details. Did the scraper really need to know about `ON CONFLICT` clauses or connection pooling? No. It needed to *save pricing data*—not manage SQL syntax. I was violating one of the oldest rules in software: separate concerns.
 
 ## Building a Repository Layer That Scales
 
@@ -25,9 +25,9 @@ class PricingRepository(Protocol):
     async def get_latest_scrape(self) -> Optional[ScrapeMetadata]: ...
 ```
 
-These contracts forced us to think in terms of *what* we needed, not *how*. Then came concrete implementations—`PostgresPricingRepository`—that handled the SQL details behind the scenes. Type hints ensured callers couldn’t pass junk data. Dependency injection (via simple constructor args) made it trivial to swap implementations in tests.
+These contracts forced me to think in terms of *what* I needed, not *how*. Then came concrete implementations—`PostgresPricingRepository`—that handled the SQL details behind the scenes. Type hints ensured callers couldn’t pass junk data. Dependency injection (via simple constructor args) made it trivial to swap implementations in tests.
 
-The real win? Composition. Instead of scattering queries across modules, we grouped them by domain: `PricingRepository`, `ScrapeLogRepository`, `ProviderMetadataRepository`. Each had a single responsibility and lived in `vultr_scraper/repositories/`. The scraper itself became lean—just coordination and parsing. The database layer became reusable, documented, and *boring* in the best way.
+The real win? Composition. Instead of scattering queries across modules, I grouped them by domain: `PricingRepository`, `ScrapeLogRepository`, `ProviderMetadataRepository`. Each had a single responsibility and lived in `vultr_scraper/repositories/`. The scraper itself became lean—just coordination and parsing. The database layer became reusable, documented, and *boring* in the best way.
 
 ## Testing the Abstraction, Not Just the Code
 
@@ -50,6 +50,6 @@ These factories powered integration tests that verified upserts, conflict resolu
 
 I also added a local development environment with a `docker-compose.yml` setup, so new contributors could run the full stack—scraper, database, Redis—without touching their host machine. The `Makefile` tied it all together: `make test`, `make up`, `make shell`. Developer experience improved overnight.
 
-This wasn’t just a refactor. It was a shift in mindset. We stopped treating the database as a dumping ground and started treating it as a collaborator in a well-structured system. The 18 commits leading up to this weren’t just lines of code—they were guardrails for the future.
+This wasn’t just a refactor. It was a shift in mindset. I stopped treating the database as a dumping ground and started treating it as a collaborator in a well-structured system. The 18 commits leading up to this weren’t just lines of code—they were guardrails for the future.
 
-Now, when we add a new provider or change a schema, we do it once—in the repository—and trust that the rest of the system won’t break. That’s the kind of code I want to maintain. And ship.
+Now, when I add a new provider or change a schema, I do it once—in the repository—and trust that the rest of the system won’t break. That’s the kind of code I want to maintain. And ship.

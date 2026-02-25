@@ -11,24 +11,24 @@ I was doing a final sweep of user-facing text in AustinsElite’s frontend when 
 
 So I opened a PR to fix it. Simple search-and-replace across components. Or so I thought.
 
-What followed was a surprisingly deep dive into how we manage brand text across a Laravel 12 backend and a React frontend. One missing apostrophe exposed a pattern of inconsistency that had quietly spread through templates, components, and even data formatting layers. What started as a 2-minute fix turned into a cross-stack cleanup that ended up improving long-term maintainability.
+What followed was a surprisingly deep dive into how I manage brand text across a Laravel 12 backend and a React frontend. One missing apostrophe exposed a pattern of inconsistency that had quietly spread through templates, components, and even data formatting layers. What started as a 2-minute fix turned into a cross-stack cleanup that ended up improving long-term maintainability.
 
 ## The Ripple Effect of a Tiny Fix
 
 At first, I only updated the React components. But then I noticed the same incorrect version in Blade templates. Then in JSON payloads from Laravel API endpoints. Then in hardcoded labels inside form helpers.
 
-The problem wasn’t just repetition—it was *unmanaged* repetition. We had:
+The problem wasn’t just repetition—it was *unmanaged* repetition. I had:
 
 - 'Austins Elite Punks' in React state
 - 'Austin's Elite Punks' (correct) in marketing assets
 - 'AustinsElitePunks' in some API responses
 - 'Punks' as a shorthand in navigation
 
-Each variation lived in isolation, making global updates risky and tedious. Fixing the apostrophe meant auditing every instance—and realizing we had no single source of truth for brand text.
+Each variation lived in isolation, making global updates risky and tedious. Fixing the apostrophe meant auditing every instance—and realizing I had no single source of truth for brand text.
 
 So I refactored.
 
-On the Laravel side, I moved all branded labels into a dedicated config file: `config/brand.php`. Now we have:
+On the Laravel side, I moved all branded labels into a dedicated config file: `config/brand.php`. Now I have:
 
 ```php
 return [
@@ -73,7 +73,7 @@ Here’s what I’ve learned from this:
 
 4. **Small PRs can drive big patterns.** That apostrophe fix could’ve been a one-liner. But by asking *why* it appeared in five places, I caught a design gap early.
 
-Since this change, we’ve standardized other elements: logo imports now use a `BrandLogo` React component that reads from config, and legal disclaimers are pulled from a shared `config/legal.php`.
+Since this change, I’ve standardized other elements: logo imports now use a `BrandLogo` React component that reads from config, and legal disclaimers are pulled from a shared `config/legal.php`.
 
 As AustinsElite moves toward launch, these details matter more than ever. Users might not notice a correctly placed apostrophe—but they *will* notice if the brand feels inconsistent, sloppy, or untrustworthy.
 

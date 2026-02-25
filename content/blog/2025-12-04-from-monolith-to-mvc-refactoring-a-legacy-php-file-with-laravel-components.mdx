@@ -7,7 +7,7 @@ author: "Ryan Dashwood"
 ---
 ## The Monolith That Refused To Die
 
-A few months ago, I was neck-deep in `client_list.php`—a 1,200-line PHP file that handled everything from database queries to HTML rendering, with a sprinkle of business logic and session management for good measure. This wasn’t just a page; it was a *system*. It lived in AustinsElite (Legacy), a custom PHP framework we’ve maintained for years, and despite its age, it still powers core client workflows.
+A few months ago, I was neck-deep in `client_list.php`—a 1,200-line PHP file that handled everything from database queries to HTML rendering, with a sprinkle of business logic and session management for good measure. This wasn’t just a page; it was a *system*. It lived in AustinsElite (Legacy), a custom PHP framework I’ve maintained for years, and despite its age, it still powers core client workflows.
 
 The file was a classic case of accidental monolith: no separation of concerns, zero testability, and fragile dependencies baked into echo statements. Adding a new filter meant grepping through spaghetti, and god forbid you tried to write a unit test. Every change felt like defusing a bomb with a butter knife.
 
@@ -54,8 +54,8 @@ You don’t need a greenfield app to write clean code. By leveraging Laravel’s
 
 - **Testability**: The `Client` model is now 94% covered by PHPUnit tests. The old file? Untestable.
 - **Maintainability**: New features go into the right layer. Adding a CSV export? That’s a new method on the controller, not a 200-line function in the middle of HTML.
-- **Scalability**: The event history module followed the same pattern. We now have consistent patterns across the app, even if it’s not "Laravel."
+- **Scalability**: The event history module followed the same pattern. I now have consistent patterns across the app, even if it’s not "Laravel."
 
 The best part? Zero downtime. No big-bang deploy. Just small, safe commits that steadily improved the codebase.
 
-This approach isn’t flashy, but it’s realistic. Most of us aren’t building new apps—we’re keeping old ones alive. And sometimes, the most powerful move isn’t to rewrite, but to *refactor smartly*, one Illuminate component at a time.
+This approach isn’t flashy, but it’s realistic. Most of me aren’t building new apps—I’m keeping old ones alive. And sometimes, the most powerful move isn’t to rewrite, but to *refactor smartly*, one Illuminate component at a time.

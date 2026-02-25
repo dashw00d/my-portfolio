@@ -7,7 +7,7 @@ author: "Ryan Dashwood"
 ---
 ## The Problem with Over-Engineering Homelab Orchestration
 
-Let’s be real: most of us running homelabs don’t need Kubernetes. We’re not scaling to hundreds of nodes or managing distributed state across regions. We’re trying to get a media server, a DNS resolver, and maybe a self-hosted CI runner to play nice—without spending more time configuring the orchestrator than the services themselves.
+I’ll be real: most of me running homelabs don’t need Kubernetes. I’m not scaling to hundreds of nodes or managing distributed state across regions. I’m trying to get a media server, a DNS resolver, and maybe a self-hosted CI runner to play nice—without spending more time configuring the orchestrator than the services themselves.
 
 Yet, even simple setups quickly outgrow shell scripts and `docker run` commands. You want services to start in order, react to failures, and share config. But pulling in a full orchestration stack feels like using a flamethrower to light a candle. So what’s the alternative? Build something just heavy enough to coordinate, but light enough to understand in one sitting.
 

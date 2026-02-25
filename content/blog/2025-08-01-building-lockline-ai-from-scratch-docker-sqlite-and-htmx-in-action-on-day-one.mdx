@@ -15,7 +15,7 @@ I reached for tools that let me move quickly but still sleep at night: Docker fo
 
 ## Docker + SQLite: Local Simplicity, Production Peace of Mind
 
-Let’s be honest—nothing kills momentum faster than "it works on my machine." So the first thing I did was wrap the entire backend in a Docker container. Not for production scaling. Not for Kubernetes orchestration. Just to make sure that when I spun up the project tomorrow, next week, or six months from now, it worked exactly the same.
+I’ll be honest—nothing kills momentum faster than "it works on my machine." So the first thing I did was wrap the entire backend in a Docker container. Not for production scaling. Not for Kubernetes orchestration. Just to make sure that when I spun up the project tomorrow, next week, or six months from now, it worked exactly the same.
 
 The backend is Python-based (Flask, to be precise), and the Docker setup was minimal:
 
@@ -40,7 +40,7 @@ This combo—Docker + SQLite—gave me consistency, speed, and confidence. New c
 
 ## htmx: Dynamic UIs Without the JavaScript Overhead
 
-Now, let’s talk admin. Every SaaS needs one, and Lockline AI is no different. I needed an interface where I could view leads, tweak AI prompts, and monitor engagement—all in real time. But I didn’t want to spin up a React monolith just to render a table.
+Now, I’ll talk admin. Every SaaS needs one, and Lockline AI is no different. I needed an interface where I could view leads, tweak AI prompts, and monitor engagement—all in real time. But I didn’t want to spin up a React monolith just to render a table.
 
 Enter htmx.
 
@@ -62,7 +62,7 @@ The server returns a new `<table>` fragment, and htmx swaps it in. That’s it. 
 
 This approach kept the frontend light and the backend in control—perfect for an app where the AI logic lives on the server anyway. It also meant I could prototype admin features fast, using plain old Flask routes and Jinja templates, while still delivering a smooth, app-like experience.
 
-And let’s be real: for early-stage SaaS apps, velocity wins. htmx let me build an interactive admin panel in a fraction of the time it would’ve taken with a full frontend framework—without sacrificing maintainability.
+And I’ll be real: for early-stage SaaS apps, velocity wins. htmx let me build an interactive admin panel in a fraction of the time it would’ve taken with a full frontend framework—without sacrificing maintainability.
 
 ## Final Thoughts: Start Fast, Stay Sane
 
