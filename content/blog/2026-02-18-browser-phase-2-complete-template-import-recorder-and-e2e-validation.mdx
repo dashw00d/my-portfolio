@@ -1,0 +1,34 @@
+---
+title: "Browser Phase 2 Complete: Template Import, Recorder, and E2E Validation"
+date: "2026-02-18"
+excerpt: "Today wrapped Phase 2 of Browser development with full template import, step recording, and 44 passing end-to-end tests."
+tags: ["Browser", "GhostGraph", "Loom", "Lantern", "Full-Stack", "Automation"]
+author: "Ryan Dashwood"
+---
+## Browser: Phase 2 Complete with Template Workflow and Robust Playback
+
+Today marked a major milestone — Phase 2 of the Browser extension is officially complete. After 28 commits, we’ve shipped the full template creation and dispatch workflow, backed by a reliable, schema-driven playback engine. The core of this phase was shifting from manual task execution to reusable, shareable automation blueprints.
+
+We kicked off the day by gutting the old daemon infrastructure (`session.py`, `profiles.py`, `api.py`, `cli.py`) — a necessary cleanup to eliminate bloat and clarify the new architecture. With that out of the way, we focused on building the user-facing features. The element picker (`extension/lib/picker.js`) and step recorder (`extension/lib/recorder.js`) now enable intuitive interaction capture, complete with a popup Record button for accessibility. These tools feed into the annotate mode, where users can review, reorder, and mark steps as variables — a critical step toward dynamic templating.
+
+The real breakthrough came with the implementation of the schema-based playback engine (`extension/lib/playback.js`). This engine interprets structured task definitions and executes them with precision, supporting actions like scrolling (with pagination), following on Twitter, and taking screenshots via a background bridge. Each action is now defined by a JSON schema, improving consistency and auditability. We validated this entire pipeline with a new end-to-end test suite — 44 tests, all passing, covering template dispatch, target URL resolution, and execution fidelity.
+
+We also closed out several edge cases: adding a 30-second watchdog timeout in `background.js` to prevent hanging tasks (M4), and implementing exponential backoff retries for `postResult` (M5) to handle transient network issues. Documentation across `TASKS.md` and `HANDOFF.md` was updated in lockstep, reflecting completed tasks 1 through 10. Phase 2 is now officially closed.
+
+## GhostGraph & Infrastructure: Stability, CLI Tools, and Test Coverage
+
+While Browser took the spotlight, GhostGraph saw focused improvements to reliability and usability. We removed the dead `camoufox_os` property from `PlatformProfile`, fixed `bulk_insert_entities` to correctly handle mixed `project_id` batches, and corrected the default `GIT_CHRONICLE_URL` from `localhost:8095` to `chronicle.glow` — a small change with big implications for staging environments.
+
+A major addition was `submit_company_intel.py`, a new CLI tool that allows direct submission of company intel jobs to GhostGraph. This streamlines testing and integration workflows. We also clarified the misleading `'schema'` key in the `company_intel` payload and added 32 new tests to solidify confidence in these systems. These changes ensure data integrity and reduce ambiguity in internal APIs.
+
+Elsewhere, Git Chronicle received a critical triage pass: we eliminated a dead import, updated stale metadata, and stopped silent exception swallowing — issues uncovered during a recent scout session. Auto-Shorts was patched to prevent the `comfy.py` history poll from spinning indefinitely (120s) during ComfyUI errors, improving fault visibility.
+
+## Loom & Lantern: Async Fixes and Workspace Integration
+
+Loom and Lantern both saw stability improvements today. In Loom, we fixed a dead `LOOM_PORT` setting and resolved an import-order bug in `lantern_loader`. We also strengthened Lantern activation by switching to supported `/start` and `/restart` endpoints and ensuring correct `kind` registration. Trace metadata is now preserved through activation, which is essential for debugging distributed workflows.
+
+Loom now includes node and client tests, improving regression coverage. We also added workspace-aware build reporting and enabled Lantern auto-registration — key steps toward seamless workspace-level orchestration.
+
+On the Lantern side, we fixed several race conditions: project scans and global discovery refresh now run asynchronously, and we’ve added guards to prevent stale state overwrites during long operations. User settings are now persisted correctly, and list endpoints are protected during manager-heavy workloads. These changes make Lantern more resilient under load and improve UX consistency.
+
+Overall, it was a dense day of shipping, cleaning, and stabilizing. With Browser’s Phase 2 complete, we’re shifting focus to cross-project integration — especially how Browser templates can trigger GhostGraph intel jobs and feed into Loom’s workspace pipelines. The foundation is solid; now it’s time to connect the dots.
