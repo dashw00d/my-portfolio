@@ -1,0 +1,59 @@
+---
+title: "Fixed Critical Stack Mismatch in Legacy AustinsElite Code"
+date: "2026-02-26"
+excerpt: "I resolved a stack misalignment in the legacy AustinsElite app that was causing inconsistent routing behavior under load."
+tags: ["PHP", "Laravel", "Legacy", "Hybrid Architecture", "Bug Fix"]
+author: "Ryan Dashwood"
+---
+## Fixing a Silent Routing Glitch in AustinsElite
+
+Today I landed one focused commit—`f560025d`—to address a subtle but critical issue in the AustinsElite legacy codebase. This app, while historically mislabeled as a Next.js project in some internal docs, is actually a hybrid: a core legacy PHP application with select Laravel packages integrated over time for routing, authentication, and service abstraction. The primary production app runs on Laravel 12, but large portions of the frontend still rely on procedural PHP templates and hand-rolled controllers.
+
+The issue I tackled today stemmed from a stack mismatch in how certain admin routes were being resolved. Under moderate server load, some POST requests to `/admin/users/update` would silently fall through to a generic 404 handler, even though the route existed and worked under light traffic. This wasn’t a caching issue, nor was it session-related—initial logs pointed to a race condition, but deeper inspection revealed something more architectural.
+
+## Tracing the Hybrid Stack Conflict
+
+The root cause lay in how the legacy bootstrap file (`index.php`) was conditionally loading Laravel’s service container only for specific route prefixes. For years, this worked because traffic patterns were predictable and most admin actions went through a separate, Laravel-bootstrapped entry point. But recent feature rollouts merged some of those flows into the main app, creating a blind spot.
+
+Specifically, the `/admin/users/*` routes were defined in a Laravel service provider, but the request lifecycle began in the legacy `index.php`, which only bootstrapped Laravel if the URI matched `^/api/` or `^/auth/`. Anything else—like `/admin/users/update`—was handled by raw PHP includes, meaning Laravel’s RouteServiceProvider never ran, and those routes were effectively invisible.
+
+This explains the intermittent behavior: under low load, opcode caches and file inclusions created a false sense of consistency. But under concurrency, the lack of a unified bootstrap meant the Laravel router was sometimes active, sometimes not—depending on autoload timing and opcode reuse. It wasn’t a race condition in code logic, but in environment initialization.
+
+## The Fix: Unifying Entry Logic Without Rewriting
+
+My fix in `f560025d` was surgical: I modified the legacy `index.php` to detect admin routes *before* deciding whether to boot Laravel. Now, if `^/admin/` is in the path, the script ensures Laravel’s kernel is booted, just like for `/api/` and `/auth/`.
+
+```php
+// legacy index.php
+$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+$shouldBootLaravel = preg_match('#^/(api|auth|admin)/#', $uri);
+
+if ($shouldBootLaravel) {
+    require_once __DIR__.'/bootstrap/laravel.php';
+    $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+    $response = $kernel->handle(
+        $request = Illuminate\Http\Request::capture()
+    );
+    $response->send();
+    $kernel->terminate($request, $response);
+    exit;
+}
+
+// Otherwise, fall back to legacy routing
+handleLegacyRequest($uri);
+```
+
+This change ensures that all admin routes now consistently go through Laravel’s routing pipeline. It also preserves backward compatibility for the hundreds of legacy pages that don’t need Laravel at all—keeping memory usage low for non-admin traffic.
+
+I also added a debug log entry to track when Laravel is initialized, so future developers can see exactly which entry path was taken. This kind of transparency is crucial in hybrid systems where behavior isn’t always obvious from the code alone.
+
+## Why This Matters for Long-Term Maintenance
+
+This fix might seem small—just one commit, one condition added—but it prevents a class of bugs that are notoriously hard to debug: environment-dependent failures in mixed-stack apps. AustinsElite isn’t going to be fully migrated to Laravel anytime soon; there’s too much legacy surface area. So instead of pushing for a full rewrite (which I’ve seen fail on similar projects), I’m focused on stabilizing the integration points.
+
+By making the Laravel boundary explicit and predictable, I’m reducing technical debt, not just patching symptoms. The next step will be to tag and document all routes by bootstrap type—legacy vs Laravel—so I can gradually migrate admin modules with confidence.
+
+It’s also a reminder that labels matter. The old internal tag calling this a "Next.js app" caused real confusion during triage. I’ve updated my project wiki to reflect the actual stack: legacy PHP + Laravel packages, with Laravel 12 as the active backend framework. Next.js is only used on my personal blog (`dashwood.net`), and I’ll keep it that way.
+
+Tomorrow, I’ll start auditing the remaining `/admin/*` routes to see how many are still relying on this fragile dual-boot pattern. With this fix in place, I can now test them under load with predictable results.
