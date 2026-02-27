@@ -18,9 +18,9 @@ interface BlogPageProps {
 
 type PageToken = number | "ellipsis";
 const FEATURED_POST_SLUGS = [
+  "2026-02-27-how-i-turned-staff-logs-into-40000-data-driven-seo-pages",
   "2026-02-25-from-legacy-rat-nest-to-laravel-unpoly-hybrid-modernization-without-a-rewrite",
   "2026-01-31-how-we-fixed-hung-connections-in-our-distributed-crawler-with-hard-timeout-enfor",
-  "2025-02-20-how-we-secured-game-saves-with-client-side-encryption-in-gear-to-glory",
 ] as const;
 
 function getSingleQueryParam(param: string | string[] | undefined): string {
