@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { Mail, MapPin, Github, Linkedin, Twitter } from "lucide-react";
+import { Github, Linkedin, Mail, MapPin, Phone, Twitter } from "lucide-react";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -89,6 +89,12 @@ export default function Footer() {
                 </a>
               </div>
               <div className="flex items-center gap-2 text-zinc-400">
+                <Phone className="h-4 w-4 flex-shrink-0" />
+                <a href="tel:+17372059226" className="hover:text-white transition-colors">
+                  (737) 205-9226
+                </a>
+              </div>
+              <div className="flex items-center gap-2 text-zinc-400">
                 <MapPin className="h-4 w-4 flex-shrink-0" />
                 <span>Houston, TX • Working nationwide</span>
               </div>
@@ -97,11 +103,28 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-zinc-800 mt-12 pt-8 text-center text-sm text-zinc-500">
-          <p>&copy; {currentYear} Ryan Stefan. All rights reserved.</p>
-          <p className="mt-2">
-            <Link href="/blog" className="text-zinc-500 hover:text-zinc-400 transition-colors">Read the dev blog</Link>
-            {" • "}
-            <Link href="/projects" className="text-zinc-500 hover:text-zinc-400 transition-colors">See shipped work</Link>
+          <p className="leading-relaxed">
+            &copy; {currentYear} Ryan Stefan · Houston, TX ·{" "}
+            <a href="tel:+17372059226" className="hover:text-zinc-300 transition-colors">
+              (737) 205-9226
+            </a>{" "}
+            ·{" "}
+            <a href="mailto:ryan@dashwood.net" className="hover:text-zinc-300 transition-colors">
+              ryan@dashwood.net
+            </a>
+          </p>
+          <p className="mt-3 leading-relaxed">
+            <Link href="/privacy-policy" className="hover:text-zinc-300 transition-colors">
+              Privacy Policy
+            </Link>{" "}
+            ·{" "}
+            <Link href="/terms-of-service" className="hover:text-zinc-300 transition-colors">
+              Terms of Service
+            </Link>{" "}
+            ·{" "}
+            <Link href="/refund-cancellation-policy" className="hover:text-zinc-300 transition-colors">
+              Refund &amp; Cancellation Policy
+            </Link>
           </p>
         </div>
       </div>

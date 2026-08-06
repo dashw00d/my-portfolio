@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Link from "next/link";
 import { Mail, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 import { trackEvent } from "@/lib/gtag";
@@ -254,7 +255,15 @@ Let&apos;s talk
             </button>
 
             <p className="text-xs text-brand-200/70">
-              You’re not opting into anything. I only use this info to prep for our call and keep your project moving.
+              You’re not opting into anything. I only use this info to respond to
+              your inquiry and keep your project moving. See the{" "}
+              <Link
+                href="/privacy-policy"
+                className="font-semibold text-brand-100 underline underline-offset-4 hover:text-white"
+              >
+                Privacy Policy
+              </Link>
+              .
             </p>
           </form>
         </div>
