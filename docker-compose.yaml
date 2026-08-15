@@ -1,11 +1,12 @@
-# Coolify Compose resource for dashwood.net.
-# Coolify must NOT docker build this. GitHub Actions publishes the image;
-# this file only names it. See the coolify-docker-deploys skill.
+# Coolify uses the Dockerfile build pack. This compose is for local runs
+# and documents the runtime shape. Builds happen on ae-coolify-01 with
+# Docker layer cache — not GitHub Actions.
 
 services:
   site:
-    image: ${DASHWOOD_IMAGE:?Set ghcr.io/dashw00d/dashwood:sha-* in Coolify}
-    pull_policy: always
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: unless-stopped
     expose:
       - "3000"

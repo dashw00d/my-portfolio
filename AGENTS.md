@@ -7,7 +7,7 @@ Source lives in `pages/` for route entries and `components/` for reusable, typed
 Run `npm run dev` for the local Next.js dev server with fast refresh. Production is a static export (`npm run build:static`) served by `docker/static-server.mjs` — HTML and assets get long-lived cache headers, and only `POST /api/contact` stays dynamic. `npm run start` serves that static tree. `npm run lint` executes the Next/ESLint ruleset; fix warnings before pushing.
 
 ## Coolify
-GitHub Actions (`.github/workflows/release.yml`) builds `ghcr.io/dashw00d/dashwood:sha-*` and tells Coolify to pull it. Coolify must stay on Docker Compose with `DASHWOOD_IMAGE` — never a Dockerfile build pack, never `force=true`. Caps: 64m / 0.15 CPU. Follow the `coolify-docker-deploys` skill.
+Dockerfile build pack on `ae-coolify-01`. Git push auto-deploys; Docker layer cache must stay warm (do not force-rebuild, do not enable nightly Docker cleanup). Never build this image in GitHub Actions. Caps: 64m / 0.15 CPU. Follow the `coolify-docker-deploys` skill.
 
 ## Coding Style & Naming Conventions
 TypeScript is required for all new modules. Favour 2-space indentation (default in the repo), and keep imports sorted by path depth. Components and hooks use PascalCase and camelCase names respectively (e.g. `components/Hero.tsx`, `useViewport`). Tailwind utility classes should be grouped semantically (layout → spacing → typography). When shared styling becomes verbose, promote it to reusable class names inside `globals.css`.
