@@ -1,8 +1,12 @@
 .git
-.gitignore
+.github
 .next
-node_modules
 out
-coverage
-npm-debug.log*
-README.md
+node_modules
+draft
+*.md
+!public/**
+.env*
+.DS_Store
+tmp-pages-api
+.tmp-pages-api
