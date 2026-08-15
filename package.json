@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node .next/standalone/server.js",
+    "build:static": "node scripts/write-seo-files.mjs && rm -rf .tmp-pages-api && mv pages/api .tmp-pages-api && STATIC_EXPORT=true next build; status=$?; mv .tmp-pages-api pages/api; exit $status",
+    "start": "STATIC_ROOT=./out node docker/static-server.mjs",
+    "start:next": "node .next/standalone/server.js",
     "lint": "next lint",
     "watch": "watch 'npm run build' ./"
   },
