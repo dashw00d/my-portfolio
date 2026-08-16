@@ -9,6 +9,14 @@ Run `npm run dev` for the local Next.js dev server with fast refresh. Production
 ## Coolify
 Dockerfile build pack on `ae-coolify-01`. Git push auto-deploys; Docker layer cache must stay warm (do not force-rebuild, do not enable nightly Docker cleanup). Never build this image in GitHub Actions. Caps: 64m / 0.15 CPU. Follow the `coolify-docker-deploys` skill.
 
+## OpenShip releases
+
+Production can serve static exports from `/srv/openship-app/current/out`, with
+the baked `/app/out` tree as the safe first-boot fallback. OpenShip builds code
+releases in a disposable `node:20-alpine` builder and atomically switches the
+mounted `current` symlink; Dockerfile or server changes still use a runtime
+rebuild.
+
 ## Coding Style & Naming Conventions
 TypeScript is required for all new modules. Favour 2-space indentation (default in the repo), and keep imports sorted by path depth. Components and hooks use PascalCase and camelCase names respectively (e.g. `components/Hero.tsx`, `useViewport`). Tailwind utility classes should be grouped semantically (layout → spacing → typography). When shared styling becomes verbose, promote it to reusable class names inside `globals.css`.
 

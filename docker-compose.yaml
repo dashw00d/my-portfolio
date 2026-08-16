@@ -12,6 +12,8 @@ services:
       - "3000"
     environment:
       PORT: 3000
+      STATIC_ROOT: /srv/openship-app/current/out
+      FALLBACK_STATIC_ROOT: /app/out
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}

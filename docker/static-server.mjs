@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import nodemailer from "nodemailer";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const root = process.env.STATIC_ROOT || path.join(here, "out");
+const configuredRoot = process.env.STATIC_ROOT || path.join(here, "out");
+const fallbackRoot = process.env.FALLBACK_STATIC_ROOT || path.join(here, "out");
 const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || "0.0.0.0";
 
@@ -41,6 +42,7 @@ function cacheControl(filePath) {
 }
 
 function resolveFile(urlPath) {
+  const root = fs.existsSync(configuredRoot) ? configuredRoot : fallbackRoot;
   const decoded = decodeURIComponent(urlPath.split("?")[0]);
   const clean = path.posix.normalize(decoded).replace(/^(\.\.(\/|\\|$))+/, "");
   const relative = clean === "/" ? "index.html" : clean.replace(/^\//, "");

@@ -21,7 +21,8 @@ WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3000 \
     HOST=0.0.0.0 \
-    STATIC_ROOT=/app/out \
+    STATIC_ROOT=/srv/openship-app/current/out \
+    FALLBACK_STATIC_ROOT=/app/out \
     NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001 \
