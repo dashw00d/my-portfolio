@@ -66,7 +66,7 @@ export default function Hero() {
             I transformed 15 years of a client’s staff logs into a 20×
             marketing boost, and now I build adaptive agent automation platforms
             that can flex to almost any use case. Modern stack, measurable
-            outcomes, no fluff.
+            outcomes, no busywork.
           </p>
 
           {/* Profile section with photo placeholder */}
