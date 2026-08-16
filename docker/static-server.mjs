@@ -191,5 +191,6 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`dashwood static server listening on ${host}:${port} from ${root}`);
+  const activeRoot = fs.existsSync(configuredRoot) ? configuredRoot : fallbackRoot;
+  console.log(`dashwood static server listening on ${host}:${port} from ${activeRoot}`);
 });
