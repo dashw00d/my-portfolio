@@ -59,7 +59,7 @@ export default function Hero() {
           </div>
 
           <h1 className="mb-6 bg-gradient-to-r from-zinc-900 via-brand-900 to-accent-900 bg-clip-text text-5xl font-black tracking-tight text-transparent md:text-7xl">
-            Turn operational chaos into predictable growth
+            Turn operational chaos into measurable growth
           </h1>
 
           <p className="mb-10 text-lg leading-relaxed text-zinc-600 md:text-xl">
