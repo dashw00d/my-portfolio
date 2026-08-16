@@ -1,21 +1,21 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-Source lives in `pages/` for route entries and `components/` for reusable, typed React building blocks (PascalCase). Global styling is in `styles/globals.css`, composed with Tailwind utilities configured via `tailwind.config.js` and `postcss.config.js`. Keep shared constants or helpers inside `components/` alongside the consumers until a dedicated `lib/` directory is introduced. The `out/` folder holds static export artefacts—never edit or commit manual changes there.
+Source lives in `pages/` for route entries and `components/` for reusable, typed React building blocks (PascalCase). Global styling is in `styles/globals.css`, composed with Tailwind utilities configured via `tailwind.config.js` and `postcss.config.js`. Keep shared constants or helpers inside `components/` alongside the consumers until a dedicated `lib/` directory is introduced. The `out/` folder holds the generated production export: regenerate and commit it after source changes, but never edit its files by hand.
 
 ## Build, Test, and Development Commands
-Run `npm run dev` for the local Next.js dev server with fast refresh. Production is a static export (`npm run build:static`) served by `docker/static-server.mjs` — HTML and assets get long-lived cache headers, and only `POST /api/contact` stays dynamic. `npm run start` serves that static tree. `npm run lint` executes the Next/ESLint ruleset; fix warnings before pushing.
+Run `npm run dev` for the local Next.js dev server with fast refresh. Production is a static export (`npm run build:static`) served by `docker/static-server.mjs` — HTML and assets get long-lived cache headers, and only `POST /api/contact` stays dynamic. The generated `out/` tree is intentionally committed so routine deployments never build on the server. `npm run start` serves that static tree. `npm run lint` executes the Next/ESLint ruleset; fix warnings before pushing.
 
 ## Coolify
 Dockerfile build pack on `ae-coolify-01`. Git push auto-deploys; Docker layer cache must stay warm (do not force-rebuild, do not enable nightly Docker cleanup). Never build this image in GitHub Actions. Caps: 64m / 0.15 CPU. Follow the `coolify-docker-deploys` skill.
 
 ## OpenShip releases
 
-Production can serve static exports from `/srv/openship-app/current/out`, with
-the baked `/app/out` tree as the safe first-boot fallback. OpenShip builds code
-releases in a disposable `node:20-alpine` builder and atomically switches the
-mounted `current` symlink; Dockerfile or server changes still use a runtime
-rebuild.
+Production serves the checked-in static export from
+`/srv/openship-app/current/out`, with the baked `/app/out` tree as the safe
+first-boot fallback. OpenShip extracts the selected Git SHA and atomically
+switches the mounted `current` symlink; normal releases have no server-side
+build step. Dockerfile or server changes still use a runtime rebuild.
 
 ## Coding Style & Naming Conventions
 TypeScript is required for all new modules. Favour 2-space indentation (default in the repo), and keep imports sorted by path depth. Components and hooks use PascalCase and camelCase names respectively (e.g. `components/Hero.tsx`, `useViewport`). Tailwind utility classes should be grouped semantically (layout → spacing → typography). When shared styling becomes verbose, promote it to reusable class names inside `globals.css`.

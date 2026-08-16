@@ -8,7 +8,8 @@ coverage/
 
 # Next.js
 .next/
-out/
+# The production static export is intentionally versioned. OpenShip deploys the
+# checked-in tree without rebuilding it on the server.
 
 # Production
 build/
