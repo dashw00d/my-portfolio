@@ -65,7 +65,7 @@ export default function Hero() {
           <p className="mb-10 text-lg leading-relaxed text-zinc-600 md:text-xl">
             I transformed 15 years of a client’s staff logs into a 20×
             marketing boost, and now I build adaptive agent automation platforms
-            that can flex to almost any use case. Modern stack, measurable
+            that can flex to almost any use case. Modern systems, measurable
             outcomes, no busywork.
           </p>
 
