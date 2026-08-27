@@ -1,5 +1,12 @@
+const env =
+  typeof import.meta !== "undefined" && import.meta.env
+    ? import.meta.env
+    : ({} as Record<string, string | undefined>);
+
 export const GA_MEASUREMENT_ID =
-  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "G-45RNCPBHRD";
+  env.PUBLIC_GA_MEASUREMENT_ID ||
+  env.NEXT_PUBLIC_GA_MEASUREMENT_ID ||
+  "G-45RNCPBHRD";
 
 type GTagPrimitive = string | number | boolean | undefined;
 

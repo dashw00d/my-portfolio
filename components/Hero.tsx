@@ -1,5 +1,5 @@
 import React from "react";
-import Link from "next/link";
+import Link from "@/components/Link";
 import { ArrowRight, Mail, ShieldCheck, Rocket, LineChart } from "lucide-react";
 import CustomBuildCta from "./CustomBuildCta";
 

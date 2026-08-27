@@ -1,0 +1,59 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import BlogTagIndex from "../../../components/blog/BlogTagIndex";
+import { getAllPosts, getTagCounts } from "../../../lib/blog";
+import { tagToSlug } from "../../../lib/blog-utils";
+import { SITE_URL } from "../../../lib/site";
+
+export async function getStaticPaths() {
+  const posts = getAllPosts();
+  const tagCounts = getTagCounts(posts);
+
+  return tagCounts.map((item) => {
+    const tagSlug = tagToSlug(item.tag);
+    const taggedPosts = posts.filter((post) =>
+      post.tags.some((postTag) => tagToSlug(postTag) === tagSlug)
+    );
+
+    return {
+      params: { tag: tagSlug },
+      props: {
+        tag: item.tag,
+        tagSlug,
+        posts: taggedPosts,
+        allTagCounts: tagCounts,
+      },
+    };
+  });
+}
+
+const { tag, tagSlug, posts, allTagCounts } = Astro.props;
+const canonical = `${SITE_URL}/blog/tag/${tagSlug}`;
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  name: `Posts tagged ${tag}`,
+  url: canonical,
+  isPartOf: `${SITE_URL}/blog`,
+  about: tag,
+  mainEntity: {
+    "@type": "ItemList",
+    itemListElement: posts.slice(0, 50).map((post, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      url: `${SITE_URL}/blog/${post.slug}`,
+      name: post.title,
+    })),
+  },
+};
+---
+
+<BaseLayout
+  title={`Tag: ${tag} | Developer Blog`}
+  description={`Developer blog posts tagged ${tag}. ${posts.length} articles with practical engineering and production lessons.`}
+  path={`/blog/tag/${tagSlug}`}
+  jsonLd={jsonLd}
+>
+  <BlogTagIndex client:load tag={tag} tagSlug={tagSlug} posts={posts} allTagCounts={allTagCounts} />
+</BaseLayout>

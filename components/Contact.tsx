@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import Link from "next/link";
+import Link from "@/components/Link";
 import { Mail, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 import { trackEvent } from "@/lib/gtag";
@@ -12,6 +12,7 @@ interface ContactFormData {
   company: string;
   project: string;
   timeline: string;
+  website: string;
 }
 
 const INITIAL_FORM: ContactFormData = {
@@ -20,6 +21,7 @@ const INITIAL_FORM: ContactFormData = {
   company: "",
   project: "",
   timeline: "",
+  website: "",
 };
 
 export default function Contact() {
@@ -52,7 +54,7 @@ export default function Contact() {
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/contact", {
+      const response = await fetch("/api/contact.php", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -140,6 +142,18 @@ Let&apos;s talk
             className="space-y-6 rounded-3xl border border-brand-500/40 bg-white/10 p-8 shadow-xl shadow-brand-950/30 backdrop-blur"
             style={{ scrollMarginTop: '6rem' }}
           >
+            <div className="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden="true">
+              <label htmlFor="website">Website</label>
+              <input
+                id="website"
+                name="website"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={formData.website}
+                onChange={handleChange}
+              />
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-[0.3em] text-brand-200">

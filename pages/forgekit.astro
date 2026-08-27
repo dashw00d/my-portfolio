@@ -1,0 +1,14 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ForgekitPage from "../components/pages/ForgekitPage";
+---
+
+<BaseLayout
+  title="ForgeKit - Field Service Automation Platform"
+  description="Stop switching between scattered tools. Give your field team one-tap workflows that handle receipts, photos, check-ins, and updates automatically."
+  path="/forgekit"
+  showNav={false}
+  showFooter={false}
+>
+  <ForgekitPage client:load />
+</BaseLayout>

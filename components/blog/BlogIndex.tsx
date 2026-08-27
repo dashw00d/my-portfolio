@@ -1,0 +1,408 @@
+import React, { useEffect, useMemo, useState } from "react";
+import Link from "@/components/Link";
+import { useShallowQuery } from "@/lib/useShallowQuery";
+import BlogCard from "@/components/BlogCard";
+import { normalizeTag, POSTS_PER_PAGE, tagToSlug } from "@/lib/blog-utils";
+import type { BlogPostMeta, TagCount } from "@/lib/blog";
+
+interface BlogPageProps {
+  posts: BlogPostMeta[];
+  tagCounts: TagCount[];
+}
+
+type PageToken = number | "ellipsis";
+const FEATURED_POST_SLUGS = [
+  "2026-02-27-how-i-turned-staff-logs-into-40000-data-driven-seo-pages",
+  "2026-02-25-from-legacy-rat-nest-to-laravel-unpoly-hybrid-modernization-without-a-rewrite",
+  "2026-01-31-how-we-fixed-hung-connections-in-our-distributed-crawler-with-hard-timeout-enfor",
+] as const;
+
+function buildPageTokens(currentPage: number, totalPages: number): PageToken[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  const tokens: PageToken[] = [1];
+
+  const left = Math.max(2, currentPage - 1);
+  const right = Math.min(totalPages - 1, currentPage + 1);
+
+  if (left > 2) tokens.push("ellipsis");
+  for (let p = left; p <= right; p += 1) tokens.push(p);
+  if (right < totalPages - 1) tokens.push("ellipsis");
+
+  tokens.push(totalPages);
+  return tokens;
+}
+
+export default function BlogPage({ posts, tagCounts }: BlogPageProps) {
+  const { query, isReady, replaceQuery } = useShallowQuery();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTagKey, setSelectedTagKey] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    if (!isReady) return;
+
+    const q = query.q;
+    const tag = query.tag;
+    const pageQuery = Number.parseInt(query.page, 10);
+
+    setSearchQuery(q);
+    setSelectedTagKey(tag ? normalizeTag(tag) : null);
+    setPage(Number.isFinite(pageQuery) && pageQuery > 0 ? pageQuery : 1);
+  }, [isReady, query.page, query.q, query.tag]);
+
+  const trimmedQuery = searchQuery.trim().toLowerCase();
+  const featuredPosts = useMemo(() => {
+    const selected = FEATURED_POST_SLUGS
+      .map((slug) => posts.find((post) => post.slug === slug))
+      .filter((post): post is BlogPostMeta => Boolean(post));
+
+    if (selected.length >= FEATURED_POST_SLUGS.length) {
+      return selected.slice(0, FEATURED_POST_SLUGS.length);
+    }
+
+    const selectedSet = new Set(selected.map((post) => post.slug));
+    const filler = posts
+      .filter((post) => !selectedSet.has(post.slug))
+      .slice(0, FEATURED_POST_SLUGS.length - selected.length);
+
+    return [...selected, ...filler];
+  }, [posts]);
+  const featuredSlugSet = useMemo(
+    () => new Set(featuredPosts.map((post) => post.slug)),
+    [featuredPosts]
+  );
+  const sourcePosts = useMemo(() => {
+    if (trimmedQuery || selectedTagKey) return posts;
+    return posts.filter((post) => !featuredSlugSet.has(post.slug));
+  }, [posts, trimmedQuery, selectedTagKey, featuredSlugSet]);
+
+  const filteredPosts = useMemo(() => {
+    return sourcePosts.filter((post) => {
+      const matchesTag =
+        !selectedTagKey ||
+        post.tags.some((tag) => normalizeTag(tag) === selectedTagKey);
+
+      if (!matchesTag) return false;
+
+      if (!trimmedQuery) return true;
+
+      const haystack = `${post.title} ${post.excerpt} ${post.tags.join(" ")}`.toLowerCase();
+      return haystack.includes(trimmedQuery);
+    });
+  }, [sourcePosts, selectedTagKey, trimmedQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [trimmedQuery, selectedTagKey]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPosts.length / POSTS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const showFeaturedSection =
+    !trimmedQuery && !selectedTagKey && currentPage === 1 && featuredPosts.length > 0;
+
+  useEffect(() => {
+    if (!isReady) return;
+
+    const nextQuery = {
+      q: trimmedQuery,
+      tag: selectedTagKey || "",
+      page: currentPage > 1 ? String(currentPage) : "",
+    };
+
+    const queryIsUpToDate =
+      (query.q || "") === nextQuery.q &&
+      (query.tag || "") === nextQuery.tag &&
+      (query.page || "") === nextQuery.page;
+
+    if (queryIsUpToDate) return;
+
+    replaceQuery(nextQuery);
+  }, [
+    isReady,
+    query.page,
+    query.q,
+    query.tag,
+    replaceQuery,
+    trimmedQuery,
+    selectedTagKey,
+    currentPage,
+  ]);
+
+  const paginatedPosts = useMemo(() => {
+    const start = (currentPage - 1) * POSTS_PER_PAGE;
+    return filteredPosts.slice(start, start + POSTS_PER_PAGE);
+  }, [filteredPosts, currentPage]);
+
+  const pageTokens = useMemo(
+    () => buildPageTokens(currentPage, totalPages),
+    [currentPage, totalPages]
+  );
+
+  const selectedTagLabel = selectedTagKey
+    ? tagCounts.find((item) => normalizeTag(item.tag) === selectedTagKey)?.tag ||
+      selectedTagKey
+    : null;
+
+  return (
+    <>
+      <main className="min-h-screen bg-gradient-to-b from-white via-brand-50/30 to-white text-zinc-900">
+        <section className="relative overflow-hidden px-6 pb-8 pt-24 md:pt-28">
+          <div className="pointer-events-none absolute inset-0 -z-10">
+            <div className="absolute left-1/4 top-10 h-64 w-64 rounded-full bg-brand-200/30 blur-3xl" />
+            <div className="absolute right-0 top-1/3 h-80 w-80 rounded-full bg-highlight-200/40 blur-3xl" />
+          </div>
+
+          <div className="mx-auto flex max-w-5xl flex-col gap-4 text-center">
+            <p className="mx-auto inline-flex items-center gap-2 rounded-full border border-brand-200/60 bg-white/70 px-4 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-brand-600 shadow-sm">
+              Dev Blog
+            </p>
+            <h1 className="text-4xl font-black tracking-tight md:text-5xl">
+              Build logs worth reading
+            </h1>
+            <p className="mx-auto max-w-3xl text-base leading-relaxed text-zinc-600 md:text-lg">
+              Search across production lessons, architecture decisions, and
+              debugging wins. Filter by tag, paginate through history, and find
+              the exact post you need.
+            </p>
+          </div>
+        </section>
+
+        {showFeaturedSection ? (
+          <section className="px-6 pb-6">
+            <div className="mx-auto max-w-7xl">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">
+                    Featured
+                  </p>
+                  <h2 className="mt-1 text-2xl font-bold tracking-tight text-zinc-900 md:text-3xl">
+                    Featured posts
+                  </h2>
+                </div>
+                <span className="hidden rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700 md:inline-flex">
+                  Core case studies
+                </span>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {featuredPosts.map((post) => (
+                  <BlogCard
+                    key={post.slug}
+                    title={post.title}
+                    date={post.date}
+                    excerpt={post.excerpt}
+                    slug={post.slug}
+                    tags={post.tags}
+                    readingTime={post.readingTime}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        <section className="px-6 pb-24">
+          <div className="mx-auto grid w-full max-w-7xl gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="order-2 lg:order-1">
+              <div className="mb-6 rounded-2xl border border-zinc-200 bg-white/80 p-4 shadow-sm">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div className="relative w-full md:max-w-md">
+                    <label htmlFor="blog-search" className="sr-only">
+                      Search blog posts
+                    </label>
+                    <input
+                      id="blog-search"
+                      type="search"
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Search title, excerpt, or tags..."
+                      className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+                    />
+                  </div>
+
+                  <div className="text-sm text-zinc-600">
+                    Showing {paginatedPosts.length} of {filteredPosts.length} result
+                    {filteredPosts.length === 1 ? "" : "s"}
+                    {selectedTagLabel ? (
+                      <>
+                        {" "}
+                        for <span className="font-semibold">{selectedTagLabel}</span>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              {filteredPosts.length === 0 ? (
+                <div className="rounded-2xl border border-zinc-200 bg-white/80 px-6 py-12 text-center shadow-sm">
+                  <p className="text-lg font-semibold text-zinc-900">No matching posts</p>
+                  <p className="mt-2 text-sm text-zinc-600">
+                    Try a different search query or clear tag filters.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedTagKey(null);
+                    }}
+                    className="mt-5 inline-flex rounded-lg border border-brand-200 px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-50"
+                  >
+                    Reset filters
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                    {paginatedPosts.map((post) => (
+                      <BlogCard
+                        key={post.slug}
+                        title={post.title}
+                        date={post.date}
+                        excerpt={post.excerpt}
+                        slug={post.slug}
+                        tags={post.tags}
+                        readingTime={post.readingTime}
+                      />
+                    ))}
+                  </div>
+
+                  {totalPages > 1 && (
+                    <nav
+                      className="mt-10 flex flex-wrap items-center justify-center gap-2"
+                      aria-label="Blog pagination"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage <= 1}
+                        className="rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Previous
+                      </button>
+
+                      {pageTokens.map((token, idx) =>
+                        token === "ellipsis" ? (
+                          <span
+                            key={`ellipsis-${idx}`}
+                            className="px-2 text-zinc-400"
+                            aria-hidden
+                          >
+                            …
+                          </span>
+                        ) : (
+                          <button
+                            key={`page-${token}`}
+                            type="button"
+                            onClick={() => setPage(token)}
+                            className={`min-w-[2.25rem] rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                              token === currentPage
+                                ? "border-brand-500 bg-brand-500 text-white"
+                                : "border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+                            }`}
+                            aria-current={token === currentPage ? "page" : undefined}
+                          >
+                            {token}
+                          </button>
+                        )
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage >= totalPages}
+                        className="rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Next
+                      </button>
+                    </nav>
+                  )}
+                </>
+              )}
+            </div>
+
+            <aside className="order-1 lg:order-2">
+              <div className="sticky top-24 space-y-5">
+                <div className="rounded-2xl border border-zinc-200 bg-white/90 p-5 shadow-sm">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                    Blog stats
+                  </h2>
+                  <ul className="mt-3 space-y-2 text-sm text-zinc-700">
+                    <li className="flex items-center justify-between">
+                      <span>Total posts</span>
+                      <strong>{posts.length}</strong>
+                    </li>
+                    <li className="flex items-center justify-between">
+                      <span>Tags</span>
+                      <strong>{tagCounts.length}</strong>
+                    </li>
+                    <li className="flex items-center justify-between">
+                      <span>Filtered posts</span>
+                      <strong>{filteredPosts.length}</strong>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl border border-zinc-200 bg-white/90 p-5 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                      Tag map
+                    </h2>
+                    {selectedTagKey ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTagKey(null)}
+                        className="text-xs font-semibold text-brand-600 hover:text-brand-700"
+                      >
+                        Clear
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="max-h-[420px] space-y-2 overflow-auto pr-1">
+                    {tagCounts.map((item) => {
+                      const key = normalizeTag(item.tag);
+                      const active = key === selectedTagKey;
+
+                      return (
+                        <div key={key} className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTagKey(active ? null : key)}
+                            className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition ${
+                              active
+                                ? "border-brand-500 bg-brand-50 text-brand-700"
+                                : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
+                            }`}
+                          >
+                            <span className="truncate pr-2">{item.tag}</span>
+                            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-600">
+                              {item.count}
+                            </span>
+                          </button>
+
+                          <Link
+                            href={`/blog/tag/${tagToSlug(item.tag)}`}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white text-xs text-zinc-500 transition hover:border-brand-300 hover:text-brand-700"
+                            aria-label={`Open ${item.tag} tag page`}
+                            title={`Open ${item.tag} tag page`}
+                          >
+                            ↗
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </main>
+
+    </>
+  );
+}
+

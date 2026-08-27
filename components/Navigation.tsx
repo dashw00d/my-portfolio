@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
+import Link from "@/components/Link";
 import { Menu, X } from "lucide-react";
 
 export default function Navigation() {

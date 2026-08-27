@@ -1,6 +1,6 @@
 # Portfolio Site
 
-A business-focused portfolio website built with Next.js and Tailwind CSS.
+A business-focused portfolio website built with Astro, React islands, and Tailwind CSS. Production is a static HTML export plus one PHP mail endpoint.
 
 ## Getting Started
 
@@ -19,70 +19,55 @@ npm install
 npm run dev
 ```
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser.
+3. Open [http://localhost:3000](http://localhost:3000).
 
 ### Building for Production
 
 ```bash
 npm run build
-npm run start
 ```
 
-(`npm run start` serves the standalone build output.)
+HTML lands in `dist/` (gitignored). Preview locally with `npm run preview`.
 
 ## Deployment
 
-This project is configured for a Next.js server runtime by default (`output: "standalone"`).
+This is a static site. Point the web root at `dist/`. There is no Docker image and no Node process in production.
 
-### Coolify (Recommended for self-hosting)
-1. Use the included `Dockerfile`
-2. Build context: repository root
-3. Exposed port: `3000`
-4. Start command is baked into the image (`node server.js`)
+Typical panel (RunCloud-style) setup:
 
-This keeps installs/build layers cached between deploys and is typically much faster than generic buildpacks.
+1. After pull: `npm ci && npm run build`
+2. Document root: `dist/`
+3. Enable PHP only for `/api/contact.php`
+4. Copy `contact.config.example.php` to `contact.config.php` in the repo root and add SMTP credentials
 
-### Vercel
-1. Push to GitHub
-2. Connect your repo to [Vercel](https://vercel.com)
-3. Deploy automatically
+An nginx starting point lives in `deploy/nginx.conf.example`. Keep PHP-FPM on `ondemand` so idle RAM is just nginx.
 
-### Static export (optional)
-If you need a fully static export, set `STATIC_EXPORT=true` for build time and deploy the generated `out/` directory.
+## Contact form
 
-Note: static export disables server features (like API routes).
+The form posts JSON to `/api/contact.php`. That script speaks SMTP over a short-lived PHP request (or PHP `mail()` if SMTP is unset). It is not a standing Node mail server.
 
 ## Customization
 
-### Updating Content
-- Edit the components in `/components/` to change content
-- Update contact information in `components/Contact.tsx`
-- Modify services in `components/Services.tsx`
-- Analytics setup/tracking: see `ANALYTICS.md`
-
-### Styling
-- Global styles are in `styles/globals.css`
-- Tailwind config in `tailwind.config.js`
-- Component-specific styles are inline with Tailwind classes
+- Edit components in `/components/`
+- Contact copy: `components/Contact.tsx`
+- Services: `components/Services.tsx`
+- Analytics: `ANALYTICS.md`
+- Global styles: `styles/globals.css`
+- Theme tokens: `:root` in `styles/globals.css`
 
 ### Adding New Sections
-1. Create a new component in `/components/`
-2. Import and add it to `pages/index.tsx`
+1. Create a component in `/components/`
+2. Import it in `pages/index.astro`
 
 ## Project Structure
 
 ```
-├── components/          # Reusable React components
-│   ├── Hero.tsx        # Hero section
-│   ├── Problems.tsx    # Problem/solution section
-│   ├── Services.tsx    # Services offered
-│   ├── Process.tsx     # How we work
-│   ├── Examples.tsx    # Case studies
-│   ├── Contact.tsx     # Contact form/section
-│   └── TerminalBlock.tsx # Animated terminal component
-├── pages/              # Next.js pages
-│   ├── _app.tsx        # App wrapper
-│   └── index.tsx       # Home page
-├── styles/             # Global styles
-└── Configuration files # next.config.js, tailwind.config.js, etc.
+├── components/          # React islands and UI pieces
+├── content/blog/        # MDX posts
+├── layouts/             # Astro layouts
+├── lib/                 # Shared helpers
+├── pages/               # Astro routes
+├── public/              # Static assets + api/contact.php
+├── styles/              # Global CSS
+└── dist/                # Generated static export (gitignored)
 ```

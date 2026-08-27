@@ -1,0 +1,116 @@
+---
+import Footer from "@/components/Footer";
+import Navigation from "@/components/Navigation";
+import { GA_MEASUREMENT_ID } from "@/lib/gtag";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
+
+import "highlight.js/styles/atom-one-dark.css";
+import "../styles/globals.css";
+
+interface Props {
+  title: string;
+  description: string;
+  path?: string;
+  type?: string;
+  robots?: string;
+  keywords?: string;
+  author?: string;
+  publishedTime?: string;
+  articleTags?: string[];
+  canonical?: string;
+  prevUrl?: string | null;
+  nextUrl?: string | null;
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  ogImage?: string;
+  showNav?: boolean;
+  showFooter?: boolean;
+}
+
+const {
+  title,
+  description,
+  path = "/",
+  type = "website",
+  robots = "index,follow,max-image-preview:large",
+  keywords,
+  author = "Ryan Stefan",
+  publishedTime,
+  articleTags = [],
+  canonical,
+  prevUrl,
+  nextUrl,
+  jsonLd,
+  ogImage,
+  showNav = true,
+  showFooter = true,
+} = Astro.props;
+
+const normalizedPath = path === "/" ? "/" : path.replace(/\/$/, "");
+const canonicalUrl = canonical ?? `${SITE_URL}${normalizedPath === "/" ? "" : normalizedPath}`;
+const jsonLdItems = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content={robots} />
+    {keywords && <meta name="keywords" content={keywords} />}
+    {author && <meta name="author" content={author} />}
+
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content={type} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:site_name" content={SITE_NAME} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    {publishedTime && <meta property="article:published_time" content={publishedTime} />}
+    {author && type === "article" && <meta property="article:author" content={author} />}
+    {articleTags.map((tag) => <meta property="article:tag" content={tag} />)}
+
+    <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" />
+    {prevUrl && <link rel="prev" href={prevUrl} />}
+    {nextUrl && <link rel="next" href={nextUrl} />}
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;300;400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+
+    <slot name="head" />
+
+    {jsonLdItems.map((item) => (
+      <script type="application/ld+json" set:html={JSON.stringify(item)} />
+    ))}
+
+    <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}></script>
+    <script is:inline define:vars={{ GA_MEASUREMENT_ID }}>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      window.gtag = gtag;
+      gtag("js", new Date());
+      gtag("config", GA_MEASUREMENT_ID, {
+        page_path: window.location.pathname,
+      });
+    </script>
+  </head>
+  <body>
+    {showNav && <Navigation client:load />}
+    <slot />
+    {showFooter && <Footer />}
+  </body>
+</html>

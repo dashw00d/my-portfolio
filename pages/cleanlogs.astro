@@ -1,0 +1,14 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import CleanLogsPage from "../components/pages/CleanLogsPage";
+---
+
+<BaseLayout
+  title="Console Log Cleaner"
+  description="Paste noisy console logs and clean them for Alpine and Livewire stacks."
+  path="/cleanlogs"
+  showNav={false}
+  showFooter={false}
+>
+  <CleanLogsPage client:load />
+</BaseLayout>

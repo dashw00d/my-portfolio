@@ -1,5 +1,5 @@
 import React from "react";
-import Link from "next/link";
+import Link from "@/components/Link";
 import { Github, Linkedin, Mail, MapPin, Phone, Twitter } from "lucide-react";
 
 export default function Footer() {

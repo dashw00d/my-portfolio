@@ -1,0 +1,29 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import CardPage from "../components/pages/CardPage";
+import { SITE_URL } from "../lib/site";
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Person",
+  name: "Ryan Stefan",
+  telephone: "(737) 205-9226",
+  email: "ryan@dashwood.net",
+  url: SITE_URL,
+  jobTitle: "Web Developer",
+  description: "Optimize. Build. Grow.",
+};
+---
+
+<BaseLayout
+  title="Ryan Stefan Business Card"
+  description="Digital business card for Ryan Stefan - Optimize. Build. Grow. Contact: (737) 205-9226 | ryan@dashwood.net"
+  path="/card"
+  keywords="Ryan Stefan, business card, dashwood, contact, web development, optimization"
+  ogImage={`${SITE_URL}/images/dashwood_qr.png`}
+  jsonLd={jsonLd}
+  showNav={false}
+  showFooter={false}
+>
+  <CardPage client:load />
+</BaseLayout>

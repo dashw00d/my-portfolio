@@ -1,18 +1,12 @@
 import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
+import astro from "eslint-plugin-astro";
 
 export default defineConfig([
-  ...nextVitals,
+  ...astro.configs.recommended,
   {
     rules: {
-      "react-hooks/rules-of-hooks": "off",
-      "react-hooks/purity": "off",
-      "react-hooks/set-state-in-effect": "off",
-      "react-hooks/static-components": "off",
-      "react/no-unescaped-entities": "off",
-      "@next/next/no-page-custom-font": "off",
-      "@next/next/no-img-element": "off",
+      "astro/no-set-html-directive": "off",
     },
   },
-  globalIgnores([".next/**", "out/**", "next-env.d.ts"]),
+  globalIgnores(["dist/**", "out/**", ".astro/**", "node_modules/**", "draft/**"]),
 ]);

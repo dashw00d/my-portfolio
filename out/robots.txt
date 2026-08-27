@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://dashwood.net/sitemap.xml

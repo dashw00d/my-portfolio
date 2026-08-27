@@ -1,3 +1,5 @@
+import typography from "@tailwindcss/typography";
+
 const withOpacityValue = (variable) => ({ opacityValue }) => {
   if (opacityValue === undefined) {
     return `rgb(var(${variable}) / 1)`;
@@ -6,11 +8,12 @@ const withOpacityValue = (variable) => ({ opacityValue }) => {
 };
 
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+export default {
   content: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './components/**/*.{js,ts,jsx,tsx,mdx}',
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './pages/**/*.{js,ts,jsx,tsx,mdx,astro}',
+    './components/**/*.{js,ts,jsx,tsx,mdx,astro}',
+    './layouts/**/*.{js,ts,jsx,tsx,mdx,astro}',
+    './lib/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {
@@ -107,7 +110,5 @@ module.exports = {
       },
     },
   },
-  plugins: [
-    require('@tailwindcss/typography'),
-  ],
-}
+  plugins: [typography],
+};

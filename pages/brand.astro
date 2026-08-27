@@ -1,0 +1,14 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import BrandPage from "../components/pages/BrandPage";
+---
+
+<BaseLayout
+  title="Brand Kit - Design System"
+  description="Design system and brand guidelines"
+  path="/brand"
+  showNav={false}
+  showFooter={false}
+>
+  <BrandPage client:load />
+</BaseLayout>

@@ -1,0 +1,45 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import BlogIndex from "../../components/blog/BlogIndex";
+import { getAllPosts, getTagCounts } from "../../lib/blog";
+import { SITE_URL } from "../../lib/site";
+
+const posts = getAllPosts();
+const tagCounts = getTagCounts(posts);
+const canonical = `${SITE_URL}/blog`;
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  name: "Ryan Stefan Dev Blog",
+  description:
+    "Practical build-in-public engineering posts: architecture decisions, debugging wins, and production lessons.",
+  url: canonical,
+  inLanguage: "en-US",
+  author: {
+    "@type": "Person",
+    name: "Ryan Stefan",
+    url: SITE_URL,
+  },
+  publisher: {
+    "@type": "Person",
+    name: "Ryan Stefan",
+  },
+  blogPost: posts.slice(0, 30).map((post) => ({
+    "@type": "BlogPosting",
+    headline: post.title,
+    datePublished: post.date,
+    url: `${SITE_URL}/blog/${post.slug}`,
+  })),
+};
+---
+
+<BaseLayout
+  title="Developer Blog | Ryan Stefan"
+  description="Engineering writeups from real projects: architecture, debugging, SEO infrastructure, automation, and production hardening."
+  path="/blog"
+  keywords="developer blog, software engineering, laravel, astro, automation, seo engineering, build in public"
+  jsonLd={jsonLd}
+>
+  <BlogIndex client:load posts={posts} tagCounts={tagCounts} />
+</BaseLayout>

@@ -9,13 +9,13 @@
 
 ## Implementation
 GA4 is loaded in:
-- `pages/_app.tsx`
+- `layouts/BaseLayout.astro`
 
 Helpers:
 - `lib/gtag.ts`
 
 Current measurement ID source:
-- `NEXT_PUBLIC_GA_MEASUREMENT_ID` (if set)
+- `PUBLIC_GA_MEASUREMENT_ID` or `NEXT_PUBLIC_GA_MEASUREMENT_ID` (if set)
 - fallback default: `G-45RNCPBHRD`
 
 ## Tracked Events
@@ -36,7 +36,3 @@ In GA4 admin:
 2. Submit test contact form
 3. In GA4, open **Realtime** and confirm events appear
 4. In **DebugView**, verify event params from contact form
-
-## Notes
-- Sitewide pageview tracking is enabled via route change tracking in `_app.tsx`.
-- Contact tracking fires only after API success for submit events.

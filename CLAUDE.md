@@ -1,39 +1,37 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for working in this repository.
 
 ## Development Commands
 
-- **Development server**: `npm run dev` - Starts Next.js dev server with fast refresh at http://localhost:3000
-- **Production build**: `npm run build` - Creates static export in `out/` directory
-- **Production preview**: `npm run start` - Serves the optimized build locally
-- **Linting**: `npm run lint` - Runs Next.js ESLint rules
+- **Development server**: `npm run dev` — Astro at http://localhost:3000
+- **Production build**: `npm run build` — static export in `dist/`
+- **Production preview**: `npm run preview` — serves the `dist/` tree locally
+- **Linting**: `npm run lint`
 
 ## Architecture Overview
 
-This is a **statically-exported Next.js 14 portfolio site** configured for deployment to any static host. The site uses:
+This is a **statically-exported Astro 5 portfolio**. nginx serves HTML from `dist/`. The only dynamic endpoint is `public/api/contact.php`, which PHP-FPM runs on demand.
 
-- **Static export mode** (`output: 'export'` in next.config.js) - No server-side features
-- **Component-based architecture** - All UI sections are independent components
-- **CSS-in-JS theming** - Semantic color tokens defined as CSS variables, surfaced through Tailwind
+- **Static export** (Astro default `dist/`)
+- **React islands** for interactive UI (`client:load` / `client:idle` / `client:visible`)
+- **CSS-in-JS theming** via semantic color tokens in Tailwind
 
 ### Page Structure
 
-The main landing page (`pages/index.tsx`) composes sections in this order:
-1. Navigation
+The main landing page (`pages/index.astro`) composes sections in this order:
+1. Navigation (layout)
 2. Hero
-3. Problems (problem/solution section)
+3. Problems
 4. Services
-5. Process (how we work)
-6. Examples (case studies)
+5. Process
+6. Examples
 7. Contact
-8. Footer
+8. Footer (layout)
 
 Each section is a self-contained component in `/components/`.
 
 ### Theming System
-
-The site uses a **semantic color token system** instead of hardcoded colors:
 
 - **Color tokens**: `brand`, `accent`, `highlight`, `success`, `warning`, `danger`
 - **Definition**: RGB values in CSS variables in `styles/globals.css` (`:root`)
@@ -44,7 +42,7 @@ The `tailwind.config.js` uses a `withOpacityValue` helper to map CSS variables t
 
 ### Path Aliases
 
-TypeScript is configured with `@/*` alias pointing to root (tsconfig.json):
+TypeScript is configured with `@/*` pointing to the repo root:
 ```typescript
 import Component from '@/components/Component'
 ```
@@ -52,23 +50,24 @@ import Component from '@/components/Component'
 ## Code Style
 
 - **TypeScript required** for all new modules
-- **2-space indentation** (default in repo)
+- **2-space indentation**
 - **Component naming**: PascalCase (e.g. `Hero.tsx`)
-- **Hook naming**: camelCase (e.g. `useViewport`)
+- **Hook naming**: camelCase (e.g. `useShallowQuery`)
 - **Import sorting**: By path depth
 - **Tailwind classes**: Group semantically (layout → spacing → typography)
 - **Shared styles**: Promote verbose utility combinations to reusable classes in `globals.css`
 
 ## Static Export Notes
 
-- Images use `unoptimized: true` (no Next.js Image Optimization)
-- No server-side rendering or API routes
-- `out/` directory contains build artifacts - never edit directly
-- Asset prefix is relative (`./`) in production for flexibility
+- No Node server at runtime
+- `dist/` contains build artifacts — gitignored, never edit directly
+- Trailing slashes are always on (`trailingSlash: 'always'`)
+- Contact mail is PHP, not a Node process
 
 ## Content Updates
 
 - **Contact info**: Edit `components/Contact.tsx`
 - **Services**: Edit `components/Services.tsx`
-- **Meta tags**: Update in `pages/index.tsx` `<Head>` section
-- **New sections**: Create component in `/components/`, import in `pages/index.tsx`
+- **Meta tags**: Update in the matching `pages/*.astro` frontmatter / `BaseLayout` props
+- **New sections**: Create a component in `/components/`, import in `pages/index.astro`
+- **Blog posts**: Add MDX under `content/blog/`

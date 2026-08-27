@@ -1,0 +1,14 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ModelCalcPage from "../components/pages/ModelCalcPage";
+---
+
+<BaseLayout
+  title="Model Calc | API Competitive Analysis"
+  description="Compare model pricing and intelligence with pressure ratios to detect non-subsidized threats to a subsidized baseline."
+  path="/model-calc"
+  showNav={false}
+  showFooter={false}
+>
+  <ModelCalcPage client:load />
+</BaseLayout>
