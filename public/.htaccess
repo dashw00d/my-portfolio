@@ -1,0 +1,8 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^api/contact/?$ api/contact.php [L]
+</IfModule>
+
+<Files ".env">
+  Require all denied
+</Files>

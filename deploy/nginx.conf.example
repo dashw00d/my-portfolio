@@ -13,6 +13,8 @@ server {
         try_files $uri $uri/ $uri.html /404.html;
     }
 
+    # POST to a static .php file returns 405. This location must run PHP-FPM.
+
     location = /404.html {
         internal;
     }
@@ -29,9 +31,33 @@ server {
         try_files $uri =404;
     }
 
+    location ~ /\.env {
+        deny all;
+    }
+
     location = /api/contact.php {
         include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME $document_root/api/contact.php;
+        fastcgi_param SMTP_HOST $SMTP_HOST;
+        fastcgi_param SMTP_PORT $SMTP_PORT;
+        fastcgi_param SMTP_USER $SMTP_USER;
+        fastcgi_param SMTP_PASS $SMTP_PASS;
+        fastcgi_param CONTACT_TO $CONTACT_TO;
+        fastcgi_param CONTACT_FROM $CONTACT_FROM;
+        fastcgi_param CONTACT_BCC $CONTACT_BCC;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+    }
+
+    location = /api/contact.php/ {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/api/contact.php;
+        fastcgi_param SMTP_HOST $SMTP_HOST;
+        fastcgi_param SMTP_PORT $SMTP_PORT;
+        fastcgi_param SMTP_USER $SMTP_USER;
+        fastcgi_param SMTP_PASS $SMTP_PASS;
+        fastcgi_param CONTACT_TO $CONTACT_TO;
+        fastcgi_param CONTACT_FROM $CONTACT_FROM;
+        fastcgi_param CONTACT_BCC $CONTACT_BCC;
         fastcgi_pass unix:/run/php/php8.3-fpm.sock;
     }
 

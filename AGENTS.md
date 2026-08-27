@@ -14,7 +14,7 @@ Production is nginx (or Apache) serving `dist/`. There is no Node server at runt
 ## Hosting
 Point the vhost document root at `dist/`. See `deploy/nginx.conf.example`. After a git pull, run `npm ci && npm run build`.
 
-Copy `contact.config.example.php` to `contact.config.php` in the repo root (outside the web root) and fill SMTP values. The contact form posts to `/api/contact.php`, a single PHP script copied from `public/api/contact.php`. Use ondemand PHP-FPM so idle memory stays with nginx.
+Copy `.env.example` to `.env` in the repo root and fill SMTP values, or set the same variables in the host panel. The PHP script loads process env first, then `.env`. The contact form posts to `/api/contact.php`. Use ondemand PHP-FPM so idle memory stays with nginx.
 
 ## Coding Style & Naming Conventions
 TypeScript is required for all new modules. Favour 2-space indentation, and keep imports sorted by path depth. Components and hooks use PascalCase and camelCase respectively (e.g. `components/Hero.tsx`, `useShallowQuery`). Tailwind utility classes should be grouped semantically (layout → spacing → typography). When shared styling becomes verbose, promote it to reusable class names inside `globals.css`.
@@ -23,7 +23,7 @@ TypeScript is required for all new modules. Favour 2-space indentation, and keep
 Semantic color tokens (`brand`, `accent`, `highlight`, `success`, `warning`, `danger`) are defined as CSS variables in `styles/globals.css` and surfaced through Tailwind in `tailwind.config.js`. Use these tokens in class names (e.g. `bg-brand-600`, `text-success-500`) instead of raw colour names. To adjust the look and feel, edit the RGB values in `:root` without touching component code.
 
 ## Contact Form Configuration
-The form posts JSON to `/api/contact.php`. Configure SMTP in `contact.config.php` (gitignored) or equivalent environment variables:
+The form posts JSON to `/api/contact.php`. Set these as environment variables (or in a gitignored `.env` at the repo root):
 
 ```
 SMTP_HOST=your.smtp.host

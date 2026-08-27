@@ -38,13 +38,13 @@ Typical panel (RunCloud-style) setup:
 1. After pull: `npm ci && npm run build`
 2. Document root: `dist/`
 3. Enable PHP only for `/api/contact.php`
-4. Copy `contact.config.example.php` to `contact.config.php` in the repo root and add SMTP credentials
+4. Copy `.env.example` to `.env` and add SMTP credentials, or set the same variables in the host panel
 
 An nginx starting point lives in `deploy/nginx.conf.example`. Keep PHP-FPM on `ondemand` so idle RAM is just nginx.
 
 ## Contact form
 
-The form posts JSON to `/api/contact.php`. That script speaks SMTP over a short-lived PHP request (or PHP `mail()` if SMTP is unset). It is not a standing Node mail server.
+The form posts JSON to `/api/contact.php`. PHP reads `SMTP_*` and `CONTACT_*` from the environment, then from `.env`. It is not a standing Node mail server.
 
 ## Customization
 

@@ -1,23 +1,48 @@
 <?php
 declare(strict_types=1);
 
+if (PHP_SAPI === 'cli') {
+    $_SERVER['REQUEST_METHOD'] = getenv('REQUEST_METHOD') ?: ($_SERVER['REQUEST_METHOD'] ?? 'GET');
+    $_SERVER['REMOTE_ADDR'] = getenv('REMOTE_ADDR') ?: ($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
+}
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 
 function send_json(int $status, array $body): never
 {
+    $payload = json_encode($body, JSON_UNESCAPED_SLASHES);
+    if (PHP_SAPI === 'cli') {
+        echo "HTTP {$status}\n{$payload}";
+        exit;
+    }
     http_response_code($status);
-    echo json_encode($body, JSON_UNESCAPED_SLASHES);
+    echo $payload;
     exit;
 }
 
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    header('Allow: POST');
-    send_json(405, ['success' => false, 'message' => 'Method not allowed.']);
+$method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+
+if ($method === 'OPTIONS') {
+    header('Allow: POST, OPTIONS');
+    header('Access-Control-Allow-Methods: POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
+    http_response_code(204);
+    exit;
 }
 
-$raw = file_get_contents('php://input') ?: '';
+if ($method !== 'POST') {
+    header('Allow: POST, OPTIONS');
+    send_json(405, [
+        'success' => false,
+        'message' => 'This endpoint only accepts POST. A 405 usually means PHP is not executing (the server treated contact.php as a static file).',
+    ]);
+}
+
+$raw = PHP_SAPI === 'cli'
+    ? (stream_get_contents(STDIN) ?: '')
+    : (file_get_contents('php://input') ?: '');
 if (strlen($raw) > 32_000) {
     send_json(413, ['success' => false, 'message' => 'Payload too large.']);
 }
@@ -120,35 +145,87 @@ function h(string $value): string
 function load_contact_config(): array
 {
     $keys = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'CONTACT_TO', 'CONTACT_FROM', 'CONTACT_BCC'];
+    $fromFile = load_dotenv_file();
     $config = array_fill_keys($keys, '');
 
-    $candidates = [
-        dirname(__DIR__, 2) . '/contact.config.php',
-        dirname(__DIR__) . '/contact.config.php',
-        __DIR__ . '/contact.config.php',
-    ];
-    foreach ($candidates as $path) {
-        if (is_file($path)) {
-            $loaded = include $path;
-            if (is_array($loaded)) {
-                foreach ($keys as $key) {
-                    if (isset($loaded[$key]) && $loaded[$key] !== '') {
-                        $config[$key] = (string) $loaded[$key];
-                    }
-                }
-            }
-            break;
-        }
-    }
-
     foreach ($keys as $key) {
-        $env = getenv($key);
-        if (is_string($env) && $env !== '') {
-            $config[$key] = $env;
-        }
+        $config[$key] = env_value($key, $fromFile);
     }
 
     return $config;
+}
+
+function env_value(string $key, array $fromFile): string
+{
+    foreach ([getenv($key), $_ENV[$key] ?? null, $_SERVER[$key] ?? null] as $value) {
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+    }
+
+    $fileValue = $fromFile[$key] ?? '';
+    return is_string($fileValue) ? $fileValue : '';
+}
+
+function load_dotenv_file(): array
+{
+    $candidates = [
+        dirname(__DIR__, 2) . '/.env',
+        dirname(__DIR__) . '/../.env',
+        getcwd() . '/.env',
+    ];
+
+    foreach ($candidates as $path) {
+        if (!is_file($path) || !is_readable($path)) {
+            continue;
+        }
+
+        $parsed = parse_dotenv($path);
+        if ($parsed) {
+            return $parsed;
+        }
+    }
+
+    return [];
+}
+
+function parse_dotenv(string $path): array
+{
+    $parsed = [];
+    $lines = file($path, FILE_IGNORE_NEW_LINES);
+    if ($lines === false) {
+        return [];
+    }
+
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || str_starts_with($line, '#')) {
+            continue;
+        }
+        if (str_starts_with($line, 'export ')) {
+            $line = trim(substr($line, 7));
+        }
+        $eq = strpos($line, '=');
+        if ($eq === false) {
+            continue;
+        }
+
+        $key = trim(substr($line, 0, $eq));
+        $value = trim(substr($line, $eq + 1));
+        if ($key === '') {
+            continue;
+        }
+        if (
+            (str_starts_with($value, '"') && str_ends_with($value, '"')) ||
+            (str_starts_with($value, "'") && str_ends_with($value, "'"))
+        ) {
+            $value = substr($value, 1, -1);
+        }
+
+        $parsed[$key] = $value;
+    }
+
+    return $parsed;
 }
 
 function smtp_send(
