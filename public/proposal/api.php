@@ -58,6 +58,11 @@ function read_json_body(): array
 
 function data_directory(): string
 {
+    foreach ([getenv('PROPOSAL_DATA_DIR'), $_ENV['PROPOSAL_DATA_DIR'] ?? null, $_SERVER['PROPOSAL_DATA_DIR'] ?? null] as $value) {
+        if (is_string($value) && $value !== '') {
+            return rtrim($value, '/');
+        }
+    }
     return dirname(__DIR__, 2) . '/data/proposal';
 }
 

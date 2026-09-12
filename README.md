@@ -68,6 +68,8 @@ For production, set distinct, long random values for `PROPOSAL_CLIENT_TOKEN` and
 
 PHP 8.1+ with `pdo_sqlite` and `mbstring` is required. Create `data/proposal/` beside `dist/` and grant the PHP-FPM user write access. The database is created there on first use and must persist across builds. Back it up with application data. Tokens are hashed into the database on first use, so changing the environment alone does not rotate existing access links. Proposal submission notifications currently require a working PHP `mail()` transport.
 
+On ServerChirp, set `PROPOSAL_DATA_DIR` to `/home/cloud/apps/portfolio/shared/proposal` in the portfolio PHP-FPM pool. This keeps feedback outside timestamped release directories. Keep the proposal tokens in the app's persistent environment and pass them to the same pool. Point the nginx API locations at that pool's socket, then validate nginx and PHP-FPM before reloading them.
+
 ## Customization
 
 - Edit components in `/components/`
