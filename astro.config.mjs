@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { phpContactPlugin } from "./scripts/vite-php-contact.js";
+import { trailingSlashRedirectPlugin } from "./scripts/vite-trailing-slash.js";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,7 +25,7 @@ export default defineConfig({
     rehypePlugins: [rehypeHighlight],
   },
   vite: {
-    plugins: [phpContactPlugin(root)],
+    plugins: [phpContactPlugin(root), trailingSlashRedirectPlugin()],
     envPrefix: ["PUBLIC_", "NEXT_PUBLIC_"],
     resolve: {
       alias: {

@@ -7,7 +7,7 @@ interface Problem {
   title: string;
   description: string;
   fix: string;
-  color: string; // e.g., "from-danger-500 to-danger-600"
+  accent: string; // e.g., "before:from-danger-500 before:to-danger-600"
   textColor: string; // e.g., "text-danger-900"
   iconBg: string; // e.g., "bg-danger-100"
 }
@@ -30,7 +30,7 @@ const problems: Problem[] = [
     title: "Site crashes when you need it most",
     description: "Peak hours, big campaigns, Black Friday—your server gives up. Every minute down = money out the door.",
     fix: "I stabilise hosting, set up autoscaling, and monitor so you're ready for traffic spikes.",
-    color: "from-danger-500 to-danger-600",
+    accent: "before:from-danger-500 before:to-danger-600",
     textColor: "text-danger-900",
     iconBg: "bg-danger-100",
   },
@@ -39,7 +39,7 @@ const problems: Problem[] = [
     title: "Your emails never reach customers",
     description: "Confirmations, receipts, updates—all in spam. Customers think you're ignoring them. Trust evaporates.",
     fix: "Run a deliverability audit, repair DNS, and build a warm-up plan so inbox placement sticks.",
-    color: "from-warning-500 to-warning-600",
+    accent: "before:from-warning-500 before:to-warning-600",
     textColor: "text-warning-900",
     iconBg: "bg-warning-100",
   },
@@ -48,7 +48,7 @@ const problems: Problem[] = [
     title: "Leads fill out forms... then nothing",
     description: "No tracking, no follow-up, no pipeline. You're paying for traffic that disappears into a black hole.",
     fix: "Integrate CRM + analytics, wire alerts, and build automations so every lead is captured.",
-    color: "from-accent-500 to-accent-600",
+    accent: "before:from-accent-500 before:to-accent-600",
     textColor: "text-accent-900",
     iconBg: "bg-accent-100",
   },
@@ -57,7 +57,7 @@ const problems: Problem[] = [
     title: "Invisible on Google",
     description: "Competitors show up first. You're on page 3. Customers searching for exactly what you offer can't find you.",
     fix: "Repair technical SEO, structure content, and build authority so you show up where buyers look.",
-    color: "from-highlight-500 to-highlight-600",
+    accent: "before:from-highlight-500 before:to-highlight-600",
     textColor: "text-highlight-900",
     iconBg: "bg-highlight-100",
   },
@@ -325,7 +325,7 @@ function ProofPoints() {
 function ProblemCard({ problem }: { problem: Problem }) {
   return (
     <article
-      className={`group grid gap-3 rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl sm:grid-cols-[auto,1fr] relative overflow-hidden before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-gradient-to-b before:${problem.color} before:opacity-60 focus-within:ring-2 focus-within:ring-current/20`}
+      className={`group relative grid gap-3 overflow-hidden rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl focus-within:ring-2 focus-within:ring-brand-400/40 before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-gradient-to-b ${problem.accent} before:opacity-60 sm:grid-cols-[auto,1fr]`}
       tabIndex={0}
       role="article"
       aria-labelledby={`problem-title-${problem.title.toLowerCase().replace(/\s+/g, '-')}`}

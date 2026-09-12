@@ -38,13 +38,13 @@ export default function Hero() {
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="paw-trail-layer" />
         {/* Large gradient orbs */}
-        <div className="absolute left-1/2 top-[-20%] h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-brand-200/40 blur-3xl animate-pulse" />
-        <div className="absolute right-[-10%] top-1/3 h-[24rem] w-[24rem] rounded-full bg-highlight-200/40 blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
+        <div className="absolute left-1/2 top-[-20%] h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-brand-200/40 blur-3xl" />
+        <div className="absolute right-[-10%] top-1/3 h-[24rem] w-[24rem] rounded-full bg-highlight-200/40 blur-3xl" />
         <div className="absolute inset-0 bg-gradient-to-br from-white via-white/60 to-brand-50" />
 
-        {/* Floating geometric shapes */}
-        <div className="absolute left-[20%] bottom-[30%] h-8 w-8 bg-gradient-to-br from-warning-400/20 to-warning-600/20 rounded-full animate-ping" style={{ animationDelay: "2s" }} />
-        <div className="absolute right-[8%] bottom-[20%] h-20 w-3 bg-gradient-to-b from-brand-400/30 to-transparent rounded-full animate-pulse" style={{ animationDelay: "0.8s" }} />
+        {/* Floating geometric accents */}
+        <div className="absolute left-[20%] bottom-[30%] h-8 w-8 rounded-full bg-gradient-to-br from-warning-400/15 to-warning-600/15" />
+        <div className="absolute right-[8%] bottom-[20%] h-20 w-3 rounded-full bg-gradient-to-b from-brand-400/25 to-transparent" />
 
         {/* Decorative lines */}
         <div className="absolute left-0 top-1/4 w-px h-32 bg-gradient-to-b from-transparent via-brand-300/20 to-transparent" />
@@ -58,7 +58,7 @@ export default function Hero() {
             <span suppressHydrationWarning>{quarterBookingCopy}</span>
           </div>
 
-          <h1 className="mb-6 bg-gradient-to-r from-zinc-900 via-brand-900 to-accent-900 bg-clip-text text-5xl font-black tracking-tight text-transparent md:text-7xl">
+          <h1 className="mb-6 bg-gradient-to-r from-zinc-900 via-brand-900 to-accent-900 bg-clip-text text-5xl font-black leading-[1.05] tracking-tight text-transparent md:text-7xl">
             Turn operational chaos into repeatable growth
           </h1>
 
@@ -69,21 +69,23 @@ export default function Hero() {
             outcomes, no busywork.
           </p>
 
-          {/* Profile section with photo placeholder */}
+          {/* Profile section */}
           <div className="mb-10 flex items-center gap-6">
             <div className="relative">
-              <div className="h-20 w-20 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-100 to-accent-100 shadow-lg">
-                {/* Replace with your photo: */}
+              <div className="relative h-20 w-20 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-100 to-accent-100 shadow-lg ring-1 ring-inset ring-white/40">
+                <div className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-brand-500/70">
+                  RY
+                </div>
                 <img
                   src="/images/ryan_stefan.png"
                   alt="Ryan Stefan"
-                  className="h-full w-full rounded-xl object-cover"
+                  className="relative h-full w-full object-cover"
+                  onError={(event) => {
+                    event.currentTarget.style.display = "none";
+                  }}
                 />
-                <div className="h-full w-full rounded-xl bg-zinc-200 flex items-center justify-center">
-                  <div className="text-2xl font-bold text-zinc-500">RY</div>
-                </div>
               </div>
-              <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-success-500 border-2 border-white" />
+              <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full border-2 border-white bg-success-500" />
             </div>
             <div>
               <div className="text-sm font-semibold text-zinc-900">Ryan Stefan</div>
@@ -94,14 +96,14 @@ export default function Hero() {
           <div className="mb-12 flex flex-wrap gap-4">
             <a
               href="#contact-form"
-              className="group inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-accent-600 px-6 py-3 font-semibold text-white shadow-lg shadow-brand-500/30 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/40"
+              className="btn-primary group"
             >
               Diagnose my tech stack
               <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
             </a>
             <a
               href="mailto:ryan@dashwood.net"
-              className="inline-flex items-center gap-2 rounded-xl border border-zinc-300 bg-white px-6 py-3 font-semibold text-zinc-700 shadow-sm transition hover:border-brand-300 hover:text-brand-600"
+              className="btn-secondary hover:border-brand-300 hover:text-brand-600"
             >
               <Mail className="h-4 w-4" />
               Email Ryan directly
@@ -109,7 +111,7 @@ export default function Hero() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-zinc-200/60 border-l-4 border-l-brand-500 bg-white/70 p-4 shadow-sm backdrop-blur">
+            <div className="rounded-2xl border border-zinc-200/60 border-l-4 border-l-brand-500 bg-white/70 p-4 shadow-sm backdrop-blur transition-shadow hover:shadow-md">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-brand-600">
                 <ShieldCheck className="h-4 w-4" />
                 Marketing intelligence
@@ -117,7 +119,7 @@ export default function Hero() {
               <p className="text-xl font-bold text-zinc-900">20× campaign lift</p>
               <p className="text-sm text-zinc-500">Generated by mining a client's 15 years of staffing logs into usable demand signals.</p>
             </div>
-            <div className="rounded-2xl border border-zinc-200/60 border-l-4 border-l-success-500 bg-white/70 p-4 shadow-sm backdrop-blur">
+            <div className="rounded-2xl border border-zinc-200/60 border-l-4 border-l-success-500 bg-white/70 p-4 shadow-sm backdrop-blur transition-shadow hover:shadow-md">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-success-600">
                 <Rocket className="h-4 w-4" />
                 Agent automation
@@ -125,7 +127,7 @@ export default function Hero() {
               <p className="text-xl font-bold text-zinc-900">Any-use-case architecture</p>
               <p className="text-sm text-zinc-500">Reusable orchestration patterns for support, ops, content, and growth workflows.</p>
             </div>
-            <div className="rounded-2xl border border-zinc-200/60 border-l-4 border-l-accent-500 bg-white/70 p-4 shadow-sm backdrop-blur">
+            <div className="rounded-2xl border border-zinc-200/60 border-l-4 border-l-accent-500 bg-white/70 p-4 shadow-sm backdrop-blur transition-shadow hover:shadow-md">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-accent-600">
                 <LineChart className="h-4 w-4" />
                 2026-ready stack

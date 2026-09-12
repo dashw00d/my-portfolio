@@ -22,8 +22,8 @@ export default function Services() {
         <div className="grid gap-8 lg:grid-cols-3 items-stretch">
           <div className="group flex flex-col space-y-6 rounded-3xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-xl relative overflow-hidden hover:shadow-2xl hover:shadow-brand-500/20 transition-all duration-500 before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-gradient-to-b before:from-brand-400 before:to-brand-600 before:transition-all before:duration-500 group-hover:before:w-2">
             {/* Floating accent elements */}
-            <div className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-brand-400/30 animate-ping group-hover:animate-none" />
-            <div className="absolute top-4 right-8 h-2 w-2 rounded-full bg-accent-400/40 opacity-60 animate-pulse" style={{animationDelay: '0.5s'}} />
+            <div className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-brand-400/30 opacity-60 transition-opacity duration-500 group-hover:opacity-90" />
+            <div className="absolute right-8 top-4 h-2 w-2 rounded-full bg-accent-400/40 opacity-60 transition-opacity duration-500 group-hover:opacity-90" />
             <div className="flex items-center gap-3">
               <div className="rounded-2xl bg-brand-500/15 p-3 ring-1 ring-brand-400/30">
                 <Zap className="h-6 w-6 text-brand-300" />
@@ -51,8 +51,8 @@ export default function Services() {
 
           <div className="group flex flex-col space-y-6 rounded-3xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-xl relative overflow-hidden hover:shadow-2xl hover:shadow-success-500/20 transition-all duration-500 before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-gradient-to-b before:from-success-400 before:to-success-600 before:transition-all before:duration-500 group-hover:before:w-2">
             {/* Floating accent elements */}
-            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-success-400/30 animate-ping group-hover:animate-none" />
-            <div className="absolute top-6 right-6 h-1.5 w-1.5 rounded-full bg-highlight-400/50 opacity-70 animate-pulse" style={{animationDelay: '1s'}} />
+            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-success-400/30 opacity-60 transition-opacity duration-500 group-hover:opacity-90" />
+            <div className="absolute right-6 top-6 h-1.5 w-1.5 rounded-full bg-highlight-400/50 opacity-70 transition-opacity duration-500 group-hover:opacity-90" />
             <div className="flex items-center gap-3">
               <div className="rounded-2xl bg-success-500/15 p-3 ring-1 ring-success-400/30">
                 <MessageSquare className="h-6 w-6 text-success-300" />
@@ -80,8 +80,8 @@ export default function Services() {
 
           <div className="group flex flex-col space-y-6 rounded-3xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-xl relative overflow-hidden hover:shadow-2xl hover:shadow-highlight-500/20 transition-all duration-500 before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-gradient-to-b before:from-highlight-400 before:to-highlight-600 before:transition-all before:duration-500 group-hover:before:w-2">
             {/* Floating accent elements */}
-            <div className="absolute -top-3 -right-3 h-5 w-5 rotate-45 bg-highlight-400/20 animate-bounce group-hover:animate-none" />
-            <div className="absolute top-8 right-4 h-2 w-6 rounded-full bg-accent-400/30 opacity-50 animate-pulse" style={{animationDelay: '1.5s'}} />
+            <div className="absolute -top-3 -right-3 h-5 w-5 rotate-45 bg-highlight-400/20 opacity-60 transition-opacity duration-500 group-hover:opacity-90" />
+            <div className="absolute right-4 top-8 h-2 w-6 rounded-full bg-accent-400/30 opacity-50 transition-opacity duration-500 group-hover:opacity-90" />
             <div className="flex items-center gap-3">
               <div className="rounded-2xl bg-highlight-500/15 p-3 ring-1 ring-highlight-400/30">
                 <Search className="h-6 w-6 text-highlight-300" />

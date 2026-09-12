@@ -93,15 +93,15 @@ export default function Contact() {
   };
 
   return (
-    <section id="contact" className="relative overflow-hidden bg-gradient-to-br from-brand-950 via-brand-900 to-slate-900 py-24 text-white">
+    <section id="contact" className="relative overflow-hidden bg-gradient-to-br from-brand-950 via-brand-900 to-zinc-900 py-24 text-white">
       <div className="pointer-events-none absolute inset-x-0 -top-24 h-32 bg-gradient-to-b from-brand-950/80 via-brand-900/60 to-transparent" />
-      <div className="pointer-events-none absolute inset-x-0 -bottom-32 h-32 bg-gradient-to-t from-slate-950 via-brand-900/40 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 -bottom-32 h-32 bg-gradient-to-t from-zinc-950 via-brand-900/40 to-transparent" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(67,171,167,0.28),_transparent_60%)]" />
       <div className="relative mx-auto max-w-7xl px-6">
         {/* Decorative elements */}
-        <div className="pointer-events-none absolute left-8 top-8 h-2 w-2 rounded-full bg-accent-400/40 animate-ping" />
-        <div className="pointer-events-none absolute right-12 top-16 h-1 w-10 rounded-full bg-highlight-400/30 animate-pulse" style={{animationDelay: '0.5s'}} />
-        <div className="pointer-events-none absolute left-1/4 bottom-8 h-3 w-3 rotate-45 bg-brand-400/25 animate-bounce" style={{animationDelay: '1.5s'}} />
+        <div className="pointer-events-none absolute left-8 top-8 h-2 w-2 rounded-full bg-accent-400/40" />
+        <div className="pointer-events-none absolute right-12 top-16 h-1 w-10 rounded-full bg-highlight-400/30" />
+        <div className="pointer-events-none absolute left-1/4 bottom-8 h-3 w-3 rotate-45 bg-brand-400/25" />
 
         <div className="mx-auto max-w-2xl text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-accent-500/10 to-highlight-500/10 border border-accent-500/20 px-4 py-2 text-sm font-medium text-accent-200">
