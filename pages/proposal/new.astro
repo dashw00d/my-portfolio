@@ -1,0 +1,8 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProposalBuilderPage from "../../components/pages/ProposalBuilderPage";
+---
+
+<BaseLayout title="New proposal · Proposal studio" description="Create a personal, interactive proposal." path="/proposal/new" robots="noindex,nofollow,noarchive" privatePage showNav={false} showFooter={false}>
+  <ProposalBuilderPage client:load />
+</BaseLayout>

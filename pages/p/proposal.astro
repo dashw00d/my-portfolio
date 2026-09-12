@@ -1,0 +1,8 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProposalPage from "../../components/pages/ProposalPage";
+---
+
+<BaseLayout title="Your private proposal" description="A proposal to shape together." path="/p/proposal" robots="noindex,nofollow,noarchive" privatePage showNav={false} showFooter={false}>
+  <ProposalPage client:load />
+</BaseLayout>

@@ -22,6 +22,7 @@ interface Props {
   nextUrl?: string | null;
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
   ogImage?: string;
+  privatePage?: boolean;
   showNav?: boolean;
   showFooter?: boolean;
 }
@@ -41,6 +42,7 @@ const {
   nextUrl,
   jsonLd,
   ogImage,
+  privatePage = false,
   showNav = true,
   showFooter = true,
 } = Astro.props;
@@ -82,12 +84,17 @@ const jsonLdItems = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
     {prevUrl && <link rel="prev" href={prevUrl} />}
     {nextUrl && <link rel="next" href={nextUrl} />}
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;300;400;500;600;700;800;900&display=swap"
-      rel="stylesheet"
-    />
+    {privatePage && <meta name="referrer" content="no-referrer" />}
+    {!privatePage && (
+      <>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;300;400;500;600;700;800;900&display=swap"
+          rel="stylesheet"
+        />
+      </>
+    )}
 
     <slot name="head" />
 
@@ -95,18 +102,22 @@ const jsonLdItems = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
       <script type="application/ld+json" set:html={JSON.stringify(item)} />
     ))}
 
-    <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}></script>
-    <script is:inline define:vars={{ GA_MEASUREMENT_ID }}>
-      window.dataLayer = window.dataLayer || [];
-      function gtag() {
-        dataLayer.push(arguments);
-      }
-      window.gtag = gtag;
-      gtag("js", new Date());
-      gtag("config", GA_MEASUREMENT_ID, {
-        page_path: window.location.pathname,
-      });
-    </script>
+    {!privatePage && (
+      <>
+        <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}></script>
+        <script is:inline define:vars={{ GA_MEASUREMENT_ID }}>
+          window.dataLayer = window.dataLayer || [];
+          function gtag() {
+            window.dataLayer.push(arguments);
+          }
+          window.gtag = gtag;
+          gtag("js", new Date());
+          gtag("config", GA_MEASUREMENT_ID, {
+            page_path: window.location.pathname,
+          });
+        </script>
+      </>
+    )}
   </head>
   <body>
     {showNav && <Navigation client:load />}

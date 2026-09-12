@@ -1,3 +1,5 @@
+import type { ProposalConfig } from "./config";
+
 export type FeedbackStatus = "interested" | "question" | "maybe_later";
 
 export interface SectionFeedback {
@@ -63,4 +65,5 @@ export interface SubmittedResponseSnapshot {
   displayName: string;
   state: ProposalState;
   configVersion: number;
+  config?: ProposalConfig | null;
 }

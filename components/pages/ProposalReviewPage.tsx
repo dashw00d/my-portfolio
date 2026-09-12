@@ -1,10 +1,23 @@
 import { useEffect, useState } from "react";
-import { Check, Copy, ExternalLink, Loader2, RefreshCw } from "lucide-react";
+import {
+  Check,
+  Copy,
+  ExternalLink,
+  Loader2,
+  RefreshCw,
+  Plus,
+} from "lucide-react";
 
-import type { ProposalState, SubmittedResponseSnapshot } from "@/lib/proposal/types";
-import SouthernStarProposalPage from "./SouthernStarProposalPage";
+import { PROPOSAL_CONFIG, type ProposalConfig } from "@/lib/proposal/config";
+import type {
+  ProposalState,
+  SubmittedResponseSnapshot,
+} from "@/lib/proposal/types";
+import ProposalPage from "./ProposalPage";
 
 interface ReviewData {
+  config: ProposalConfig | null;
+  clientPath: string;
   state: ProposalState;
   clientToken: string | null;
   submissions: SubmittedResponseSnapshot[];
@@ -14,7 +27,11 @@ interface ReviewData {
 
 function tokenFromInput(value: string) {
   const trimmed = value.trim().replace(/[).,]+$/, "");
-  try { return new URL(trimmed).searchParams.get("admin") ?? trimmed; } catch { return trimmed; }
+  try {
+    return new URL(trimmed).searchParams.get("admin") ?? trimmed;
+  } catch {
+    return trimmed;
+  }
 }
 
 export default function ProposalReviewPage() {
@@ -29,7 +46,11 @@ export default function ProposalReviewPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    setAdminToken(tokenFromInput(new URLSearchParams(window.location.search).get("admin") ?? ""));
+    setAdminToken(
+      tokenFromInput(
+        new URLSearchParams(window.location.search).get("admin") ?? "",
+      ),
+    );
   }, []);
 
   useEffect(() => {
@@ -39,102 +60,292 @@ export default function ProposalReviewPage() {
     async function refresh() {
       setLoading(true);
       try {
-        const response = await fetch("/proposal/api.php/review", { headers: { "X-Proposal-Admin": adminToken }, signal: controller.signal });
+        const response = await fetch("/proposal/api.php/review", {
+          headers: { "X-Proposal-Admin": adminToken },
+          signal: controller.signal,
+        });
         const result = await response.json();
-        if (!response.ok) throw new Error(result?.error ?? "Unable to load the proposal.");
+        if (!response.ok)
+          throw new Error(result?.error ?? "Unable to load the proposal.");
         if (controller.signal.aborted) return;
         setData(result);
         setError("");
       } catch (error) {
-        if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "Connection lost. Retrying…");
+        if (!controller.signal.aborted)
+          setError(
+            error instanceof Error
+              ? error.message
+              : "Connection lost. Retrying…",
+          );
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
-          timer = setTimeout(() => { void refresh(); }, 4000);
+          timer = setTimeout(() => {
+            void refresh();
+          }, 4000);
         }
       }
     }
     void refresh();
-    return () => { controller.abort(); clearTimeout(timer); };
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
   }, [adminToken, refreshKey]);
 
   async function setProposalStatus(status: ReviewData["status"]) {
     setSaving(true);
     try {
-      const response = await fetch("/proposal/api.php/admin?action=set_status", {
-        method: "POST", headers: { "Content-Type": "application/json", "X-Proposal-Admin": adminToken }, body: JSON.stringify({ status }),
-      });
+      const response = await fetch(
+        "/proposal/api.php/admin?action=set_status",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Proposal-Admin": adminToken,
+          },
+          body: JSON.stringify({ status }),
+        },
+      );
       const result = await response.json();
-      if (!response.ok) throw new Error(result?.error ?? "Unable to change access.");
+      if (!response.ok)
+        throw new Error(result?.error ?? "Unable to change access.");
       setRefreshKey((previous) => previous + 1);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Unable to change access.");
-    } finally { setSaving(false); }
+      setError(
+        error instanceof Error ? error.message : "Unable to change access.",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
-  const snapshot = data?.submissions.find((submission) => submission.id === snapshotId);
-  const clientUrl = data?.clientToken ? `/p/southern-star/?token=${encodeURIComponent(data.clientToken)}` : "";
-  const buttonClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50 disabled:opacity-50";
+  const snapshot = data?.submissions.find(
+    (submission) => submission.id === snapshotId,
+  );
+  const clientUrl = data?.clientToken
+    ? `${data.clientPath ?? "/p/southern-star/"}?token=${encodeURIComponent(data.clientToken)}`
+    : "";
+  const buttonClass =
+    "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50 disabled:opacity-50";
 
   async function copyClientLink() {
     try {
-      await navigator.clipboard.writeText(new URL(clientUrl, window.location.origin).href);
+      await navigator.clipboard.writeText(
+        new URL(clientUrl, window.location.origin).href,
+      );
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
-    } catch { setError("Could not copy. Use Open client view to get the link."); }
+    } catch {
+      setError("Could not copy. Use Open client view to get the link.");
+    }
   }
 
   if (!data) {
     return (
       <main className="grid min-h-screen place-items-center bg-brand-50 px-5 text-brand-950">
-        <form className="w-full max-w-md rounded-3xl border border-brand-200 bg-white p-8 shadow-sm" onSubmit={(event) => { event.preventDefault(); setAdminToken(tokenFromInput(tokenDraft)); setRefreshKey((previous) => previous + 1); }}>
-          <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">Ryan’s review</p>
-          <h1 className="mt-3 text-2xl font-bold">Southern Star proposal</h1>
-          {loading && !error ? <p className="mt-5 flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" />Opening the client’s proposal…</p> : <>
-            <label htmlFor="review-token" className="mt-5 block text-sm font-semibold">Admin link or access token</label>
-            <input id="review-token" type="password" value={tokenDraft} onChange={(event) => setTokenDraft(event.target.value)} required className="mt-2 w-full rounded-xl border border-brand-200 p-3" />
-            <button type="submit" className={`${buttonClass} mt-4 w-full`}>Open review</button>
-          </>}
-          {error && <p role="alert" className="mt-4 text-sm text-danger-700">{error}</p>}
+        <form
+          className="w-full max-w-md rounded-3xl border border-brand-200 bg-white p-8 shadow-sm"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setAdminToken(tokenFromInput(tokenDraft));
+            setRefreshKey((previous) => previous + 1);
+          }}
+        >
+          <p className="text-sm font-semibold uppercase tracking-widest text-brand-600">
+            Proposal studio
+          </p>
+          <h1 className="mt-3 text-2xl font-bold">Open a proposal</h1>
+          {loading && !error ? (
+            <p className="mt-5 flex items-center gap-2 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Opening the client’s proposal…
+            </p>
+          ) : (
+            <>
+              <label
+                htmlFor="review-token"
+                className="mt-5 block text-sm font-semibold"
+              >
+                Admin link or access token
+              </label>
+              <input
+                id="review-token"
+                type="password"
+                value={tokenDraft}
+                onChange={(event) => setTokenDraft(event.target.value)}
+                required
+                className="mt-2 w-full rounded-xl border border-brand-200 p-3"
+              />
+              <button type="submit" className={`${buttonClass} mt-4 w-full`}>
+                Open review
+              </button>
+            </>
+          )}
+          {error && (
+            <p role="alert" className="mt-4 text-sm text-danger-700">
+              {error}
+            </p>
+          )}
         </form>
       </main>
     );
   }
 
-  return <SouthernStarProposalPage review={{
-    state: snapshot?.state ?? data.state,
-    clientToken: data.clientToken ?? "",
-    toolbar: (
-      <section aria-label="Review controls" className="mb-6 rounded-2xl border border-brand-200 bg-brand-950 p-5 text-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div><p className="text-xs font-semibold uppercase tracking-widest text-brand-200">Ryan’s review</p><p className="mt-1 flex items-center gap-2 text-sm"><span className={`h-2 w-2 rounded-full ${error ? "bg-warning-500" : "bg-success-500"}`} />{snapshot ? "Submitted proposal" : error ? "Reconnecting to the client’s proposal" : "Live · follows the client’s changes"}</p></div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setRefreshKey((previous) => previous + 1)} className={buttonClass} aria-label="Refresh proposal"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></button>
-            <button type="button" onClick={() => void copyClientLink()} disabled={!clientUrl} className={buttonClass}>{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}{copied ? "Copied" : "Client link"}</button>
-            {clientUrl && <a href={clientUrl} target="_blank" rel="noreferrer" className={buttonClass}><ExternalLink className="h-4 w-4" />Open client view</a>}
-          </div>
-        </div>
-        {error && <p role="alert" className="mt-3 text-sm text-warning-200">{error} Showing the last saved proposal.</p>}
-        {snapshot && <button type="button" onClick={() => setSnapshotId("")} className="mt-3 text-sm font-semibold underline underline-offset-4">Return to live proposal</button>}
-      </section>
-    ),
-    response: (
-      <section className="rounded-3xl border border-brand-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-bold text-brand-950">Client responses</h2>
-        {(snapshot?.displayName || data.state.selections.displayName) && <p className="mt-2 text-sm text-brand-700">From {snapshot ? snapshot.displayName || "the client" : data.state.selections.displayName}</p>}
-        <label htmlFor="proposal-version" className="mt-4 block text-xs font-semibold text-brand-700">Viewing</label>
-        <select id="proposal-version" value={snapshot?.id ?? ""} onChange={(event) => setSnapshotId(event.target.value)} className="mt-2 w-full min-w-0 rounded-xl border border-brand-200 bg-white p-2.5 text-sm text-brand-950">
-          <option value="">Live proposal</option>
-          {data.submissions.map((submission) => <option key={submission.id} value={submission.id}>{submission.displayName || "Client"} · {new Date(submission.submittedAt).toLocaleString()}</option>)}
-        </select>
-        <p className="mt-3 text-sm text-brand-900/75">{data.submissions.length ? `${data.submissions.length} submitted response${data.submissions.length === 1 ? "" : "s"}. Choose one to see the proposal exactly as submitted.` : "No response submitted yet. Saved choices and drawings appear here as the client makes them."}</p>
-        <details className="mt-5 border-t border-brand-100 pt-4">
-          <summary className="cursor-pointer text-sm font-semibold text-brand-900">Link access · {data.isExpired ? "expired" : data.status.replace("_", " ")}</summary>
-          <div className="mt-3 grid gap-2">
-            {([['active', 'Reopen'], ['read_only', 'Make read-only'], ['revoked', 'Revoke link']] as const).map(([status, label]) => <button key={status} type="button" disabled={saving || data.status === status} onClick={() => void setProposalStatus(status)} className={buttonClass}>{label}</button>)}
-          </div>
-        </details>
-      </section>
-    ),
-  }} />;
+  return (
+    <ProposalPage
+      initialConfig={snapshot?.config ?? data.config ?? PROPOSAL_CONFIG}
+      review={{
+        clientPath: data.clientPath ?? "/p/southern-star/",
+        state: snapshot?.state ?? data.state,
+        clientToken: data.clientToken ?? "",
+        toolbar: (
+          <section
+            aria-label="Review controls"
+            className="mb-6 rounded-2xl border border-brand-200 bg-brand-950 p-5 text-white shadow-sm"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-widest text-brand-200">
+                  Proposal studio
+                </p>
+                <p className="mt-1 flex items-center gap-2 text-sm">
+                  <span
+                    className={`h-2 w-2 rounded-full ${error ? "bg-warning-500" : "bg-success-500"}`}
+                  />
+                  {snapshot
+                    ? "Submitted proposal"
+                    : error
+                      ? "Reconnecting to the client’s proposal"
+                      : "Live · follows the client’s changes"}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={`/proposal/new/?admin=${encodeURIComponent(adminToken)}`}
+                  className={buttonClass}
+                >
+                  <Plus className="h-4 w-4" />
+                  New proposal
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setRefreshKey((previous) => previous + 1)}
+                  className={buttonClass}
+                  aria-label="Refresh proposal"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void copyClientLink()}
+                  disabled={!clientUrl}
+                  className={buttonClass}
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                  {copied ? "Copied" : "Client link"}
+                </button>
+                {clientUrl && (
+                  <a
+                    href={clientUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={buttonClass}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open client view
+                  </a>
+                )}
+              </div>
+            </div>
+            {error && (
+              <p role="alert" className="mt-3 text-sm text-warning-200">
+                {error} Showing the last saved proposal.
+              </p>
+            )}
+            {snapshot && (
+              <button
+                type="button"
+                onClick={() => setSnapshotId("")}
+                className="mt-3 text-sm font-semibold underline underline-offset-4"
+              >
+                Return to live proposal
+              </button>
+            )}
+          </section>
+        ),
+        response: (
+          <section className="rounded-3xl border border-brand-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-brand-950">
+              Client responses
+            </h2>
+            {(snapshot?.displayName || data.state.selections.displayName) && (
+              <p className="mt-2 text-sm text-brand-700">
+                From{" "}
+                {snapshot
+                  ? snapshot.displayName || "the client"
+                  : data.state.selections.displayName}
+              </p>
+            )}
+            <label
+              htmlFor="proposal-version"
+              className="mt-4 block text-sm font-semibold text-brand-700"
+            >
+              Viewing
+            </label>
+            <select
+              id="proposal-version"
+              value={snapshot?.id ?? ""}
+              onChange={(event) => setSnapshotId(event.target.value)}
+              className="mt-2 w-full min-w-0 rounded-xl border border-brand-200 bg-white p-2.5 text-sm text-brand-950"
+            >
+              <option value="">Live proposal</option>
+              {data.submissions.map((submission) => (
+                <option key={submission.id} value={submission.id}>
+                  {submission.displayName || "Client"} ·{" "}
+                  {new Date(submission.submittedAt).toLocaleString()}
+                </option>
+              ))}
+            </select>
+            <p className="mt-3 text-sm text-brand-900/75">
+              {data.submissions.length
+                ? `${data.submissions.length} submitted response${data.submissions.length === 1 ? "" : "s"}. Choose one to see the proposal exactly as submitted.`
+                : "No response submitted yet. Saved choices and drawings appear here as the client makes them."}
+            </p>
+            <details className="mt-5 border-t border-brand-100 pt-4">
+              <summary className="cursor-pointer text-sm font-semibold text-brand-900">
+                Link access ·{" "}
+                {data.isExpired ? "expired" : data.status.replace("_", " ")}
+              </summary>
+              <div className="mt-3 grid gap-2">
+                {(
+                  [
+                    ["active", "Reopen"],
+                    ["read_only", "Make read-only"],
+                    ["revoked", "Revoke link"],
+                  ] as const
+                ).map(([status, label]) => (
+                  <button
+                    key={status}
+                    type="button"
+                    disabled={saving || data.status === status}
+                    onClick={() => void setProposalStatus(status)}
+                    className={buttonClass}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </details>
+          </section>
+        ),
+      }}
+    />
+  );
 }

@@ -96,6 +96,13 @@ function migrate(PDO $database): void
         updated_at INTEGER NOT NULL
     )');
 
+    $columns = array_column($database->query('PRAGMA table_info(proposals)')->fetchAll(), 'name');
+    foreach (['config_json', 'client_token'] as $column) {
+        if (!in_array($column, $columns, true)) {
+            $database->exec("ALTER TABLE proposals ADD COLUMN {$column} TEXT NULL");
+        }
+    }
+
     $database->exec('CREATE TABLE IF NOT EXISTS shared_state (
         proposal_id TEXT PRIMARY KEY REFERENCES proposals(id) ON DELETE CASCADE,
         state_json TEXT NOT NULL,
@@ -164,23 +171,117 @@ function tokens_match(string $expected, string $provided): bool
 
 function find_proposal(PDO $database, ?string $clientToken, ?string $adminToken): ?array
 {
-    $statement = $database->prepare('SELECT * FROM proposals WHERE id = :id');
-    $statement->execute(['id' => PROPOSAL_ID]);
+    $statement = $database->prepare('SELECT * FROM proposals WHERE client_token_hash = :client OR admin_token_hash = :admin');
+    $statement->execute(['client' => hash('sha256', $clientToken ?? ''), 'admin' => hash('sha256', $adminToken ?? '')]);
     $proposal = $statement->fetch();
+    return is_array($proposal) ? $proposal : null;
+}
 
-    if (!is_array($proposal)) {
-        return null;
+function proposal_config(array $proposal): ?array
+{
+    return $proposal['config_json'] ? json_decode($proposal['config_json'], true) : null;
+}
+
+function config_text(array $input, string $key, int $limit = 1200, bool $required = true): string
+{
+    $value = $input[$key] ?? '';
+    if (!is_string($value) || mb_strlen($value) > $limit || ($required && trim($value) === '')) {
+        send_json(422, ['error' => "Please check {$key}. It is required and must fit within {$limit} characters."]);
     }
+    return trim($value);
+}
 
-    if (is_string($clientToken) && $clientToken !== '' && tokens_match((string) $proposal['client_token_hash'], $clientToken)) {
-        return $proposal;
+function config_list(array $input, string $key, int $limit): array
+{
+    $list = $input[$key] ?? [];
+    if (!is_array($list) || !array_is_list($list) || count($list) > $limit) {
+        send_json(422, ['error' => "Please check {$key}; a maximum of {$limit} items is allowed."]);
     }
+    return $list;
+}
 
-    if (is_string($adminToken) && $adminToken !== '' && tokens_match((string) $proposal['admin_token_hash'], $adminToken)) {
-        return $proposal;
+function config_lines(array $input, string $key): array
+{
+    return array_map(function ($line) use ($key) {
+        return config_text([$key => $line], $key, 500);
+    }, config_list($input, $key, 20));
+}
+
+function validate_config(array $input, string $id): array
+{
+    $config = ['id' => $id];
+    foreach (['title', 'clientName', 'senderName', 'senderEmail'] as $key) {
+        $config[$key] = config_text($input, $key, 180);
     }
+    if (!filter_var($config['senderEmail'], FILTER_VALIDATE_EMAIL)) {
+        send_json(422, ['error' => 'Please enter a valid sender email.']);
+    }
+    foreach (['introduction', 'closingNote', 'previewCaption'] as $key) {
+        $config[$key] = config_text($input, $key, 2000, false);
+    }
+    $config['clientNames'] = config_lines($input, 'clientNames');
+    $ids = [];
+    $uniqueId = function (array $item) use (&$ids): string {
+        $value = config_text($item, 'id', 80);
+        if (!preg_match('/^[a-zA-Z0-9-]+$/', $value) || in_array($value, $ids, true)) {
+            send_json(422, ['error' => 'Each section and option needs a unique ID containing letters, numbers, or hyphens.']);
+        }
+        $ids[] = $value;
+        return $value;
+    };
+    $option = function ($item, bool $recurring = false) use ($uniqueId): array {
+        if (!is_array($item)) send_json(422, ['error' => 'Invalid option.']);
+        $price = $item['price'] ?? null;
+        if (!is_numeric($price) || !is_finite((float) $price) || $price < 0 || $price > 1000000) {
+            send_json(422, ['error' => 'Prices must be between 0 and 1,000,000.']);
+        }
+        $result = ['id' => $uniqueId($item), 'label' => config_text($item, 'label', 180),
+            'summary' => config_text($item, 'summary', 1200, false), 'price' => round((float) $price, 2),
+            'selectedByDefault' => ($item['selectedByDefault'] ?? false) === true];
+        if ($recurring) {
+            $period = $item['period'] ?? '';
+            if (!in_array($period, ['month', 'batch', 'event'], true)) send_json(422, ['error' => 'Invalid billing period.']);
+            $result['period'] = $period;
+        } else {
+            $result['effort'] = in_array($item['effort'] ?? '', ['Low', 'Medium', 'Medium to higher', 'Higher'], true) ? $item['effort'] : 'Low';
+            $result['includes'] = config_lines($item, 'includes');
+        }
+        return $result;
+    };
+    $config['baseOption'] = $option($input['baseOption'] ?? []);
+    $config['sections'] = array_map(function ($item) use ($uniqueId) {
+        if (!is_array($item)) send_json(422, ['error' => 'Invalid section.']);
+        return ['id' => $uniqueId($item), 'title' => config_text($item, 'title', 180),
+            'summary' => config_text($item, 'summary', 1200, false), 'bullets' => config_lines($item, 'bullets')];
+    }, config_list($input, 'sections', 12));
+    $config['oneTimeOptions'] = array_map($option, config_list($input, 'oneTimeOptions', 20));
+    $config['recurringOptions'] = array_map(fn($item) => $option($item, true), config_list($input, 'recurringOptions', 20));
+    $config['thirdPartyCosts'] = array_map(function ($item) use ($uniqueId) {
+        if (!is_array($item)) send_json(422, ['error' => 'Invalid additional cost.']);
+        return ['id' => $uniqueId($item), 'label' => config_text($item, 'label', 180), 'detail' => config_text($item, 'detail')];
+    }, config_list($input, 'thirdPartyCosts', 12));
+    $preview = config_text($input, 'previewImage', 1000, false);
+    if ($preview !== '' && (!str_starts_with($preview, '/') || str_starts_with($preview, '//') || str_contains($preview, '\\'))) {
+        send_json(422, ['error' => 'Use a site image path beginning with a single slash for the preview.']);
+    }
+    $config['previewImage'] = $preview !== '' ? $preview : null;
+    $config['previewDimensions'] = ['width' => 1200, 'height' => 800];
+    return $config;
+}
 
-    return null;
+function create_proposal(PDO $database): never
+{
+    $input = read_json_body();
+    $id = 'proposal-' . bin2hex(random_bytes(12));
+    $config = validate_config((array) ($input['config'] ?? []), $id);
+    $clientToken = bin2hex(random_bytes(32));
+    $adminToken = bin2hex(random_bytes(32));
+    $statement = $database->prepare('INSERT INTO proposals
+        (id, client_token_hash, admin_token_hash, config_version, config_json, client_token, status, created_at, updated_at)
+        VALUES (:id, :client, :admin, 1, :config, :token, "active", :now, :now)');
+    $statement->execute(['id' => $id, 'client' => hash('sha256', $clientToken), 'admin' => hash('sha256', $adminToken),
+        'config' => json_encode($config, JSON_UNESCAPED_SLASHES), 'token' => $clientToken, 'now' => time()]);
+    send_json(201, ['clientUrl' => '/p/proposal/?token=' . $clientToken, 'reviewUrl' => '/proposal/review/?admin=' . $adminToken]);
 }
 
 function normalize_state(array $input): array
@@ -319,19 +420,19 @@ function normalize_doodles(array $input): array
     return array_slice($doodles, 0, 80);
 }
 
-function load_state(PDO $database): array
+function load_state(PDO $database, array $proposal): array
 {
     $statement = $database->prepare('SELECT state_json, revision, updated_at FROM shared_state WHERE proposal_id = :id');
-    $statement->execute(['id' => PROPOSAL_ID]);
+    $statement->execute(['id' => $proposal['id']]);
     $row = $statement->fetch();
 
     if (!is_array($row)) {
         return [
             'state' => [
                 'selections' => [
-                    'baseSelected' => true,
-                    'oneTimeOptionIds' => [],
-                    'recurringOptionIds' => [],
+                    'baseSelected' => proposal_config($proposal)['baseOption']['selectedByDefault'] ?? true,
+                    'oneTimeOptionIds' => array_column(array_filter(proposal_config($proposal)['oneTimeOptions'] ?? [], fn($item) => $item['selectedByDefault'] ?? false), 'id'),
+                    'recurringOptionIds' => array_column(array_filter(proposal_config($proposal)['recurringOptions'] ?? [], fn($item) => $item['selectedByDefault'] ?? false), 'id'),
                     'sectionFeedback' => [],
                     'displayName' => '',
                     'updatedAt' => gmdate('c'),
@@ -350,7 +451,7 @@ function load_state(PDO $database): array
     ];
 }
 
-function save_state(PDO $database, array $state): int
+function save_state(PDO $database, array $proposal, array $state): int
 {
     $json = json_encode($state, JSON_UNESCAPED_SLASHES);
     if ($json === false) {
@@ -367,7 +468,7 @@ function save_state(PDO $database, array $state): int
          RETURNING revision'
     );
     $statement->execute([
-        'id' => PROPOSAL_ID,
+        'id' => $proposal['id'],
         'state_json' => $json,
         'updated_at' => time(),
     ]);
@@ -381,8 +482,9 @@ function save_state(PDO $database, array $state): int
 function send_admin_email(array $snapshot): void
 {
     $name = (string) ($snapshot['displayName'] ?? '');
-    $subject = 'Southern Star proposal feedback from ' . ($name !== '' ? $name : 'the client');
-    $text = 'A response was submitted to the Southern Star proposal.' . PHP_EOL . PHP_EOL .
+    $title = $snapshot['config']['title'] ?? 'Southern Star proposal';
+    $subject = str_replace(["\r", "\n"], '', $title) . ' feedback from ' . str_replace(["\r", "\n"], '', ($name !== '' ? $name : 'the client'));
+    $text = 'A response was submitted to ' . $title . '.' . PHP_EOL . PHP_EOL .
         'Submitted at: ' . $snapshot['submittedAt'] . PHP_EOL .
         'Submitted by: ' . ($name !== '' ? $name : 'Not provided') . PHP_EOL . PHP_EOL .
         'Open the review screen to reply: ' . ($_SERVER['HTTP_ORIGIN'] ?? 'https://dashwood.net') . '/proposal/review/' . PHP_EOL . PHP_EOL .
@@ -400,9 +502,10 @@ function handle_get(array $proposal): never
         send_json(410, ['error' => 'This proposal link is no longer available.']);
     }
 
-    $loaded = load_state($database);
+    $loaded = load_state($database, $proposal);
     send_json(200, [
         'configVersion' => (int) $proposal['config_version'],
+        'config' => proposal_config($proposal),
         'status' => $proposal['status'],
         'isExpired' => $isExpired,
         'state' => $loaded['state'],
@@ -430,7 +533,7 @@ function handle_put(array $proposal, bool $isAdmin = false): never
     }
 
     $database->exec('BEGIN IMMEDIATE');
-    $loaded = load_state($database);
+    $loaded = load_state($database, $proposal);
     if ((int) $data['revision'] !== $loaded['revision']) {
         $database->exec('ROLLBACK');
         send_json(409, ['error' => 'Saved elsewhere. Refresh to get the latest version.', 'revision' => $loaded['revision']]);
@@ -442,20 +545,20 @@ function handle_put(array $proposal, bool $isAdmin = false): never
         'pins' => normalize_pins((array) ($data['state'] ?? [])),
         'doodles' => normalize_doodles((array) ($data['state'] ?? [])),
     ];
-    $revision = save_state($database, $state);
+    $revision = save_state($database, $proposal, $state);
     send_json(200, ['state' => $state, 'revision' => $revision]);
 }
 
 function handle_review(array $proposal): never
 {
     $database = bootstrap();
-    $loaded = load_state($database);
+    $loaded = load_state($database, $proposal);
 
     $statement = $database->prepare(
         'SELECT state_json, config_version, submitted_at FROM submissions
          WHERE proposal_id = :proposal_id ORDER BY submitted_at DESC LIMIT 20'
     );
-    $statement->execute(['proposal_id' => PROPOSAL_ID]);
+    $statement->execute(['proposal_id' => $proposal['id']]);
     $submissions = [];
     foreach ($statement->fetchAll() as $row) {
         $snapshot = json_decode((string) $row['state_json'], true);
@@ -466,13 +569,15 @@ function handle_review(array $proposal): never
 
     send_json(200, [
         'configVersion' => (int) $proposal['config_version'],
+        'config' => proposal_config($proposal),
         'status' => $proposal['status'],
         'isExpired' => $proposal['expires_at'] !== null && (int) $proposal['expires_at'] < time(),
         'state' => $loaded['state'],
         'revision' => $loaded['revision'],
         'submissions' => $submissions,
-        'clientToken' => tokens_match((string) $proposal['client_token_hash'], hash_token_value('client'))
-            ? hash_token_value('client') : null,
+        'clientPath' => $proposal['config_json'] ? '/p/proposal/' : '/p/southern-star/',
+        'clientToken' => $proposal['client_token'] ?? (tokens_match((string) $proposal['client_token_hash'], hash_token_value('client'))
+            ? hash_token_value('client') : null),
     ]);
 }
 
@@ -488,7 +593,7 @@ function handle_post(array $proposal): never
     }
 
     $data = read_json_body();
-    $loaded = load_state($database);
+    $loaded = load_state($database, $proposal);
     $submittedAt = gmdate('c');
     $snapshot = [
         'id' => 'response-' . bin2hex(random_bytes(8)),
@@ -496,6 +601,7 @@ function handle_post(array $proposal): never
         'displayName' => mb_substr(trim((string) ($data['displayName'] ?? '')), 0, 40),
         'state' => $loaded['state'],
         'configVersion' => (int) $proposal['config_version'],
+        'config' => proposal_config($proposal),
     ];
 
     $insert = $database->prepare(
@@ -504,7 +610,7 @@ function handle_post(array $proposal): never
     );
     $insert->execute([
         'id' => $snapshot['id'],
-        'proposal_id' => PROPOSAL_ID,
+        'proposal_id' => $proposal['id'],
         'state_json' => json_encode($snapshot, JSON_UNESCAPED_SLASHES),
         'config_version' => $snapshot['configVersion'],
         'submitted_at' => time(),
@@ -524,6 +630,10 @@ function handle_admin(array $proposal): never
     $action = (string) ($query['action'] ?? '');
     $now = time();
 
+    if ($action === 'create') {
+        create_proposal($database);
+    }
+
     if ($action === 'set_status') {
         $data = read_json_body();
         $status = (string) ($data['status'] ?? '');
@@ -531,7 +641,7 @@ function handle_admin(array $proposal): never
             send_json(422, ['error' => 'Invalid status.']);
         }
         $statement = $database->prepare('UPDATE proposals SET status = :status, updated_at = :updated_at WHERE id = :id');
-        $statement->execute(['status' => $status, 'updated_at' => $now, 'id' => PROPOSAL_ID]);
+        $statement->execute(['status' => $status, 'updated_at' => $now, 'id' => $proposal['id']]);
         send_json(200, ['status' => $status]);
     }
 
@@ -545,7 +655,7 @@ function handle_admin(array $proposal): never
         $statement->execute([
             'expires_at' => $expiresAt,
             'updated_at' => $now,
-            'id' => PROPOSAL_ID,
+            'id' => $proposal['id'],
         ]);
         send_json(200, ['expiresAt' => $expiresAt === null ? null : gmdate('c', $expiresAt)]);
     }

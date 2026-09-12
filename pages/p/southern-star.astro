@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import SouthernStarProposalPage from "../../components/pages/SouthernStarProposalPage";
+import ProposalPage from "../../components/pages/ProposalPage";
+import { PROPOSAL_CONFIG } from "../../lib/proposal/config";
 ---
 
 <BaseLayout
@@ -8,8 +9,9 @@ import SouthernStarProposalPage from "../../components/pages/SouthernStarProposa
   description="A private proposal for the Southern Star website rebuild."
   path="/p/southern-star"
   robots="noindex,nofollow,noarchive"
+  privatePage
   showNav={false}
   showFooter={false}
 >
-  <SouthernStarProposalPage client:load />
+  <ProposalPage initialConfig={PROPOSAL_CONFIG} client:load />
 </BaseLayout>
