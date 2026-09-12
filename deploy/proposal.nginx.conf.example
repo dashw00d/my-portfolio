@@ -1,0 +1,10 @@
+# Add this location inside the existing dashwood.net server block.
+# The proposal database lives outside dist/ at /home/USER/webapps/dashwood/data/proposal/.
+
+location ~ ^/proposal/api\.php(/admin)?/?$ {
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root/proposal/api.php;
+    fastcgi_param PROPOSAL_CLIENT_TOKEN $PROPOSAL_CLIENT_TOKEN;
+    fastcgi_param PROPOSAL_ADMIN_TOKEN $PROPOSAL_ADMIN_TOKEN;
+    fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+}

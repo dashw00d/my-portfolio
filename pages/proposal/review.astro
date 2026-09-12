@@ -1,0 +1,15 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProposalReviewPage from "../../components/pages/ProposalReviewPage";
+---
+
+<BaseLayout
+  title="Southern Star proposal review"
+  description="Private review for the Southern Star website proposal."
+  path="/proposal/review"
+  robots="noindex,nofollow,noarchive"
+  showNav={false}
+  showFooter={false}
+>
+  <ProposalReviewPage client:load />
+</BaseLayout>

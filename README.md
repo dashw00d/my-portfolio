@@ -46,6 +46,26 @@ An nginx starting point lives in `deploy/nginx.conf.example`. Keep PHP-FPM on `o
 
 The form posts JSON to `/api/contact.php`. PHP reads `SMTP_*` and `CONTACT_*` from the environment, then from `.env`. It is not a standing Node mail server.
 
+## Southern Star proposal
+
+The private client page is `/p/southern-star/`, and Ryan's review screen is `/proposal/review/`. The proposal API is `public/proposal/api.php` and stores data in SQLite at `data/proposal/proposals.sqlite`, outside the public build output.
+
+For local testing, add these to `.env`:
+
+```bash
+PROPOSAL_CLIENT_TOKEN=local-client-token
+PROPOSAL_ADMIN_TOKEN=local-admin-token
+```
+
+Open:
+
+```bash
+/p/southern-star/?token=local-client-token
+/proposal/review/?admin=local-admin-token
+```
+
+For production, set long random values for `PROPOSAL_CLIENT_TOKEN` and `PROPOSAL_ADMIN_TOKEN`, add the proposal PHP locations from `deploy/proposal.nginx.conf.example`, and run `npm ci && npm run build`. The database is created automatically on first use.
+
 ## Customization
 
 - Edit components in `/components/`
