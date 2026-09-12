@@ -233,7 +233,7 @@ export default function ProposalBuilderPage() {
           clientToken: "",
           clientPath: "/p/proposal/",
           toolbar: (
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
               <button
                 onClick={() => setPreview(false)}
                 className="proposal-button proposal-button--secondary"
@@ -362,14 +362,14 @@ export default function ProposalBuilderPage() {
           </section>
         ) : (
           <form
-            className="mt-9 space-y-6"
+            className="mt-12 space-y-8"
             onSubmit={(event) => {
               event.preventDefault();
               void create();
             }}
           >
             <section className="proposal-panel">
-              <div className="mb-5 flex items-start justify-between gap-4">
+              <div className="mb-7 flex items-start justify-between gap-5">
                 <div>
                   <h2 className="text-lg font-bold">
                     Start with the essentials
@@ -408,8 +408,8 @@ export default function ProposalBuilderPage() {
               </div>
             </section>
             <section className="proposal-panel">
-              <h2 className="mb-5 text-lg font-bold">01 / Make it personal</h2>
-              <div className="grid gap-5 sm:grid-cols-2">
+              <h2 className="mb-7 text-xl font-bold">01 / Make it personal</h2>
+              <div className="grid gap-7 sm:grid-cols-2">
                 <Field label="Client or business name">
                   <input
                     required
@@ -485,8 +485,8 @@ export default function ProposalBuilderPage() {
               </div>
             </section>
             <section className="proposal-panel">
-              <h2 className="mb-5 text-lg font-bold">02 / The foundation</h2>
-              <div className="grid gap-5 sm:grid-cols-[1fr_160px]">
+              <h2 className="mb-7 text-xl font-bold">02 / The foundation</h2>
+              <div className="grid gap-7 sm:grid-cols-[1fr_180px]">
                 <Field label="Core service">
                   <input
                     required
@@ -549,13 +549,13 @@ export default function ProposalBuilderPage() {
                 />
                 Start with the foundation selected
               </label>
-              <div className="mt-7 space-y-4">
+              <div className="mt-9 space-y-6">
                 {config.sections.map((section, index) => (
                   <div
                     key={section.id}
-                    className="rounded-xl border border-brand-200/60 p-4"
+                    className="rounded-2xl border border-brand-200/60 p-6"
                   >
-                    <div className="mb-3 flex items-center justify-between">
+                    <div className="mb-6 flex items-center justify-between">
                       <h3 className="text-sm font-bold">
                         Scope card {index + 1}
                       </h3>
@@ -574,7 +574,7 @@ export default function ProposalBuilderPage() {
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
-                    <div className="grid gap-3">
+                    <div className="grid gap-6">
                       <Field label="Heading">
                         <input
                           required
@@ -653,7 +653,7 @@ export default function ProposalBuilderPage() {
               <p className="mt-1 text-sm text-brand-900/60">
                 Let your client build the plan that suits them.
               </p>
-              <div className="mt-5 space-y-4">
+              <div className="mt-7 space-y-6">
                 {config.oneTimeOptions.map((option, index) => {
                   const patch = (value: Partial<ProposalOption>) =>
                     update({
@@ -664,9 +664,9 @@ export default function ProposalBuilderPage() {
                   return (
                     <div
                       key={option.id}
-                      className="rounded-xl border border-brand-200/60 p-4"
+                      className="rounded-2xl border border-brand-200/60 p-6"
                     >
-                      <div className="mb-3 flex items-center justify-between">
+                      <div className="mb-6 flex items-center justify-between">
                         <h3 className="text-sm font-bold">
                           Addition {index + 1}
                         </h3>
@@ -685,7 +685,7 @@ export default function ProposalBuilderPage() {
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
+                      <div className="grid gap-6 sm:grid-cols-[1fr_160px]">
                         <Field label="Name">
                           <input
                             required
@@ -777,8 +777,8 @@ export default function ProposalBuilderPage() {
               </button>
             </section>
             <section className="proposal-panel">
-              <h2 className="mb-5 text-lg font-bold">04 / Ongoing support</h2>
-              <div className="space-y-4">
+              <h2 className="mb-7 text-xl font-bold">04 / Ongoing support</h2>
+              <div className="space-y-6">
                 {config.recurringOptions.map((option, index) => {
                   const patch = (value: Partial<typeof option>) =>
                     update({
@@ -789,9 +789,9 @@ export default function ProposalBuilderPage() {
                   return (
                     <div
                       key={option.id}
-                      className="rounded-xl border border-brand-200/60 p-4"
+                      className="rounded-2xl border border-brand-200/60 p-6"
                     >
-                      <div className="mb-3 flex items-center justify-between">
+                      <div className="mb-6 flex items-center justify-between">
                         <h3 className="text-sm font-bold">
                           Service {index + 1}
                         </h3>
@@ -810,7 +810,7 @@ export default function ProposalBuilderPage() {
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="grid gap-6 sm:grid-cols-2">
                         <Field label="Service name">
                           <input
                             required
@@ -902,10 +902,10 @@ export default function ProposalBuilderPage() {
               </button>
             </section>
             <section className="proposal-panel">
-              <h2 className="mb-5 text-lg font-bold">
+              <h2 className="mb-7 text-xl font-bold">
                 05 / The finishing touches
               </h2>
-              <div className="space-y-5">
+              <div className="space-y-7">
                 <Field label="Closing note">
                   <textarea
                     maxLength={2000}
@@ -943,13 +943,13 @@ export default function ProposalBuilderPage() {
                 Use an image already on your site. Clients can draw directly on
                 it.
               </p>
-              <div className="mt-6 space-y-4">
+              <div className="mt-8 space-y-6">
                 {config.thirdPartyCosts.map((cost, index) => (
                   <div
                     key={cost.id}
-                    className="rounded-xl border border-brand-200/60 p-4"
+                    className="rounded-2xl border border-brand-200/60 p-6"
                   >
-                    <div className="mb-3 flex items-center justify-between">
+                    <div className="mb-6 flex items-center justify-between">
                       <h3 className="text-sm font-bold">
                         Separate cost {index + 1}
                       </h3>
@@ -1027,8 +1027,8 @@ export default function ProposalBuilderPage() {
                 Add a separate cost
               </button>
             </section>
-            <div className="sticky bottom-3 z-20 rounded-2xl border border-brand-200 bg-highlight-50/95 p-4 shadow-lg backdrop-blur">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="sticky bottom-6 z-20 rounded-2xl border border-brand-200 bg-highlight-50/95 p-6 shadow-lg backdrop-blur">
+              <div className="flex flex-wrap items-center justify-between gap-4">
                 <p
                   role="status"
                   className="flex items-center gap-2 text-sm text-brand-700"
@@ -1036,7 +1036,7 @@ export default function ProposalBuilderPage() {
                   <Save className="h-3.5 w-3.5" />
                   {draftStatus || "Preparing your draft…"}
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
                     disabled={busy}

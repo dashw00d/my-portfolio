@@ -127,7 +127,7 @@ export default function ProposalReviewPage() {
     ? `${data.clientPath ?? "/p/southern-star/"}?token=${encodeURIComponent(data.clientToken)}`
     : "";
   const buttonClass =
-    "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-50 disabled:opacity-50";
+    "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-brand-200 bg-white px-4 py-2.5 text-sm font-semibold text-brand-900 hover:bg-brand-50 disabled:opacity-50";
 
   async function copyClientLink() {
     try {
@@ -145,7 +145,7 @@ export default function ProposalReviewPage() {
     return (
       <main className="grid min-h-screen place-items-center bg-brand-50 px-5 text-brand-950">
         <form
-          className="w-full max-w-md rounded-3xl border border-brand-200 bg-white p-8 shadow-sm"
+          className="proposal-panel w-full max-w-md"
           onSubmit={(event) => {
             event.preventDefault();
             setAdminToken(tokenFromInput(tokenDraft));
@@ -155,9 +155,9 @@ export default function ProposalReviewPage() {
           <p className="text-sm font-semibold uppercase tracking-widest text-brand-600">
             Proposal studio
           </p>
-          <h1 className="mt-3 text-2xl font-bold">Open a proposal</h1>
+          <h1 className="mt-4 text-3xl font-bold">Open a proposal</h1>
           {loading && !error ? (
-            <p className="mt-5 flex items-center gap-2 text-sm">
+            <p className="mt-6 flex items-center gap-2 text-sm">
               <Loader2 className="h-4 w-4 animate-spin" />
               Opening the client’s proposal…
             </p>
@@ -165,7 +165,7 @@ export default function ProposalReviewPage() {
             <>
               <label
                 htmlFor="review-token"
-                className="mt-5 block text-sm font-semibold"
+                className="mt-7 block text-sm font-semibold"
               >
                 Admin link or access token
               </label>
@@ -175,9 +175,9 @@ export default function ProposalReviewPage() {
                 value={tokenDraft}
                 onChange={(event) => setTokenDraft(event.target.value)}
                 required
-                className="mt-2 w-full rounded-xl border border-brand-200 p-3"
+                className="proposal-input mt-3"
               />
-              <button type="submit" className={`${buttonClass} mt-4 w-full`}>
+              <button type="submit" className={`${buttonClass} mt-6 w-full`}>
                 Open review
               </button>
             </>
@@ -202,9 +202,9 @@ export default function ProposalReviewPage() {
         toolbar: (
           <section
             aria-label="Review controls"
-            className="mb-6 rounded-2xl border border-brand-200 bg-brand-950 p-5 text-white shadow-sm"
+            className="proposal-workspace mb-8 rounded-2xl border border-brand-800 p-6 text-white shadow-sm"
           >
-            <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-5">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-widest text-brand-200">
                   Proposal studio
@@ -220,7 +220,7 @@ export default function ProposalReviewPage() {
                       : "Live · follows the client’s changes"}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-3">
                 <a
                   href={`/proposal/new/?admin=${encodeURIComponent(adminToken)}`}
                   className={buttonClass}
@@ -281,12 +281,12 @@ export default function ProposalReviewPage() {
           </section>
         ),
         response: (
-          <section className="rounded-3xl border border-brand-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-brand-950">
+          <section className="proposal-panel">
+            <h2 className="text-xl font-bold text-brand-950">
               Client responses
             </h2>
             {(snapshot?.displayName || data.state.selections.displayName) && (
-              <p className="mt-2 text-sm text-brand-700">
+              <p className="mt-3 text-sm text-brand-700">
                 From{" "}
                 {snapshot
                   ? snapshot.displayName || "the client"
@@ -295,7 +295,7 @@ export default function ProposalReviewPage() {
             )}
             <label
               htmlFor="proposal-version"
-              className="mt-4 block text-sm font-semibold text-brand-700"
+              className="mt-6 block text-sm font-semibold text-brand-700"
             >
               Viewing
             </label>
@@ -303,7 +303,7 @@ export default function ProposalReviewPage() {
               id="proposal-version"
               value={snapshot?.id ?? ""}
               onChange={(event) => setSnapshotId(event.target.value)}
-              className="mt-2 w-full min-w-0 rounded-xl border border-brand-200 bg-white p-2.5 text-sm text-brand-950"
+              className="proposal-input mt-3"
             >
               <option value="">Live proposal</option>
               {data.submissions.map((submission) => (
@@ -313,17 +313,17 @@ export default function ProposalReviewPage() {
                 </option>
               ))}
             </select>
-            <p className="mt-3 text-sm text-brand-900/75">
+            <p className="mt-4 text-sm text-brand-900/75">
               {data.submissions.length
                 ? `${data.submissions.length} submitted response${data.submissions.length === 1 ? "" : "s"}. Choose one to see the proposal exactly as submitted.`
                 : "No response submitted yet. Saved choices and drawings appear here as the client makes them."}
             </p>
-            <details className="mt-5 border-t border-brand-100 pt-4">
+            <details className="mt-6 border-t border-brand-100 pt-6">
               <summary className="cursor-pointer text-sm font-semibold text-brand-900">
                 Link access ·{" "}
                 {data.isExpired ? "expired" : data.status.replace("_", " ")}
               </summary>
-              <div className="mt-3 grid gap-2">
+              <div className="mt-4 grid gap-3">
                 {(
                   [
                     ["active", "Reopen"],

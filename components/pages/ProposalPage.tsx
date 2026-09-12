@@ -462,8 +462,8 @@ export default function ProposalPage({
           </div>
         )}
 
-        <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_330px]">
-          <div className="min-w-0 space-y-10">
+        <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0 space-y-12">
             <section id="scope" className="scroll-mt-8">
               <div className="proposal-section-heading">
                 <div>
@@ -475,7 +475,7 @@ export default function ProposalPage({
                   <small>one time</small>
                 </span>
               </div>
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-brand-200 bg-brand-50/60 p-5">
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-5 rounded-2xl border border-brand-200 bg-brand-50/60 p-6">
                 <p className="max-w-xl text-sm leading-relaxed text-brand-900/70">
                   {config.baseOption.summary}
                 </p>
@@ -505,7 +505,7 @@ export default function ProposalPage({
                   </ul>
                 )}
               </div>
-              <div className="grid items-start gap-5 md:grid-cols-2">
+              <div className="grid items-start gap-6 md:grid-cols-2">
                 {config.sections.map((section) => (
                   <ProposalSectionCard
                     key={section.id}
@@ -543,7 +543,7 @@ export default function ProposalPage({
                     {oneTimeSelected.length} selected
                   </span>
                 </div>
-                <div className="grid items-start gap-5 md:grid-cols-2">
+                <div className="grid items-start gap-6 md:grid-cols-2">
                   {config.oneTimeOptions.map((option) => (
                     <ProposalOptionCard
                       key={option.id}
@@ -603,7 +603,7 @@ export default function ProposalPage({
                     <p>Choose the support that fits your schedule.</p>
                   </div>
                 </div>
-                <div className="grid items-start gap-4 md:grid-cols-2">
+                <div className="grid items-start gap-6 md:grid-cols-2">
                   {config.recurringOptions.map((option) => (
                     <ProposalRecurringCard
                       key={option.id}
@@ -632,11 +632,11 @@ export default function ProposalPage({
             )}
           </div>
 
-          <aside className="min-w-0 space-y-5 xl:sticky xl:top-6">
+          <aside className="min-w-0 space-y-6 xl:sticky xl:top-6">
             <div className="proposal-summary">
               <p className="proposal-eyebrow">Current selection</p>
               <h2 className="mt-3 text-2xl font-bold">One-time total</h2>
-              <div className="my-6 border-y border-brand-200/60 py-6">
+              <div className="my-8 border-y border-brand-200/60 py-8">
                 <p className="text-sm text-brand-900/60">One-time investment</p>
                 <p className="mt-2 text-5xl font-semibold tracking-tight">
                   {formatMoney(totals.oneTime)}
@@ -672,7 +672,7 @@ export default function ProposalPage({
                 ))}
               </div>
               {recurringSelected.length > 0 && (
-                <div className="mt-5 space-y-3 border-t border-brand-200/60 pt-5">
+              <div className="mt-8 space-y-4 border-t border-brand-200/60 pt-6">
                   <p className="proposal-eyebrow">Ongoing, billed separately</p>
                   {recurringSelected.map((option) => (
                     <div
@@ -688,7 +688,7 @@ export default function ProposalPage({
                 </div>
               )}
               {config.thirdPartyCosts.length > 0 && (
-                <details className="mt-6 border-t border-brand-200/60 pt-4 text-sm text-brand-900/60">
+                <details className="mt-8 border-t border-brand-200/60 pt-6 text-sm text-brand-900/60">
                   <summary className="cursor-pointer font-semibold">
                     Other costs to keep in mind
                   </summary>
@@ -704,14 +704,14 @@ export default function ProposalPage({
               review.response
             ) : (
               <div id="send-feedback" className="proposal-panel">
-                <MessageSquare className="mb-4 h-6 w-6 text-brand-600" />
+                <MessageSquare className="mb-5 h-6 w-6 text-brand-600" />
                 <h2 className="text-xl font-bold">Send Ryan your feedback</h2>
                 <p className="mt-2 text-sm leading-relaxed text-brand-900/65">
                   {config.closingNote}
                 </p>
                 <label
                   htmlFor="displayName"
-                    className="mt-5 block text-sm font-bold"
+                    className="mt-6 block text-sm font-bold"
                 >
                   Your name{" "}
                   <span className="font-normal text-brand-900/50">
@@ -730,7 +730,7 @@ export default function ProposalPage({
                   }
                   placeholder={config.clientNames.join(" or ") || "First name"}
                   maxLength={40}
-                  className="proposal-input mt-2"
+                  className="proposal-input mt-3"
                 />
                 <button
                   type="button"
@@ -740,7 +740,7 @@ export default function ProposalPage({
                     submitStatus === "sending" ||
                     submitStatus === "sent"
                   }
-                  className="proposal-button mt-4 w-full"
+                  className="proposal-button mt-6 w-full"
                 >
                   {submitStatus === "sending" ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -767,7 +767,7 @@ export default function ProposalPage({
                     </p>
                   )}
                 </div>
-                <p className="mt-4 text-center text-sm leading-relaxed text-brand-900/50">
+                <p className="mt-6 text-center text-sm leading-relaxed text-brand-900/50">
                   This is a proposal, not an invoice or commitment.
                 </p>
               </div>
