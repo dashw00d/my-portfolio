@@ -44,8 +44,7 @@ export default function SouthernStarProposalPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get("token") || "default-client-token";
-    setPreviewToken(token);
+    const token = new URLSearchParams(window.location.search).get("token") || "";
     let cancelled = false;
     fetch(`/proposal/api.php?token=${encodeURIComponent(token)}`)
       .then(async (response) => {
@@ -56,6 +55,7 @@ export default function SouthernStarProposalPage() {
         if (cancelled) return;
         setState({ ...emptyState, ...data.state });
         setRevision(data.revision ?? 1);
+        setPreviewToken(token);
       })
       .catch(() => {
         if (!cancelled) {

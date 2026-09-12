@@ -16,6 +16,7 @@ function formatDate(value: string) {
 
 export default function ProposalReviewPage() {
   const [adminToken, setAdminToken] = useState("");
+  const [clientToken, setClientToken] = useState("");
   const [state, setState] = useState<ProposalState | null>(null);
   const [revision, setRevision] = useState(1);
   const [submissions, setSubmissions] = useState<SubmittedResponseSnapshot[]>([]);
@@ -26,6 +27,7 @@ export default function ProposalReviewPage() {
 
   const loadReview = async (token: string) => {
     setStatus("loading");
+    setClientToken("");
     const response = await fetch(`/proposal/api.php/review?admin=${encodeURIComponent(token)}`);
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -36,6 +38,7 @@ export default function ProposalReviewPage() {
     setState({ ...result.state });
     setRevision(result.revision ?? 1);
     setSubmissions(result.submissions ?? []);
+    setClientToken(result.clientToken ?? "");
     setStatus("ready");
   };
 
@@ -110,8 +113,8 @@ export default function ProposalReviewPage() {
   }
 
   function copyClientLink() {
-    const token = "default-client-token";
-    const url = `${window.location.origin}/p/southern-star/?token=${encodeURIComponent(token)}`;
+    if (!clientToken) return;
+    const url = `${window.location.origin}/p/southern-star/?token=${encodeURIComponent(clientToken)}`;
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
@@ -134,7 +137,7 @@ export default function ProposalReviewPage() {
               className="w-56 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm"
             />
             <button type="button" onClick={() => void loadReview(adminToken)} className="rounded-xl bg-brand-600 px-5 py-2 text-sm font-semibold text-white">Load</button>
-            <button type="button" onClick={copyClientLink} className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold"><Copy className="h-4 w-4" />Client link</button>
+            <button type="button" onClick={copyClientLink} disabled={!clientToken} className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold disabled:opacity-50"><Copy className="h-4 w-4" />Client link</button>
           </div>
         </div>
 

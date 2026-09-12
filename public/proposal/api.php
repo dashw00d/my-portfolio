@@ -115,6 +115,8 @@ function bootstrap(): PDO
         return $database;
     }
 
+    $clientToken = hash_token_value('client');
+    $adminToken = hash_token_value('admin');
     $database = database();
     migrate($database);
 
@@ -128,8 +130,8 @@ function bootstrap(): PDO
         );
         $insert->execute([
             'id' => PROPOSAL_ID,
-            'client_token_hash' => hash('sha256', hash_token_value('client')),
-            'admin_token_hash' => hash('sha256', hash_token_value('admin')),
+            'client_token_hash' => hash('sha256', $clientToken),
+            'admin_token_hash' => hash('sha256', $adminToken),
             'config_version' => CONFIG_VERSION,
             'created_at' => $now,
             'updated_at' => $now,
@@ -141,8 +143,13 @@ function bootstrap(): PDO
 
 function hash_token_value(string $kind): string
 {
-    $env = getenv($kind === 'admin' ? 'PROPOSAL_ADMIN_TOKEN' : 'PROPOSAL_CLIENT_TOKEN');
-    return is_string($env) && $env !== '' ? $env : ($kind === 'admin' ? 'default-admin-token' : 'default-client-token');
+    $key = $kind === 'admin' ? 'PROPOSAL_ADMIN_TOKEN' : 'PROPOSAL_CLIENT_TOKEN';
+    foreach ([getenv($key), $_ENV[$key] ?? null, $_SERVER[$key] ?? null] as $value) {
+        if (is_string($value) && $value !== '' && !in_array($value, ['default-admin-token', 'default-client-token'], true)) {
+            return $value;
+        }
+    }
+    send_json(503, ['error' => 'Proposal access is not configured.']);
 }
 
 function tokens_match(string $expected, string $provided): bool
@@ -202,9 +209,10 @@ function normalize_state(array $input): array
     ];
 }
 
-function normalize_threads(array $input): array
+function normalize_threads(array $input, array $savedThreads, bool $isAdmin): array
 {
     $threads = [];
+    $savedById = array_column($savedThreads, null, 'id');
     foreach ((array) ($input['threads'] ?? []) as $item) {
         if (!is_array($item)) {
             continue;
@@ -215,17 +223,31 @@ function normalize_threads(array $input): array
         }
         $subject = (string) ($item['subject'] ?? '');
         $status = (string) ($item['status'] ?? '');
+        $id = mb_substr((string) ($item['id'] ?? ''), 0, 64);
+        $saved = $savedById[$id] ?? [];
+        $replies = [];
+        foreach (array_slice((array) ($isAdmin ? ($item['replies'] ?? []) : ($saved['replies'] ?? [])), 0, 100) as $reply) {
+            if (!is_array($reply) || trim((string) ($reply['body'] ?? '')) === '') {
+                continue;
+            }
+            $replies[] = [
+                'author' => 'ryan',
+                'body' => mb_substr(trim((string) $reply['body']), 0, 1200),
+                'createdAt' => mb_substr((string) ($reply['createdAt'] ?? gmdate('c')), 0, 40),
+                'resolved' => (bool) ($reply['resolved'] ?? false),
+            ];
+        }
         $threads[] = [
-            'id' => mb_substr((string) ($item['id'] ?? ''), 0, 64),
+            'id' => $id,
             'subject' => $subject === 'preview' ? 'preview' : 'section',
             'subjectId' => mb_substr((string) ($item['subjectId'] ?? ''), 0, 80),
             'author' => 'client',
             'displayName' => mb_substr(trim((string) ($item['displayName'] ?? '')), 0, 40),
             'body' => mb_substr($body, 0, 1200),
             'status' => in_array($status, ['interested', 'question', 'maybe_later'], true) ? $status : '',
-            'createdAt' => gmdate('c'),
-            'replies' => [],
-            'resolved' => false,
+            'createdAt' => $saved['createdAt'] ?? gmdate('c'),
+            'replies' => $replies,
+            'resolved' => (bool) ($isAdmin ? ($item['resolved'] ?? false) : ($saved['resolved'] ?? false)),
         ];
         if (count($threads) >= 100) {
             break;
@@ -326,10 +348,9 @@ function save_state(PDO $database, array $state): int
         send_json(500, ['error' => 'Could not encode state.']);
     }
 
-    $database->exec('BEGIN IMMEDIATE');
     $statement = $database->prepare(
         'INSERT INTO shared_state (proposal_id, state_json, revision, updated_at)
-         VALUES (:id, :state_json, 1, :updated_at)
+         VALUES (:id, :state_json, 2, :updated_at)
          ON CONFLICT(proposal_id) DO UPDATE SET
            state_json = excluded.state_json,
            revision = shared_state.revision + 1,
@@ -380,7 +401,7 @@ function handle_get(array $proposal): never
     ]);
 }
 
-function handle_put(array $proposal): never
+function handle_put(array $proposal, bool $isAdmin = false): never
 {
     $database = bootstrap();
     if ($proposal['status'] === 'revoked') {
@@ -399,16 +420,18 @@ function handle_put(array $proposal): never
         send_json(428, ['error' => 'Revision required.']);
     }
 
+    $database->exec('BEGIN IMMEDIATE');
     $loaded = load_state($database);
     if ((int) $data['revision'] !== $loaded['revision']) {
+        $database->exec('ROLLBACK');
         send_json(409, ['error' => 'Saved elsewhere. Refresh to get the latest version.', 'revision' => $loaded['revision']]);
     }
 
     $state = [
-        'selections' => normalize_state((array) ($data['selections'] ?? [])),
-        'threads' => normalize_threads((array) ($data['state']['threads'] ?? [])),
-        'pins' => normalize_pins((array) ($data['state']['pins'] ?? [])),
-        'doodles' => normalize_doodles((array) ($data['state']['doodles'] ?? [])),
+        'selections' => normalize_state((array) ($data['state']['selections'] ?? $data['selections'] ?? [])),
+        'threads' => normalize_threads((array) ($data['state'] ?? []), $loaded['state']['threads'], $isAdmin),
+        'pins' => normalize_pins((array) ($data['state'] ?? [])),
+        'doodles' => normalize_doodles((array) ($data['state'] ?? [])),
     ];
     $revision = save_state($database, $state);
     send_json(200, ['state' => $state, 'revision' => $revision]);
@@ -439,6 +462,8 @@ function handle_review(array $proposal): never
         'state' => $loaded['state'],
         'revision' => $loaded['revision'],
         'submissions' => $submissions,
+        'clientToken' => tokens_match((string) $proposal['client_token_hash'], hash_token_value('client'))
+            ? hash_token_value('client') : null,
     ]);
 }
 
@@ -537,26 +562,27 @@ function main(): void
             handle_get($proposal);
         }
         if ($method === 'PUT') {
-            handle_put($proposal);
+            handle_put($proposal, tokens_match((string) $proposal['admin_token_hash'], $adminToken));
         }
         if ($method === 'POST') {
             handle_post($proposal);
         }
     }
 
-    if ($path === '/proposal/api.php/admin' || $path === '/proposal/api.php/admin/' && tokens_match((string) $proposal['admin_token_hash'], $adminToken)) {
+    if (in_array($path, ['/proposal/api.php/admin', '/proposal/api.php/admin/'], true)
+        && $method === 'POST' && tokens_match((string) $proposal['admin_token_hash'], $adminToken)) {
         handle_admin($proposal);
     }
 
     if (
-        $path === '/proposal/api.php/review' || $path === '/proposal/api.php/review/'
+        in_array($path, ['/proposal/api.php/review', '/proposal/api.php/review/'], true)
         && tokens_match((string) $proposal['admin_token_hash'], $adminToken)
     ) {
         if ($method === 'GET') {
             handle_review($proposal);
         }
         if ($method === 'PUT') {
-            handle_put($proposal);
+            handle_put($proposal, true);
         }
     }
 
