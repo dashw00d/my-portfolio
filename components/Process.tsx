@@ -1,34 +1,23 @@
 import React from "react";
-import {
-  PhoneCall,
-  ClipboardCheck,
-  Wrench,
-  Sparkles,
-  Clock,
-  Target,
-  Code2,
-} from "lucide-react";
+import { ArrowRight, Check, Clock, Code2, Target } from "lucide-react";
 
 const STEPS = [
   {
-    title: "Map the pain",
+    title: "Understand the problem",
     description:
-      "We hop on a 30-minute call. You walk me through the symptoms, I dig into the data and surface the hidden blockers.",
-    icon: PhoneCall,
-    outcome: "Recorded call + next steps inside 24 hours",
+      "We start with a 30-minute call. You show me what’s happening, and I dig into the data to find what’s getting in the way.",
+    outcome: "Recorded call + next steps within 24 hours",
   },
   {
-    title: "Ship the action plan",
+    title: "Agree on the plan",
     description:
-      "You get a plain-English plan covering fixes, cost, timeline, and impact. Shareable with partners or your internal team.",
-    icon: ClipboardCheck,
-    outcome: "Scope + ROI summary inside 48 hours",
+      "You get a clear scope, cost, timeline, and expected impact. We agree on what’s worth doing before the work begins.",
+    outcome: "Scope + ROI summary within 48 hours",
   },
   {
-    title: "Execute + debrief",
+    title: "Build, test, hand over",
     description:
-      "I implement, test, and report back with before/after numbers. Then you decide if we continue or wrap.",
-    icon: Wrench,
+      "I implement the plan, test the changes, and walk you through the results. Then we decide what’s next, together.",
     outcome: "Weekly progress Loom + final playbook",
   },
 ];
@@ -36,18 +25,18 @@ const STEPS = [
 const PRINCIPLES = [
   {
     icon: Clock,
-    title: "Fast response",
-    copy: "Slack & email replies within one business day, emergencies faster.",
+    title: "You won’t be chasing updates",
+    copy: "Slack and email replies within one business day. Emergencies get priority.",
   },
   {
     icon: Target,
-    title: "ROI first",
-    copy: "If a fix won't grow or protect revenue, I'll point you to a better investment.",
+    title: "The work has to be worth it",
+    copy: "If a fix won’t grow or protect revenue, I’ll point you to a better investment.",
   },
   {
     icon: Code2,
-    title: "Hands on keys",
-    copy: "No hand-offs. I write the code, configure tooling, and own the rollout.",
+    title: "You work directly with me",
+    copy: "I write the code, configure the tools, and take responsibility for the rollout.",
   },
 ];
 
@@ -55,106 +44,72 @@ export default function Process() {
   return (
     <section
       id="process"
-      className="relative overflow-hidden bg-gradient-to-br from-zinc-50 via-brand-50/40 to-accent-50/30 py-24"
+      aria-labelledby="process-heading"
+      className="border-b border-highlight-200/60 bg-highlight-50/50 py-16 sm:py-20 lg:py-24"
     >
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute inset-x-0 -top-24 h-32 bg-gradient-to-b from-zinc-900/20 via-brand-900/10 to-transparent" />
-        <div className="absolute inset-x-0 -bottom-24 h-32 bg-gradient-to-t from-highlight-200/30 via-highlight-100/10 to-transparent" />
-        <div className="absolute inset-0 bg-[radial-gradient(40%_40%_at_12%_10%,rgba(67,171,167,0.22),transparent_70%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(40%_40%_at_88%_60%,rgba(65,112,148,0.18),transparent_70%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(35%_35%_at_50%_100%,rgba(222,196,159,0.22),transparent_70%)]" />
-      </div>
-
-      <div className="relative mx-auto max-w-7xl px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <div className="section-eyebrow mb-4">
-            <span className="h-2 w-2 rounded-full bg-success-500" />
-            Proven process
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] lg:items-end lg:gap-16">
+          <div>
+            <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
+              <span aria-hidden="true" className="h-px w-8 bg-brand-500" />
+              The process
+            </p>
+            <h2 id="process-heading" className="mt-6 max-w-xl text-4xl font-bold leading-[1.1] tracking-tight text-brand-950 sm:text-5xl">
+              How we’d work together
+            </h2>
           </div>
-          <h2 className="gradient-heading text-4xl font-bold md:text-5xl">
-            How we&apos;d work together
-          </h2>
-          <p className="mt-5 text-lg leading-relaxed text-zinc-600">
-            Clear plan, fast execution, and measurable outcomes. No retainers unless you ask for one.
+          <p className="max-w-lg text-lg leading-relaxed text-zinc-600">
+            A clear scope, regular updates, and results you can see.
+            No retainer unless you want one.
           </p>
         </div>
 
-        <div className="mt-16 grid gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-          <div className="relative">
-            <div className="space-y-6">
-              <div
-                className="pointer-events-none absolute bottom-10 left-7 top-10 w-px bg-gradient-to-b from-brand-300 via-accent-300 to-transparent"
-                aria-hidden="true"
-              />
-              {STEPS.map((step, idx) => (
-                <article key={step.title} className="group relative flex gap-6">
-                  <div className="relative z-10 flex h-14 w-14 flex-none items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-accent-600 text-white shadow-lg shadow-brand-500/30 transition-transform duration-300 group-hover:scale-105">
-                    <step.icon className="h-6 w-6" />
-                    <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-zinc-900 text-[11px] font-bold text-white">
-                      {idx + 1}
-                    </span>
-                  </div>
-                  <div className="surface flex-1 p-6 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-soft-lg">
-                    <h3 className="text-xl font-bold text-zinc-900">{step.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-zinc-600">
-                      {step.description}
-                    </p>
-                    <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-success-500/10 px-3.5 py-1.5 text-xs font-semibold text-success-700 ring-1 ring-inset ring-success-500/20">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      {step.outcome}
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
+        <ol className="mt-10 grid gap-8 md:mt-14 md:grid-cols-3 md:gap-8 lg:gap-12">
+          {STEPS.map((step, index) => (
+            <li key={step.title} className="flex min-w-0 flex-col border-t border-brand-200/80 pt-6">
+              <span aria-hidden="true" className="text-4xl font-light tabular-nums tracking-tight text-brand-400">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <h3 className="mt-5 text-xl font-bold text-brand-950">{step.title}</h3>
+              <p className="mt-3 flex-1 text-base leading-relaxed text-zinc-600">
+                {step.description}
+              </p>
+              <p className="mt-6 flex items-start gap-2 text-sm font-semibold leading-relaxed text-brand-700">
+                <Check className="mt-1 h-4 w-4 shrink-0" aria-hidden="true" />
+                {step.outcome}
+              </p>
+            </li>
+          ))}
+        </ol>
 
-            <div className="mt-6 overflow-hidden rounded-3xl border border-brand-200/70 bg-gradient-to-br from-brand-50 via-accent-50/50 to-brand-50/80 shadow-soft">
-              <div className="flex flex-col gap-5 p-8 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600">
-                    Pilot project cadence
-                  </p>
-                  <p className="mt-2 text-lg font-semibold text-zinc-900">
-                    Most first engagements wrap in 2–4 weeks on a fixed fee.
-                  </p>
-                </div>
-                <a href="#contact-form" className="btn-primary shrink-0">
-                  Hold a discovery call
-                </a>
-              </div>
+        <div className="mt-12 rounded-2xl border border-brand-100 bg-brand-50/70 p-6 sm:p-8 lg:mt-14">
+          <div className="flex flex-col items-start gap-5 md:flex-row md:items-center md:justify-between md:gap-8">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-700">Start with a focused project</p>
+              <p className="mt-2 text-lg font-semibold text-brand-950">
+                Most first engagements wrap in 2–4 weeks, for a fixed fee.
+              </p>
             </div>
+            <a
+              href="#contact-form"
+              className="inline-flex min-h-12 w-full shrink-0 items-center justify-center gap-3 rounded-xl bg-brand-700 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 sm:w-auto"
+            >
+              Let’s talk about your project
+              <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+            </a>
           </div>
+        </div>
 
-          <div className="lg:relative">
-            <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-              <div className="surface p-8">
-                <p className="text-xs font-bold uppercase tracking-[0.25em] text-brand-600">
-                  What never changes
-                </p>
-                <p className="mt-3 text-sm leading-relaxed text-zinc-600">
-                  Every engagement keeps communication tight and decisions simple.
-                </p>
-              </div>
-              <div className="grid gap-4">
-                {PRINCIPLES.map((item) => (
-                  <div
-                    key={item.title}
-                    className="surface group flex items-start gap-4 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-soft-lg"
-                  >
-                    <div className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500/12 to-accent-500/12 text-brand-600 transition-colors duration-300 group-hover:from-brand-500/20 group-hover:to-accent-500/20">
-                      <item.icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-lg font-bold text-zinc-900">{item.title}</h4>
-                      <p className="mt-1.5 text-sm leading-relaxed text-zinc-600">
-                        {item.copy}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+        <div className="mt-10 grid gap-7 md:grid-cols-3 md:gap-8 lg:gap-12">
+          {PRINCIPLES.map((item) => (
+            <div key={item.title} className="flex items-start gap-3">
+              <item.icon className="mt-1 h-5 w-5 shrink-0 text-brand-600" aria-hidden="true" />
+              <div>
+                <h3 className="text-sm font-bold text-brand-950">{item.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-600">{item.copy}</p>
               </div>
             </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>

@@ -12,7 +12,7 @@ export default function Footer() {
           <div>
             <h3 className="text-lg font-bold mb-4">Ryan Stefan</h3>
             <p className="text-zinc-400 text-sm leading-relaxed mb-6">
-              Solo product engineer building automation systems, modernizing legacy stacks, and shipping practical AI tooling.
+              Websites, custom apps, and practical automation for small businesses. Built and supported by one person.
             </p>
             <div className="flex gap-4">
               <a
@@ -71,11 +71,11 @@ export default function Footer() {
           <div>
             <h3 className="text-lg font-bold mb-4">Focus Areas</h3>
             <ul className="space-y-2 text-sm text-zinc-400">
-              <li>Legacy PHP to Laravel modernization</li>
-              <li>AI agent and workflow automation</li>
-              <li>Data pipelines and crawler infrastructure</li>
-              <li>Production debugging and hardening</li>
-              <li>Performance and delivery reliability</li>
+              <li>Websites and custom web apps</li>
+              <li>Workflow automation and practical AI</li>
+              <li>Forms, CRM, and tool integrations</li>
+              <li>Hosting, maintenance, and repairs</li>
+              <li>Website speed and email delivery</li>
             </ul>
           </div>
 

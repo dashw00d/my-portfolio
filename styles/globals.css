@@ -175,6 +175,14 @@
   .surface {
     @apply rounded-3xl border border-zinc-200/80 bg-white/95 shadow-soft;
   }
+
+  .contact-label {
+    @apply block text-sm font-semibold text-brand-950;
+  }
+
+  .contact-field {
+    @apply mt-2 block w-full rounded-xl border border-brand-200/70 bg-brand-50/30 px-4 py-3 text-base text-zinc-900 placeholder:text-zinc-500 transition-colors hover:border-brand-300 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/15;
+  }
 }
 
 @layer utilities {

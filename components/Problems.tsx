@@ -126,11 +126,14 @@ function createPawSVG(size: number, color: string) {
 function PawTrail() {
   const [paws, setPaws] = useState<Array<{ id: number; x: number; y: number; size: number; color: string }>>([]);
   const [sectionBounds, setSectionBounds] = useState({ width: 800, height: 600 });
+  const [reducedMotion, setReducedMotion] = useState(true);
   const pawIdRef = useRef(0);
 
   // Get section bounds
   useEffect(() => {
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
     const updateBounds = () => {
+      setReducedMotion(motionPreference.matches);
       const problemsSection = document.getElementById('problems');
       if (problemsSection) {
         const bounds = problemsSection.getBoundingClientRect();
@@ -140,16 +143,19 @@ function PawTrail() {
 
     updateBounds();
     window.addEventListener('resize', updateBounds);
-    return () => window.removeEventListener('resize', updateBounds);
+    motionPreference.addEventListener('change', updateBounds);
+    return () => {
+      window.removeEventListener('resize', updateBounds);
+      motionPreference.removeEventListener('change', updateBounds);
+    };
   }, []);
 
   // Create paws when bounds are available
   useEffect(() => {
-    if (sectionBounds.width <= 800) {
+    setPaws([]);
+    if (sectionBounds.width <= 800 || reducedMotion) {
       return;
     }
-
-    setPaws([]);
 
     const activeTimeouts = new Set<number>();
     const schedule = (callback: () => void, delay: number) => {
@@ -193,10 +199,10 @@ function PawTrail() {
       activeTimeouts.forEach(timeoutId => window.clearTimeout(timeoutId));
       activeTimeouts.clear();
     };
-  }, [sectionBounds]);
+  }, [sectionBounds, reducedMotion]);
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-0">
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
       {paws.map(paw => (
         <div
           key={paw.id}
@@ -352,12 +358,12 @@ function ProblemCard({ problem }: { problem: Problem }) {
 function Problems() {
   return (
     <>
-      <PawTrail />
       <section
         id="problems"
         className="relative -mt-1 bg-gradient-to-b from-brand-50 via-white to-highlight-50/70 py-24"
         aria-labelledby="problems-hero"
       >
+        <PawTrail />
         {/* Decorative gradients and patterns */}
         <div className="pointer-events-none absolute inset-x-0 -bottom-24 h-32 bg-gradient-to-t from-brand-900/20 via-brand-900/5 to-transparent" />
         <div className="paw-trail-layer paw-trail-layer--reverse absolute inset-0 opacity-10" />

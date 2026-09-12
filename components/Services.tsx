@@ -102,10 +102,10 @@ export default function Services() {
             Fixed-fee playbooks
           </p>
           <h2 className="mb-4 bg-gradient-to-r from-white via-brand-100 to-accent-100 bg-clip-text text-4xl font-bold text-transparent md:text-5xl">
-            Same-week fixes, one owner
+            Fix what’s broken. Build what’s next.
           </h2>
           <p className="text-lg text-zinc-300">
-            Whether it&apos;s performance, deliverability, or attribution, the goal is revenue. Here&apos;s how we tackle each lever and what you walk away with.
+            From infrastructure repairs to workflow automation, I scope the work, write the code, and own the rollout.
           </p>
         </div>
 

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Link from "@/components/Link";
-import { Mail, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowUpRight, Mail, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 import { trackEvent } from "@/lib/gtag";
 
@@ -93,112 +93,131 @@ export default function Contact() {
   };
 
   return (
-    <section id="contact" className="relative overflow-hidden bg-gradient-to-br from-brand-950 via-brand-900 to-zinc-900 py-24 text-white">
-      <div className="pointer-events-none absolute inset-x-0 -top-24 h-32 bg-gradient-to-b from-brand-950/80 via-brand-900/60 to-transparent" />
-      <div className="pointer-events-none absolute inset-x-0 -bottom-32 h-32 bg-gradient-to-t from-zinc-950 via-brand-900/40 to-transparent" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(67,171,167,0.28),_transparent_60%)]" />
-      <div className="relative mx-auto max-w-7xl px-6">
-        {/* Decorative elements */}
-        <div className="pointer-events-none absolute left-8 top-8 h-2 w-2 rounded-full bg-accent-400/40" />
-        <div className="pointer-events-none absolute right-12 top-16 h-1 w-10 rounded-full bg-highlight-400/30" />
-        <div className="pointer-events-none absolute left-1/4 bottom-8 h-3 w-3 rotate-45 bg-brand-400/25" />
-
-        <div className="mx-auto max-w-2xl text-center">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-accent-500/10 to-highlight-500/10 border border-accent-500/20 px-4 py-2 text-sm font-medium text-accent-200">
-            <span className="h-2 w-2 rounded-full bg-success-500 animate-pulse"></span>
-Let&apos;s talk
-          </div>
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-white via-brand-100 to-accent-200 bg-clip-text text-transparent sm:text-5xl">Tell me about the problem</h2>
-          <p className="mt-4 text-lg text-brand-200">
-            You’ll hear back within one business day with next steps. No pushy sales call, just an honest assessment.
+    <section
+      id="contact"
+      aria-labelledby="contact-heading"
+      className="relative border-t border-brand-100 bg-brand-50/60 py-16 sm:py-20 lg:py-24"
+    >
+      <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16 xl:gap-24">
+        <div className="flex flex-col items-start lg:py-6">
+          <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">
+            <span aria-hidden="true" className="h-px w-8 bg-brand-500" />
+            Let’s talk
           </p>
+          <h2 id="contact-heading" className="mt-6 max-w-lg text-4xl font-bold leading-[1.1] tracking-tight text-brand-950 sm:text-5xl lg:text-6xl">
+            Tell me about the problem.
+          </h2>
+          <p className="mt-6 max-w-md text-lg leading-relaxed text-zinc-600">
+            Something broken? A new idea to build? Tell me where you’re stuck,
+            and we’ll work out the next step.
+          </p>
+
+          <div className="mt-8 flex items-center gap-4">
+            <img
+              src="/images/ryan_stefan.png"
+              alt="Ryan Stefan"
+              width={56}
+              height={56}
+              loading="lazy"
+              className="h-14 w-14 shrink-0 rounded-2xl bg-brand-100 object-cover"
+            />
+            <div>
+              <p className="font-semibold text-brand-950">You’ll hear from me, Ryan.</p>
+              <p className="mt-1 text-sm text-zinc-600">Usually within one business day.</p>
+            </div>
+          </div>
+
+          <div className="mt-10 w-full max-w-md border-t border-brand-200/70 pt-6 lg:mt-12">
+            <p className="text-sm font-semibold text-brand-950">No perfect brief needed.</p>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+              A few lines about what’s happening, what you’d like to change,
+              and any deadline are plenty to start with.
+            </p>
+            <p className="mt-6 text-sm text-zinc-600">Prefer email?</p>
+            <a
+              href="mailto:ryan@dashwood.net"
+              className="mt-1 inline-flex items-center gap-2 rounded-sm text-lg font-semibold text-brand-700 underline decoration-brand-300 underline-offset-4 transition-colors hover:text-brand-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-4"
+            >
+              ryan@dashwood.net
+              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+            </a>
+          </div>
         </div>
 
-        <div className="mt-16 grid items-start gap-10 lg:grid-cols-2">
-          <div className="relative isolate space-y-6 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] p-8 shadow-soft-lg">
-            <div className="pointer-events-none absolute -bottom-20 -right-16 -z-10 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(67,171,167,0.28),transparent_70%)]" />
-            <img
-              src="/images/Paw_Print.svg"
-              alt=""
-              aria-hidden="true"
-              className="pointer-events-none absolute -bottom-4 right-8 -z-10 h-28 w-28 opacity-[0.05]"
+        <form
+          id="contact-form"
+          aria-labelledby="contact-form-heading"
+          aria-busy={status === "submitting"}
+          onSubmit={handleSubmit}
+          className="relative min-w-0 scroll-mt-24 space-y-6 rounded-3xl border border-brand-100 bg-white p-5 shadow-soft sm:p-8 lg:p-10"
+        >
+          <div>
+            <h3 id="contact-form-heading" className="text-xl font-bold text-brand-950 sm:text-2xl">A few details to get started</h3>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-500">Just your name, email, and a little context.</p>
+          </div>
+
+          <div className="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden="true">
+            <label htmlFor="website">Website</label>
+            <input
+              id="website"
+              name="website"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              value={formData.website}
+              onChange={handleChange}
             />
-            <p className="relative text-sm font-semibold uppercase tracking-[0.35em] text-brand-200">What to include</p>
-            <ul className="space-y-4 text-sm text-brand-100">
-              <li className="rounded-2xl border border-brand-500/30 bg-brand-500/10 p-4">
-                <span className="block text-xs font-semibold uppercase tracking-widest text-brand-200">1. Symptoms</span>
-                <span className="mt-1 block text-base text-white">What’s breaking, slow, or costing you money right now?</span>
-              </li>
-              <li className="rounded-2xl border border-brand-500/30 bg-brand-500/10 p-4">
-                <span className="block text-xs font-semibold uppercase tracking-widest text-brand-200">2. Impact</span>
-                <span className="mt-1 block text-base text-white">How is this affecting revenue, leads, or customer trust?</span>
-              </li>
-              <li className="rounded-2xl border border-brand-500/30 bg-brand-500/10 p-4">
-                <span className="block text-xs font-semibold uppercase tracking-widest text-brand-200">3. Timeline</span>
-                <span className="mt-1 block text-base text-white">What’s your launch window or critical deadline?</span>
-              </li>
-            </ul>
-            <div className="rounded-2xl border border-brand-500/30 bg-brand-500/10 p-4 text-sm text-brand-100">
-              Prefer email? <a href="mailto:ryan@dashwood.net" className="font-semibold text-white underline underline-offset-4">ryan@dashwood.net</a>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label htmlFor="name" className="contact-label">Your name</label>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                autoComplete="name"
+                required
+                value={formData.name}
+                onChange={handleChange}
+                className="contact-field"
+                placeholder="Jane Doe"
+              />
+            </div>
+            <div>
+              <label htmlFor="email" className="contact-label">Email address</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={formData.email}
+                onChange={handleChange}
+                className="contact-field"
+                placeholder="you@company.com"
+              />
             </div>
           </div>
 
-          <form
-            id="contact-form"
-            onSubmit={handleSubmit}
-            className="relative space-y-6 rounded-3xl border border-white/10 bg-white/[0.08] p-8 shadow-soft-lg"
-            style={{ scrollMarginTop: '6rem' }}
-          >
-            <div className="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden="true">
-              <label htmlFor="website">Website</label>
-              <input
-                id="website"
-                name="website"
-                type="text"
-                tabIndex={-1}
-                autoComplete="off"
-                value={formData.website}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-[0.3em] text-brand-200">
-                  Name *
-                </label>
-                <input
-                  id="name"
-                  name="name"
-                  type="text"
-                  autoComplete="name"
-                  required
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="mt-2 w-full rounded-xl border border-white/15 bg-brand-950/40 px-4 py-3 text-sm text-white placeholder:text-brand-200/60 transition focus:border-brand-300/70 focus:outline-none focus:ring-2 focus:ring-brand-300/30"
-                  placeholder="Jane Doe"
-                />
-              </div>
-              <div>
-                <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-[0.3em] text-brand-200">
-                  Email *
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="mt-2 w-full rounded-xl border border-white/15 bg-brand-950/40 px-4 py-3 text-sm text-white placeholder:text-brand-200/60 transition focus:border-brand-300/70 focus:outline-none focus:ring-2 focus:ring-brand-300/30"
-                  placeholder="you@company.com"
-                />
-              </div>
-            </div>
+          <div>
+            <label htmlFor="project" className="contact-label">What do you need help with?</label>
+            <textarea
+              id="project"
+              name="project"
+              required
+              value={formData.project}
+              onChange={handleChange}
+              rows={5}
+              className="contact-field min-h-36 resize-y"
+              placeholder="Tell me what’s not working, or what you’d like to build…"
+            />
+          </div>
 
+          <div className="grid gap-5 sm:grid-cols-2">
             <div>
-              <label htmlFor="company" className="block text-xs font-semibold uppercase tracking-[0.3em] text-brand-200">
-                Company / Website
+              <label htmlFor="company" className="contact-label">
+                Company or website <span className="font-normal text-zinc-500">(optional)</span>
               </label>
               <input
                 id="company"
@@ -207,30 +226,13 @@ Let&apos;s talk
                 autoComplete="organization"
                 value={formData.company}
                 onChange={handleChange}
-                className="mt-2 w-full rounded-xl border border-white/15 bg-brand-950/40 px-4 py-3 text-sm text-white placeholder:text-brand-200/60 transition focus:border-brand-300/70 focus:outline-none focus:ring-2 focus:ring-brand-300/30"
-                placeholder="Acme Inc."
+                className="contact-field"
+                placeholder="Company name or URL"
               />
             </div>
-
             <div>
-              <label htmlFor="project" className="block text-xs font-semibold uppercase tracking-[0.3em] text-brand-200">
-                What do you need help with? *
-              </label>
-              <textarea
-                id="project"
-                name="project"
-                required
-                value={formData.project}
-                onChange={handleChange}
-                rows={5}
-                className="mt-2 w-full rounded-xl border border-white/15 bg-brand-950/40 px-4 py-3 text-sm text-white placeholder:text-brand-200/60 transition focus:border-brand-300/70 focus:outline-none focus:ring-2 focus:ring-brand-300/30"
-                placeholder="Slow checkout, no deliverability visibility, missing lead attribution..."
-              />
-            </div>
-
-            <div>
-              <label htmlFor="timeline" className="block text-xs font-semibold uppercase tracking-[0.3em] text-brand-200">
-                Desired launch or deadline
+              <label htmlFor="timeline" className="contact-label">
+                Timeline <span className="font-normal text-zinc-500">(optional)</span>
               </label>
               <input
                 id="timeline"
@@ -238,56 +240,52 @@ Let&apos;s talk
                 type="text"
                 value={formData.timeline}
                 onChange={handleChange}
-                className="mt-2 w-full rounded-xl border border-white/15 bg-brand-950/40 px-4 py-3 text-sm text-white placeholder:text-brand-200/60 transition focus:border-brand-300/70 focus:outline-none focus:ring-2 focus:ring-brand-300/30"
-                placeholder="In production by end of May"
+                className="contact-field"
+                placeholder="Next month, or just exploring"
               />
             </div>
+          </div>
 
-            {status === "error" && errorMessage && (
-              <div className="flex items-center gap-2 rounded-xl border border-danger-400/40 bg-danger-500/10 px-4 py-3 text-sm text-danger-200">
-                <AlertCircle className="h-4 w-4" />
-                {errorMessage}
-              </div>
-            )}
+          {status === "error" && errorMessage && (
+            <div role="alert" className="flex items-start gap-3 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              {errorMessage}
+            </div>
+          )}
 
-            {status === "success" && (
-              <div className="flex items-center gap-2 rounded-xl border border-success-400/40 bg-success-500/10 px-4 py-3 text-sm text-success-200">
-                <CheckCircle2 className="h-4 w-4" />
-                Thanks! I’ll review and reach out shortly.
-              </div>
-            )}
+          {status === "success" && (
+            <div role="status" className="flex items-start gap-3 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              Thanks! I’ll review your message and reach out shortly.
+            </div>
+          )}
 
+          <div className="space-y-4 border-t border-zinc-100 pt-6">
             <button
               type="submit"
               disabled={status === "submitting"}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-accent-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition-all hover:shadow-xl hover:shadow-brand-500/40 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-6 py-3 font-semibold text-white transition-colors hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {status === "submitting" ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Sending...
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Sending…
                 </>
               ) : (
                 <>
-                  <Mail className="h-4 w-4" />
                   Send message
+                  <Mail className="h-4 w-4" aria-hidden="true" />
                 </>
               )}
             </button>
-
-            <p className="text-xs text-brand-200/70">
-              You’re not opting into anything. I only use this info to respond to
-              your inquiry and keep your project moving. See the{" "}
-              <Link
-                href="/privacy-policy"
-                className="font-semibold text-brand-100 underline underline-offset-4 hover:text-white"
-              >
-                Privacy Policy
+            <p className="text-center text-xs leading-relaxed text-zinc-500">
+              I’ll only use your details to respond to your inquiry.{' '}
+              <Link href="/privacy-policy" className="rounded-sm underline underline-offset-2 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+                Privacy policy
               </Link>
-              .
             </p>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </section>
   );

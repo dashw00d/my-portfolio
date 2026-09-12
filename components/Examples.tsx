@@ -24,12 +24,12 @@ const CASES = [
     accentColor: "success",
   },
   {
-    sector: "Agent Automation",
-    title: "Elite automation platform adaptable to any use case",
+    sector: "AI & Workflow Automation",
+    title: "Reusable automation for day-to-day operations",
     summary:
-      "Built a reusable multi-agent orchestration layer with shared context, queue controls, remediation guidance, and support payload exports so teams can ship automations safely at scale.",
+      "Built an AI automation platform that coordinates tasks, shares information between workflows, and helps teams track and recover from problems.",
     before: "One-off scripts and manual ops",
-    after: "Composable automation workflows",
+    after: "Reusable, connected workflows",
     tags: ["Agent Orchestration", "Automation", "ChromaDB", "Operational Reliability"],
     accentColor: "accent",
   },
@@ -97,9 +97,8 @@ export default function Examples() {
               Proof it works in the real world
             </h2>
             <p className="mt-4 text-lg text-zinc-600">
-              Real before/after outcomes: legacy data converted into growth,
-              automation platforms that adapt by use case, and modern stack
-              upgrades that keep revenue systems current in 2026.
+              Faster websites, emails that reach customers, and fewer manual
+              tasks. Here’s what that work has looked like for real clients.
             </p>
           </div>
           <Link
