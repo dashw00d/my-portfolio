@@ -44,6 +44,8 @@ export interface PreviewPin {
 
 export interface DoodleStroke {
   id: string;
+  targetId?: string;
+  surfaceWidth?: number;
   points: Array<{ x: number; y: number }>;
   createdAt: string;
 }

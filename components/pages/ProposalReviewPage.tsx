@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Copy, Loader2, Lock, Send, ShieldCheck } from "lucide-react";
 
+import ProposalMarkedOptions from "@/components/proposal/ProposalMarkedOptions";
 import { PROPOSAL_CONFIG as config } from "@/lib/proposal/config";
 import type { ProposalState, SubmittedResponseSnapshot } from "@/lib/proposal/types";
 
@@ -177,6 +178,11 @@ export default function ProposalReviewPage() {
                   </article>
 
                   <article className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                    <h2 className="text-xl font-bold">Client markup</h2>
+                    <div className="mt-5"><ProposalMarkedOptions state={state} /></div>
+                  </article>
+
+                  <article className="rounded-3xl border border-white/10 bg-white/5 p-6">
                     <h2 className="text-xl font-bold">Client notes</h2>
                     {Object.entries(state.selections.sectionFeedback).filter(([, value]) => value.comment.trim() || value.status).length === 0 && (
                       <p className="mt-4 text-sm text-zinc-400">No section notes yet.</p>
@@ -203,6 +209,12 @@ export default function ProposalReviewPage() {
                         <div key={submission.id} className="rounded-2xl bg-white/5 p-5">
                           <p className="text-sm font-semibold text-brand-200">{submission.displayName || "Unnamed"} · {formatDate(submission.submittedAt)}</p>
                           <p className="mt-2 text-xs text-zinc-400">Proposal version {submission.configVersion}</p>
+                          {submission.state.doodles.some((stroke) => stroke.targetId) && (
+                            <details className="mt-4">
+                              <summary className="cursor-pointer text-sm font-semibold text-brand-200">View submitted markup</summary>
+                              <div className="mt-4"><ProposalMarkedOptions state={submission.state} /></div>
+                            </details>
+                          )}
                         </div>
                       ))}
                     </div>

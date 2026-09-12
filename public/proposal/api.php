@@ -308,6 +308,10 @@ function normalize_doodles(array $input): array
         }
         $doodles[] = [
             'id' => mb_substr((string) ($item['id'] ?? ''), 0, 64),
+            'targetId' => mb_substr((string) ($item['targetId'] ?? ''), 0, 80),
+            'surfaceWidth' => isset($item['surfaceWidth']) && is_numeric($item['surfaceWidth'])
+                && (float) $item['surfaceWidth'] >= 100 && (float) $item['surfaceWidth'] <= 2000
+                ? (float) $item['surfaceWidth'] : null,
             'points' => array_slice($points, 0, 800),
             'createdAt' => gmdate('c'),
         ];
