@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { PROPOSAL_CONFIG, type ProposalConfig } from "@/lib/proposal/config";
+import { saveWorkspaceAccess, workspaceAccess } from "@/lib/proposal/workspace";
 import type {
   ProposalState,
   SubmittedResponseSnapshot,
@@ -16,6 +17,8 @@ import type {
 import ProposalPage from "./ProposalPage";
 
 interface ReviewData {
+  revision: number;
+  configVersion: number;
   config: ProposalConfig | null;
   clientPath: string;
   state: ProposalState;
@@ -36,6 +39,8 @@ function tokenFromInput(value: string) {
 
 export default function ProposalReviewPage() {
   const [adminToken, setAdminToken] = useState("");
+  const [proposalId, setProposalId] = useState("");
+  const [fromWorkspace, setFromWorkspace] = useState(false);
   const [tokenDraft, setTokenDraft] = useState("");
   const [data, setData] = useState<ReviewData | null>(null);
   const [snapshotId, setSnapshotId] = useState("");
@@ -46,9 +51,12 @@ export default function ProposalReviewPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setProposalId(params.get("proposal") ?? "");
+    setFromWorkspace(!params.get("admin") && Boolean(workspaceAccess()));
     setAdminToken(
       tokenFromInput(
-        new URLSearchParams(window.location.search).get("admin") ?? "",
+        params.get("admin") ?? workspaceAccess(),
       ),
     );
   }, []);
@@ -57,10 +65,14 @@ export default function ProposalReviewPage() {
     if (!adminToken) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
-    async function refresh() {
-      setLoading(true);
+    let inFlight = false;
+    async function refresh(showLoading = false) {
+      if (inFlight || document.hidden || controller.signal.aborted) return;
+      inFlight = true;
+      clearTimeout(timer);
+      if (showLoading) setLoading(true);
       try {
-        const response = await fetch("/proposal/api.php/review", {
+        const response = await fetch(`/proposal/api.php/review${proposalId ? `?proposal=${encodeURIComponent(proposalId)}` : ""}`, {
           headers: { "X-Proposal-Admin": adminToken },
           signal: controller.signal,
         });
@@ -68,7 +80,19 @@ export default function ProposalReviewPage() {
         if (!response.ok)
           throw new Error(result?.error ?? "Unable to load the proposal.");
         if (controller.signal.aborted) return;
-        setData(result);
+        if (proposalId) {
+          saveWorkspaceAccess(adminToken);
+          setFromWorkspace(true);
+        }
+        setData(previous => previous &&
+          previous.revision === result.revision &&
+          previous.configVersion === result.configVersion &&
+          previous.status === result.status &&
+          previous.isExpired === result.isExpired &&
+          previous.clientToken === result.clientToken &&
+          previous.clientPath === result.clientPath &&
+          JSON.stringify(previous.submissions.map(item => item.id)) === JSON.stringify(result.submissions.map((item: SubmittedResponseSnapshot) => item.id))
+          ? previous : result);
         setError("");
       } catch (error) {
         if (!controller.signal.aborted)
@@ -78,26 +102,33 @@ export default function ProposalReviewPage() {
               : "Connection lost. Retrying…",
           );
       } finally {
+        inFlight = false;
         if (!controller.signal.aborted) {
           setLoading(false);
-          timer = setTimeout(() => {
+          if (!document.hidden) timer = setTimeout(() => {
             void refresh();
-          }, 4000);
+          }, 2000);
         }
       }
     }
-    void refresh();
+    const onVisibility = () => {
+      clearTimeout(timer);
+      if (!document.hidden) void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    void refresh(true);
     return () => {
       controller.abort();
       clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [adminToken, refreshKey]);
+  }, [adminToken, proposalId, refreshKey]);
 
   async function setProposalStatus(status: ReviewData["status"]) {
     setSaving(true);
     try {
       const response = await fetch(
-        "/proposal/api.php/admin?action=set_status",
+        `/proposal/api.php/admin?action=set_status${proposalId ? `&proposal=${encodeURIComponent(proposalId)}` : ""}`,
         {
           method: "POST",
           headers: {
@@ -194,7 +225,7 @@ export default function ProposalReviewPage() {
 
   return (
     <ProposalPage
-      initialConfig={snapshot?.config ?? data.config ?? PROPOSAL_CONFIG}
+      initialConfig={snapshot ? snapshot.config ?? PROPOSAL_CONFIG : data.config ?? PROPOSAL_CONFIG}
       review={{
         clientPath: data.clientPath ?? "/p/southern-star/",
         state: snapshot?.state ?? data.state,
@@ -221,8 +252,15 @@ export default function ProposalReviewPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
+                <a href="/proposal/" className={buttonClass}>All proposals</a>
                 <a
-                  href={`/proposal/new/?admin=${encodeURIComponent(adminToken)}`}
+                  href={proposalId ? `/proposal/edit/?proposal=${encodeURIComponent(proposalId)}` : `/proposal/edit/?admin=${encodeURIComponent(adminToken)}`}
+                  className={buttonClass}
+                >
+                  Edit copy
+                </a>
+                <a
+                  href={fromWorkspace ? `/proposal/new/?fresh=1${proposalId ? `&source=${encodeURIComponent(proposalId)}` : ""}` : `/proposal/new/?fresh=1&admin=${encodeURIComponent(adminToken)}`}
                   className={buttonClass}
                 >
                   <Plus className="h-4 w-4" />

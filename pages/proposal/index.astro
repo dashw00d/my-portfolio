@@ -1,0 +1,8 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProposalAdminPage from "../../components/pages/ProposalAdminPage";
+---
+
+<BaseLayout title="Proposals" description="Manage your proposals." path="/proposal" robots="noindex,nofollow,noarchive" privatePage showNav={false} showFooter={false}>
+  <ProposalAdminPage client:load />
+</BaseLayout>

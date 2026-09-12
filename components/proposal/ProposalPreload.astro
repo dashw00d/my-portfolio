@@ -1,0 +1,14 @@
+<script is:inline>
+  // Begin the private data request while the browser loads the React island.
+  (() => {
+    const token = new URLSearchParams(location.search).get("token") || "";
+    const controller = new AbortController();
+    window.__proposalPreload = {
+      token,
+      controller,
+      response: fetch(`/proposal/api.php?token=${encodeURIComponent(token)}`, {
+        signal: controller.signal,
+      }).catch(() => null),
+    };
+  })();
+</script>

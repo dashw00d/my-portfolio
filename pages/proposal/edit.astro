@@ -1,0 +1,8 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProposalCopyEditorPage from "../../components/pages/ProposalCopyEditorPage";
+---
+
+<BaseLayout title="Edit copy · Proposal studio" description="Edit your proposal copy." path="/proposal/edit" robots="noindex,nofollow,noarchive" privatePage showNav={false} showFooter={false}>
+  <ProposalCopyEditorPage client:load />
+</BaseLayout>

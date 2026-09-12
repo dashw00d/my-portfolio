@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import ProposalPage from "../../components/pages/ProposalPage";
+import ProposalPreload from "../../components/proposal/ProposalPreload.astro";
 import { PROPOSAL_CONFIG } from "../../lib/proposal/config";
 ---
 
@@ -13,5 +14,6 @@ import { PROPOSAL_CONFIG } from "../../lib/proposal/config";
   showNav={false}
   showFooter={false}
 >
+  <ProposalPreload slot="head" />
   <ProposalPage initialConfig={PROPOSAL_CONFIG} client:load />
 </BaseLayout>

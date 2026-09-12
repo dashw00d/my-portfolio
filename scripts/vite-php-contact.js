@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 
+import { createProposalPhpBridge } from "./proposal-php-bridge.ts";
+
 const CONTACT_PATHS = new Set(["/api/contact.php", "/api/contact.php/"]);
 const PROPOSAL_API_PATH_PATTERN = /^\/proposal\/api\.php(?:\/(?:admin|review))?\/?$/;
 
@@ -74,9 +76,12 @@ function attachPhpContact(server, root) {
 export function phpContactPlugin(root) {
   return {
     name: "php-contact",
+    enforce: "post",
     configureServer(server) {
       attachPhpContact(server, root);
-      attachPhpProposal(server, root);
+      // Astro prepends its trailing-slash guard during its post hook. PHP's
+      // /api.php/review and /api.php/admin paths must run before that guard.
+      return () => attachPhpProposal(server, root, true);
     },
     configurePreviewServer(server) {
       attachPhpContact(server, root);
@@ -85,8 +90,15 @@ export function phpContactPlugin(root) {
   };
 }
 
-function attachPhpProposal(server, root) {
-  server.middlewares.use((req, res, next) => {
+function attachPhpProposal(server, root, prepend = false) {
+  const bridge = createProposalPhpBridge(root);
+  const close = () => {
+    bridge.close();
+    process.removeListener("exit", close);
+  };
+  server.httpServer?.once("close", close);
+  process.once("exit", close);
+  const middleware = (req, res, next) => {
     const url = (req.url || "").split("?")[0];
     if (!PROPOSAL_API_PATH_PATTERN.test(url)) {
       next();
@@ -95,10 +107,12 @@ function attachPhpProposal(server, root) {
 
     const chunks = [];
     let total = 0;
+    let rejected = false;
 
     req.on("data", (chunk) => {
       total += chunk.length;
       if (total > 300_000) {
+        rejected = true;
         res.statusCode = 413;
         res.setHeader("Content-Type", "application/json; charset=utf-8");
         res.end(JSON.stringify({ error: "Payload too large." }));
@@ -108,42 +122,42 @@ function attachPhpProposal(server, root) {
       chunks.push(chunk);
     });
 
-    req.on("end", () => {
+    req.on("end", async () => {
+      if (rejected) return;
       const body = Buffer.concat(chunks);
-      const child = spawn("php", [path.join(root, "public/proposal/api.php")], {
-        env: {
-          ...process.env,
-          REQUEST_METHOD: req.method || "GET",
-          REQUEST_URI: req.url || "/proposal/api.php",
-          HTTP_X_PROPOSAL_ADMIN: req.headers["x-proposal-admin"] || "",
-          HTTP_X_PROPOSAL_TOKEN: req.headers["x-proposal-token"] || "",
-          CONTENT_TYPE: req.headers["content-type"] || "application/json",
-          CONTENT_LENGTH: String(body.length),
-          REMOTE_ADDR: req.socket?.remoteAddress || "127.0.0.1",
-        },
-      });
-
-      const stdout = [];
-      child.stdout.on("data", (data) => stdout.push(data));
-      child.stderr.on("data", (data) => process.stderr.write(data));
-      child.stdin.end(body);
-
-      child.on("error", (error) => {
-        res.statusCode = 500;
-        res.setHeader("Content-Type", "application/json; charset=utf-8");
-        res.end(JSON.stringify({ error: `PHP is not available (${error.message}).` }));
-      });
-
-      child.on("close", () => {
-        const raw = Buffer.concat(stdout).toString("utf8");
-        const match = raw.match(/^HTTP (\d+)\n([\s\S]*)$/);
-        const status = match ? Number(match[1]) : 200;
-        const payload = match ? match[2] : raw || '{"error":"Empty PHP response."}';
-        res.statusCode = Number.isFinite(status) ? status : 500;
+      try {
+        const port = await bridge.ready();
+        const method = req.method || "GET";
+        const response = await fetch(`http://127.0.0.1:${port}${req.url}`, {
+          method,
+          headers: {
+            "Content-Type": String(req.headers["content-type"] || "application/json"),
+            "X-Proposal-Admin": String(req.headers["x-proposal-admin"] || ""),
+            "X-Proposal-Token": String(req.headers["x-proposal-token"] || ""),
+          },
+          body: method === "GET" || method === "HEAD" ? undefined : body,
+          redirect: "manual",
+          signal: AbortSignal.timeout(30_000),
+        });
+        const payload = Buffer.from(await response.arrayBuffer());
+        if (res.destroyed) return;
+        res.statusCode = response.status;
         res.setHeader("Content-Type", "application/json; charset=utf-8");
         res.setHeader("Cache-Control", "no-store");
+        res.setHeader("X-Content-Type-Options", "nosniff");
         res.end(payload);
-      });
+      } catch {
+        if (res.destroyed) return;
+        res.statusCode = 502;
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+        res.setHeader("Cache-Control", "no-store");
+        res.end(JSON.stringify({ error: "The local proposal server is unavailable. Try again." }));
+      }
     });
-  });
+  };
+  if (prepend) {
+    server.middlewares.stack.unshift({ route: "", handle: middleware });
+  } else {
+    server.middlewares.use(middleware);
+  }
 }

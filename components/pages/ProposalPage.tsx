@@ -1,16 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
-  ArrowDown,
   ArrowUpRight,
   Check,
-  CheckCheck,
   Copy,
   FileText,
   Loader2,
-  LockKeyhole,
-  MessageSquare,
-  PencilLine,
   Send,
 } from "lucide-react";
 
@@ -20,7 +15,10 @@ import {
   ProposalSectionCard,
 } from "@/components/proposal/ProposalCards";
 import ProposalMarkup from "@/components/proposal/ProposalMarkup";
-import type { ProposalConfig } from "@/lib/proposal/config";
+import ProposalPawCheckbox from "@/components/proposal/ProposalPawCheckbox";
+import ProposalCheckout, { openMobileFeedback } from "@/components/proposal/ProposalCheckout";
+import { PROPOSAL_CONFIG, type ProposalConfig } from "@/lib/proposal/config";
+import { requestClientProposal } from "@/lib/proposal/client-request";
 import type {
   DoodleStroke,
   FeedbackStatus,
@@ -69,6 +67,7 @@ export default function ProposalPage({
     initialConfig,
   );
   const config = review ? initialConfig : loadedConfig;
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [localState, setState] = useState<ProposalState>(emptyState);
   const state = review?.state ?? localState;
@@ -83,6 +82,7 @@ export default function ProposalPage({
   const [submitStatus, setSubmitStatus] = useState<
     "idle" | "sending" | "sent" | "error"
   >("idle");
+  const [submitMessage, setSubmitMessage] = useState("");
   const [previewToken, setPreviewToken] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -90,27 +90,35 @@ export default function ProposalPage({
     if (review) return;
     const token =
       new URLSearchParams(window.location.search).get("token") || "";
-    let cancelled = false;
-    fetch(`/proposal/api.php?token=${encodeURIComponent(token)}`)
+    const controller = new AbortController();
+    setHasLoaded(false);
+    setLoadError("");
+    setEditable(false);
+    requestClientProposal(token, controller.signal)
       .then(async (response) => {
         if (!response.ok)
           throw new Error("This proposal link is not available.");
         return response.json();
       })
       .then((data) => {
-        if (cancelled) return;
-        if (!data.config && !initialConfig)
+        if (controller.signal.aborted) return;
+        // Older proposals keep their content in the site rather than SQLite.
+        // Resolve that content after authentication, even on the generic route.
+        const content = data.config ?? initialConfig ??
+          (data.clientPath === "/p/southern-star/" ? PROPOSAL_CONFIG : undefined);
+        if (!content)
           throw new Error("Proposal content is unavailable.");
         const loaded = { ...emptyState, ...data.state };
         savedState.current = loaded;
         setState(loaded);
-        setConfig(data.config ?? initialConfig);
+        setConfig(content);
         revision.current = data.revision ?? 1;
         setEditable(data.status === "active" && !data.isExpired);
         setPreviewToken(token);
+        setHasLoaded(true);
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setLoadError(
             "This proposal could not be opened. Check the link or contact the sender.",
           );
@@ -121,17 +129,27 @@ export default function ProposalPage({
         }
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [review, initialConfig]);
 
   useEffect(() => {
     if (!previewToken || !editable || state === savedState.current) return;
     const timer = window.setTimeout(() => {
-      void saveState(state).catch(() => {});
-    }, 700);
+      void saveState().catch(() => {});
+    }, 300);
     return () => window.clearTimeout(timer);
   }, [state, previewToken, editable]);
+
+  useEffect(() => {
+    if (review || !hasLoaded || (state === savedState.current && submitStatus !== "sending")) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [state, review, hasLoaded, saveStatus, submitStatus]);
 
   const totals = useMemo(() => {
     if (!config) return { oneTime: 0 };
@@ -144,8 +162,10 @@ export default function ProposalPage({
     return { oneTime };
   }, [state.selections, config]);
 
-  function saveState(nextState: ProposalState): Promise<void> {
+  function saveState(): Promise<void> {
     const pending = saveQueue.current.then(async () => {
+      // Coalesce edits made during a slow request instead of uploading old drafts.
+      const nextState = latestState.current;
       if (savedState.current === nextState) return;
       setSaveStatus("saving");
       try {
@@ -216,21 +236,26 @@ export default function ProposalPage({
 
   async function submitFeedback() {
     setSubmitStatus("sending");
+    setSubmitMessage("");
     try {
-      await saveState(state);
+      await saveState();
       const response = await fetch(
         `/proposal/api.php?token=${encodeURIComponent(previewToken)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ displayName: state.selections.displayName }),
+          body: JSON.stringify({
+            displayName: state.selections.displayName,
+            revision: revision.current,
+          }),
         },
       );
       const result = await response.json().catch(() => ({}));
       if (!response.ok)
         throw new Error(result?.error ?? "Unable to send feedback.");
       setSubmitStatus("sent");
-    } catch {
+    } catch (error) {
+      setSubmitMessage(error instanceof Error ? error.message : "Could not send feedback. Your edits are still here; please try again.");
       setSubmitStatus("error");
     }
   }
@@ -297,7 +322,7 @@ export default function ProposalPage({
       });
   }
 
-  if (!config || loadError)
+  if ((!review && !hasLoaded) || !config || loadError)
     return (
       <main className="proposal-shell grid min-h-screen place-items-center p-6">
         <div className="proposal-panel max-w-md text-center">
@@ -328,7 +353,7 @@ export default function ProposalPage({
   );
 
   return (
-    <main className="proposal-shell min-h-screen">
+    <main className={`proposal-shell proposal-document min-h-screen ${!review ? "proposal-client-document" : ""}`}>
       <div className="proposal-topbar">
         <a
           href="#"
@@ -342,84 +367,21 @@ export default function ProposalPage({
               .join("")}
           </span>
           {config.senderName}
-          <span className="hidden font-normal text-brand-900/40 sm:inline">
-            / Proposals
-          </span>
         </a>
-          <span className="flex items-center gap-2 text-sm text-brand-900/70">
-          <LockKeyhole className="h-3.5 w-3.5" />
-          Private collaboration
-        </span>
+        <a href="#send-feedback" onClick={review ? undefined : openMobileFeedback} className="text-sm font-semibold text-brand-700">
+          {review ? "Client response" : "Send feedback"}
+        </a>
       </div>
-      <div className="mx-auto max-w-[1320px] px-5 pb-16 pt-8 sm:px-10">
+      <div className="mx-auto max-w-[1320px] px-5 pb-10 pt-6 sm:px-10">
         {review?.toolbar}
-        <header className="proposal-hero">
-          <div className="relative z-10">
-            <p className="proposal-eyebrow text-highlight-300">
-              Prepared for {config.clientName}
-            </p>
-            <h1>{config.title}</h1>
-            <p className="mt-6 max-w-2xl text-base leading-relaxed text-brand-100/85">
-              {config.introduction}
-            </p>
-            <a
-              href="#scope"
-              className="mt-8 inline-flex items-center gap-2 text-base font-semibold text-highlight-200"
-            >
-              Review the plan <ArrowDown className="h-4 w-4" />
-            </a>
-          </div>
-          <div className="proposal-hero-note" aria-hidden="true">
-            <PencilLine className="mb-5 h-6 w-6" />
-            <p>
-              This is a draft for
-              <br />
-              <strong>{config.clientName}</strong>
-              <br />
-              built to be marked up.
-            </p>
-            <span>Not an invoice</span>
-          </div>
+        <header className="proposal-letter">
+          <h1>{config.title}</h1>
+          <p>{config.introduction}</p>
         </header>
 
-        <div
-          className="proposal-guide"
-          aria-label="How to review your proposal"
-        >
-          {[
-            {
-              icon: CheckCheck,
-              title: "Choose what fits",
-              text: "Select the work you want included.",
-            },
-            {
-              icon: PencilLine,
-              title: "Mark or note",
-              text: "Sketch directly on the plan.",
-            },
-            {
-              icon: Send,
-              title: "Send it back",
-              text: "Share your feedback with Ryan.",
-            },
-          ].map(({ icon: Icon, title, text }, index) => (
-            <div key={title} className="flex items-center gap-3">
-              <span className="proposal-guide-icon">
-                <Icon className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-sm font-bold">
-                  <span className="mr-2 text-brand-600/50">0{index + 1}</span>
-                  {title}
-                </p>
-                <p className="mt-1 text-sm text-brand-900/60">{text}</p>
-              </div>
-            </div>
-          ))}
-        </div>
         {!review && (
           <div
-            className="mb-7 flex flex-wrap items-center justify-between gap-3 text-sm text-brand-900/60"
+            className="mb-6 flex flex-wrap items-center justify-between gap-3 text-sm text-brand-900/60"
             role="status"
             aria-live="polite"
           >
@@ -446,7 +408,7 @@ export default function ProposalPage({
             {saveStatus === "error" && editable && (
               <button
                 className="font-bold text-danger-700 underline"
-                onClick={() => void saveState(state).catch(() => {})}
+                onClick={() => void saveState().catch(() => {})}
               >
                 Retry save
               </button>
@@ -462,12 +424,11 @@ export default function ProposalPage({
           </div>
         )}
 
-        <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="min-w-0 space-y-12">
+        <div inert={submitStatus === "sending"} aria-busy={submitStatus === "sending"} className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="proposal-content min-w-0 space-y-12">
             <section id="scope" className="scroll-mt-8">
               <div className="proposal-section-heading">
                 <div>
-                  <p className="proposal-eyebrow">01 / The foundation</p>
                   <h2>{config.baseOption.label}</h2>
                 </div>
                 <span className="proposal-price">
@@ -480,8 +441,7 @@ export default function ProposalPage({
                   {config.baseOption.summary}
                 </p>
                 <label className="flex cursor-pointer items-center gap-2 text-sm font-bold">
-                  <input
-                    type="checkbox"
+                  <ProposalPawCheckbox
                     disabled={!editable}
                     checked={state.selections.baseSelected}
                     onChange={(event) =>
@@ -490,7 +450,7 @@ export default function ProposalPage({
                         baseSelected: event.target.checked,
                       }))
                     }
-                    className="h-5 w-5 accent-brand-600"
+                    className="h-5 w-5"
                   />
                   Include in plan
                 </label>
@@ -531,13 +491,7 @@ export default function ProposalPage({
               <section id="options">
                 <div className="proposal-section-heading">
                   <div>
-                    <p className="proposal-eyebrow">
-                      02 / Optional additions
-                    </p>
-                    <h2>Add-ons you can choose.</h2>
-                    <p>
-                      Select anything you’d like to add to the project.
-                    </p>
+                    <h2>Optional additions</h2>
                   </div>
                   <span className="proposal-count">
                     {oneTimeSelected.length} selected
@@ -575,8 +529,7 @@ export default function ProposalPage({
               <section>
                 <div className="proposal-section-heading">
                   <div>
-                    <p className="proposal-eyebrow">Visual direction</p>
-                    <h2>Here’s the working visual.</h2>
+                    <h2>Design preview</h2>
                     <p>{config.previewCaption}</p>
                   </div>
                 </div>
@@ -587,6 +540,10 @@ export default function ProposalPage({
                 >
                   <img
                     src={config.previewImage}
+                    loading="lazy"
+                    decoding="async"
+                    width={config.previewDimensions.width}
+                    height={config.previewDimensions.height}
                     alt={config.previewCaption || "Proposal design preview"}
                     className="block h-auto w-full rounded-2xl border border-brand-200"
                   />
@@ -598,9 +555,8 @@ export default function ProposalPage({
               <section>
                 <div className="proposal-section-heading">
                   <div>
-                    <p className="proposal-eyebrow">Ongoing support</p>
-                    <h2>Ongoing support, billed separately.</h2>
-                    <p>Choose the support that fits your schedule.</p>
+                    <h2>Ongoing support</h2>
+                    <p>Billed separately</p>
                   </div>
                 </div>
                 <div className="grid items-start gap-6 md:grid-cols-2">
@@ -632,13 +588,12 @@ export default function ProposalPage({
             )}
           </div>
 
-          <aside className="min-w-0 space-y-6 xl:sticky xl:top-6">
+          <ProposalCheckout enabled={!review} total={formatMoney(totals.oneTime)}>
+          <aside className="proposal-totals min-w-0">
             <div className="proposal-summary">
-              <p className="proposal-eyebrow">Current selection</p>
-              <h2 className="mt-3 text-2xl font-bold">One-time total</h2>
-              <div className="my-8 border-y border-brand-200/60 py-8">
-                <p className="text-sm text-brand-900/60">One-time investment</p>
-                <p className="mt-2 text-5xl font-semibold tracking-tight">
+              <h2 className="text-base font-semibold">One-time total</h2>
+              <div className="mb-5 mt-2 border-b border-brand-200/60 pb-5">
+                <p className="text-4xl font-semibold tracking-tight">
                   {formatMoney(totals.oneTime)}
                 </p>
                 <p className="mt-2 text-sm text-brand-900/50">
@@ -700,15 +655,19 @@ export default function ProposalPage({
                 </details>
               )}
             </div>
+          </aside>
+          <div id="send-feedback" className="proposal-response min-w-0 space-y-6">
             {review ? (
               review.response
             ) : (
-              <div id="send-feedback" className="proposal-panel">
-                <MessageSquare className="mb-5 h-6 w-6 text-brand-600" />
-                <h2 className="text-xl font-bold">Send Ryan your feedback</h2>
+              <div className="proposal-panel proposal-response-panel">
+                <div>
+                <h2 className="text-lg font-semibold">Your thoughts</h2>
                 <p className="mt-2 text-sm leading-relaxed text-brand-900/65">
                   {config.closingNote}
                 </p>
+                </div>
+                <div>
                 <label
                   htmlFor="displayName"
                     className="mt-6 block text-sm font-bold"
@@ -762,14 +721,14 @@ export default function ProposalPage({
                   )}
                   {submitStatus === "error" && (
                     <p className="mt-3 text-sm text-danger-700">
-                      Could not send feedback. Your edits are still here; please
-                      try again.
+                      {submitMessage}
                     </p>
                   )}
                 </div>
                 <p className="mt-6 text-center text-sm leading-relaxed text-brand-900/50">
                   This is a proposal, not an invoice or commitment.
                 </p>
+                </div>
               </div>
             )}
             <a
@@ -779,11 +738,12 @@ export default function ProposalPage({
               Prefer to talk it through? Email {config.senderName.split(" ")[0]}
               <ArrowUpRight className="h-3.5 w-3.5" />
             </a>
-          </aside>
+          </div>
+          </ProposalCheckout>
         </div>
         <footer className="mt-16 flex flex-wrap justify-between gap-3 border-t border-brand-200/50 pt-6 text-sm text-brand-900/45">
-          <span>Prepared with care by {config.senderName}.</span>
-          <span>A proposal for {config.clientName}.</span>
+          <span>{config.senderName}</span>
+          <span>{config.clientName}</span>
         </footer>
       </div>
     </main>

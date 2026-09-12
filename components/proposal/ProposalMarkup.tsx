@@ -12,6 +12,9 @@ interface Props {
   onUndo?: (targetId: string) => void;
   onClear?: (targetId: string) => void;
   children: ReactNode;
+  controls?: ReactNode;
+  tone?: "scope";
+  onDrawingChange?: (drawing: boolean) => void;
 }
 
 export default function ProposalMarkup({
@@ -22,6 +25,9 @@ export default function ProposalMarkup({
   onUndo,
   onClear,
   children,
+  controls,
+  tone,
+  onDrawingChange,
 }: Props) {
   const [drawing, setDrawing] = useState(false);
   const [draft, setDraft] = useState<DoodleStroke["points"]>([]);
@@ -83,7 +89,11 @@ export default function ProposalMarkup({
   }
 
   return (
-    <div className="min-w-0" data-proposal-option={targetId}>
+    <div
+      className={`proposal-markup-card min-w-0 ${tone === "scope" ? "proposal-markup-card--scope" : ""}`}
+      style={{ maxWidth: originalWidth }}
+      data-proposal-option={targetId}
+    >
       <div
         ref={frame}
         style={{ height: originalWidth ? size.height * scale : undefined }}
@@ -128,7 +138,10 @@ export default function ProposalMarkup({
               className="absolute inset-0 cursor-crosshair touch-none rounded-2xl"
               tabIndex={0}
               onKeyDown={(event) => {
-                if (event.key === "Escape") setDrawing(false);
+                if (event.key === "Escape") {
+                  setDrawing(false);
+                  onDrawingChange?.(false);
+                }
               }}
               role="img"
               aria-label={`Draw on ${title}`}
@@ -161,55 +174,63 @@ export default function ProposalMarkup({
           )}
         </div>
       </div>
-      {onDraw && (
+      {(onDraw || controls) && (
         <div
-          className="proposal-markup-tools"
+          className={`proposal-markup-tools ${!onDraw ? "proposal-markup-tools--browse" : ""}`}
           aria-label={`Drawing tools for ${title}`}
         >
-          <span className="pl-1 text-brand-900/50">
-            {drawing
-              ? "Circle or sketch on this card"
-              : marks.length
-                ? `${marks.length} mark${marks.length === 1 ? "" : "s"}`
-                : "Have an idea?"}
-          </span>
-          <div className="flex shrink-0 items-center">
-            {marks.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => onUndo?.(targetId)}
-                  aria-label={`Undo last mark on ${title}`}
-                  title="Undo last mark"
-                >
-                  <Undo2 className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onClear?.(targetId)}
-                  aria-label={`Clear drawings on ${title}`}
-                  title="Clear drawings"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </>
-            )}
-            <button
-              type="button"
-              aria-pressed={drawing}
-              aria-label={
-                drawing ? `Finish drawing on ${title}` : `Draw on ${title}`
-              }
-              onClick={() => setDrawing(!drawing)}
-            >
-              {drawing ? (
-                <Check className="h-3.5 w-3.5" />
-              ) : (
-                <Pencil className="h-3.5 w-3.5" />
-              )}
-              {drawing ? "Done" : "Draw"}
-            </button>
+          <div className="flex min-w-0 items-center gap-2">
+            {controls}
+            <span className="pl-1 text-brand-900/50">
+              {drawing
+                ? "Circle or sketch on this card"
+                : marks.length
+                  ? `${marks.length} mark${marks.length === 1 ? "" : "s"}`
+                  : ""}
+            </span>
           </div>
+          {onDraw && (
+            <div className="flex shrink-0 items-center">
+              {marks.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onUndo?.(targetId)}
+                    aria-label={`Undo last mark on ${title}`}
+                    title="Undo last mark"
+                  >
+                    <Undo2 className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onClear?.(targetId)}
+                    aria-label={`Clear drawings on ${title}`}
+                    title="Clear drawings"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                aria-pressed={drawing}
+                aria-label={
+                  drawing ? `Finish drawing on ${title}` : `Draw on ${title}`
+                }
+                onClick={() => {
+                  onDrawingChange?.(!drawing);
+                  setDrawing(!drawing);
+                }}
+              >
+                {drawing ? (
+                  <Check className="h-3.5 w-3.5" />
+                ) : (
+                  <Pencil className="h-3.5 w-3.5" />
+                )}
+                {drawing ? "Done" : "Draw"}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

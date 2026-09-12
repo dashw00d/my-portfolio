@@ -19,6 +19,7 @@ import {
   type ProposalOption,
 } from "@/lib/proposal/config";
 import { newProposalTemplate, proposalToken } from "@/lib/proposal/template";
+import { workspaceAccess } from "@/lib/proposal/workspace";
 import type { ProposalState } from "@/lib/proposal/types";
 import ProposalPage from "./ProposalPage";
 
@@ -39,6 +40,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 export default function ProposalBuilderPage() {
   const [config, setConfig] = useState<ProposalConfig>(newProposalTemplate);
   const [admin, setAdmin] = useState("");
+  const [sourceId, setSourceId] = useState("");
   const [ready, setReady] = useState(false);
   const [draftStatus, setDraftStatus] = useState("");
   const [error, setError] = useState("");
@@ -51,7 +53,9 @@ export default function ProposalBuilderPage() {
   const [copied, setCopied] = useState("");
 
   useEffect(() => {
-    setAdmin(new URLSearchParams(window.location.search).get("admin") ?? "");
+    const params = new URLSearchParams(window.location.search);
+    setAdmin(params.get("admin") ?? workspaceAccess());
+    setSourceId(params.get("source") ?? "");
     try {
       const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "null");
       if (
@@ -68,6 +72,7 @@ export default function ProposalBuilderPage() {
       /* Start fresh when browser storage is unavailable. */
     }
     try {
+      if (params.get("fresh") === "1") sessionStorage.removeItem(LINKS_KEY);
       const created = JSON.parse(sessionStorage.getItem(LINKS_KEY) ?? "null");
       if (
         typeof created?.clientUrl === "string" &&
@@ -78,6 +83,11 @@ export default function ProposalBuilderPage() {
         setLinks(created);
     } catch {
       /* Link recovery is optional when session storage is unavailable. */
+    }
+    if (params.has("fresh")) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("fresh");
+      window.history.replaceState(null, "", url);
     }
     setReady(true);
   }, []);
@@ -107,7 +117,7 @@ export default function ProposalBuilderPage() {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/proposal/api.php/review", {
+      const response = await fetch(`/proposal/api.php/review${sourceId ? `?proposal=${encodeURIComponent(sourceId)}` : ""}`, {
         headers: { "X-Proposal-Admin": proposalToken(admin) },
       });
       const result = await response.json();
@@ -266,10 +276,10 @@ export default function ProposalBuilderPage() {
   }
 
   return (
-    <main className="proposal-shell min-h-screen">
+    <main className="proposal-shell proposal-builder min-h-screen">
       <div className="proposal-topbar">
         <a
-          href="/proposal/review/"
+          href="/proposal/"
           className="flex items-center gap-3 font-bold"
         >
           <span className="proposal-monogram">RS</span>Proposal studio
@@ -331,6 +341,7 @@ export default function ProposalBuilderPage() {
               </div>
             ))}
             <div className="mt-8 flex flex-wrap gap-3">
+              <a className="proposal-button proposal-button--secondary" href="/proposal/">All proposals</a>
               <a className="proposal-button" href={links.reviewUrl}>
                 Open review <ArrowRight className="h-4 w-4" />
               </a>

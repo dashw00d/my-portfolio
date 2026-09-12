@@ -182,6 +182,55 @@ function proposal_config(array $proposal): ?array
     return $proposal['config_json'] ? json_decode($proposal['config_json'], true) : null;
 }
 
+function is_workspace_admin(PDO $database, string $token): bool
+{
+    $statement = $database->prepare('SELECT admin_token_hash FROM proposals WHERE id = :id');
+    $statement->execute(['id' => PROPOSAL_ID]);
+    $hash = $statement->fetchColumn();
+    return $token !== '' && is_string($hash) && tokens_match($hash, $token);
+}
+
+function proposal_client_token(array $proposal): ?string
+{
+    $token = $proposal['client_token'] ?? null;
+    if ($token === null && $proposal['id'] === PROPOSAL_ID) {
+        $token = hash_token_value('client');
+    }
+    return is_string($token) && tokens_match((string) $proposal['client_token_hash'], $token) ? $token : null;
+}
+
+function list_proposals(PDO $database): never
+{
+    $rows = $database->query('SELECT p.*, COALESCE(r.response_count, 0) AS response_count,
+        r.last_submitted_at, MAX(p.updated_at, COALESCE(s.updated_at, 0), COALESCE(r.last_submitted_at, 0)) AS activity_at
+        FROM proposals p
+        LEFT JOIN shared_state s ON s.proposal_id = p.id
+        LEFT JOIN (SELECT proposal_id, COUNT(*) AS response_count, MAX(submitted_at) AS last_submitted_at
+            FROM submissions GROUP BY proposal_id) r ON r.proposal_id = p.id
+        ORDER BY p.created_at DESC, p.id DESC')->fetchAll();
+    $items = array_map(function (array $proposal): array {
+        $config = proposal_config($proposal);
+        $clientToken = proposal_client_token($proposal);
+        $clientPath = $proposal['id'] === PROPOSAL_ID ? '/p/southern-star/' : '/p/proposal/';
+        return [
+            'id' => $proposal['id'],
+            'title' => $config['title'] ?? null,
+            'clientName' => $config['clientName'] ?? null,
+            'status' => $proposal['status'],
+            'isExpired' => $proposal['expires_at'] !== null && (int) $proposal['expires_at'] < time(),
+            'createdAt' => gmdate('c', (int) $proposal['created_at']),
+            'updatedAt' => gmdate('c', (int) $proposal['updated_at']),
+            'lastActivityAt' => gmdate('c', (int) $proposal['activity_at']),
+            'lastSubmittedAt' => $proposal['last_submitted_at'] === null ? null : gmdate('c', (int) $proposal['last_submitted_at']),
+            'expiresAt' => $proposal['expires_at'] === null ? null : gmdate('c', (int) $proposal['expires_at']),
+            'responseCount' => (int) $proposal['response_count'],
+            'clientUrl' => $clientToken === null ? null : $clientPath . '?token=' . rawurlencode($clientToken),
+            'reviewUrl' => '/proposal/review/?proposal=' . rawurlencode((string) $proposal['id']),
+        ];
+    }, $rows);
+    send_json(200, ['proposals' => $items]);
+}
+
 function config_text(array $input, string $key, int $limit = 1200, bool $required = true): string
 {
     $value = $input[$key] ?? '';
@@ -282,6 +331,45 @@ function create_proposal(PDO $database): never
     $statement->execute(['id' => $id, 'client' => hash('sha256', $clientToken), 'admin' => hash('sha256', $adminToken),
         'config' => json_encode($config, JSON_UNESCAPED_SLASHES), 'token' => $clientToken, 'now' => time()]);
     send_json(201, ['clientUrl' => '/p/proposal/?token=' . $clientToken, 'reviewUrl' => '/proposal/review/?admin=' . $adminToken]);
+}
+
+function update_proposal_copy(PDO $database, array $proposal): never
+{
+    $input = read_json_body();
+    if (!isset($input['configVersion']) || !is_int($input['configVersion'])) {
+        send_json(428, ['error' => 'Open the proposal before saving changes.']);
+    }
+    $config = validate_config((array) ($input['config'] ?? []), (string) $proposal['id']);
+    $original = proposal_config($proposal);
+    if ($original !== null) {
+        // Copy edits retain option identity, pricing, defaults, and image geometry.
+        $updated = $original;
+        foreach (['title', 'clientName', 'clientNames', 'senderName', 'senderEmail', 'introduction', 'closingNote', 'previewCaption'] as $key) {
+            $updated[$key] = $config[$key];
+        }
+        if ($config['baseOption']['id'] !== $original['baseOption']['id']) {
+            send_json(422, ['error' => 'Copy edits must keep the existing options.']);
+        }
+        foreach (['label', 'summary', 'includes'] as $key) $updated['baseOption'][$key] = $config['baseOption'][$key];
+        foreach (['sections' => ['title', 'summary', 'bullets'], 'oneTimeOptions' => ['label', 'summary', 'includes'],
+            'recurringOptions' => ['label', 'summary'], 'thirdPartyCosts' => ['label', 'detail']] as $group => $keys) {
+            if (array_column($config[$group], 'id') !== array_column($original[$group], 'id')) {
+                send_json(422, ['error' => 'Copy edits must keep the existing sections and options.']);
+            }
+            foreach ($config[$group] as $index => $item) {
+                foreach ($keys as $key) $updated[$group][$index][$key] = $item[$key];
+            }
+        }
+        $config = $updated;
+    }
+    $statement = $database->prepare('UPDATE proposals SET config_json = :config,
+        config_version = config_version + 1, updated_at = :now WHERE id = :id AND config_version = :version');
+    $statement->execute(['config' => json_encode($config, JSON_UNESCAPED_SLASHES), 'now' => time(),
+        'id' => $proposal['id'], 'version' => $input['configVersion']]);
+    if ($statement->rowCount() !== 1) {
+        send_json(409, ['error' => 'The copy changed in another tab. Reload the latest copy before saving.']);
+    }
+    send_json(200, ['config' => $config, 'configVersion' => $input['configVersion'] + 1]);
 }
 
 function normalize_state(array $input): array
@@ -508,6 +596,7 @@ function handle_get(array $proposal): never
         'config' => proposal_config($proposal),
         'status' => $proposal['status'],
         'isExpired' => $isExpired,
+        'clientPath' => $proposal['id'] === PROPOSAL_ID ? '/p/southern-star/' : '/p/proposal/',
         'state' => $loaded['state'],
         'revision' => $loaded['revision'],
     ]);
@@ -575,7 +664,7 @@ function handle_review(array $proposal): never
         'state' => $loaded['state'],
         'revision' => $loaded['revision'],
         'submissions' => $submissions,
-        'clientPath' => $proposal['config_json'] ? '/p/proposal/' : '/p/southern-star/',
+        'clientPath' => $proposal['id'] === PROPOSAL_ID ? '/p/southern-star/' : '/p/proposal/',
         'clientToken' => $proposal['client_token'] ?? (tokens_match((string) $proposal['client_token_hash'], hash_token_value('client'))
             ? hash_token_value('client') : null),
     ]);
@@ -584,6 +673,13 @@ function handle_review(array $proposal): never
 function handle_post(array $proposal): never
 {
     $database = bootstrap();
+    $data = read_json_body();
+    // Keep the saved feedback and submission snapshot consistent.
+    $database->exec('BEGIN IMMEDIATE');
+    $statement = $database->prepare('SELECT * FROM proposals WHERE id = :id');
+    $statement->execute(['id' => $proposal['id']]);
+    $proposal = $statement->fetch();
+    $statement->closeCursor();
     if ($proposal['status'] !== 'active') {
         send_json(423, ['error' => 'This proposal cannot receive feedback right now.']);
     }
@@ -592,8 +688,15 @@ function handle_post(array $proposal): never
         send_json(410, ['error' => 'This proposal link has expired.']);
     }
 
-    $data = read_json_body();
     $loaded = load_state($database, $proposal);
+    if (!isset($data['revision']) || !is_int($data['revision'])) {
+        $database->exec('ROLLBACK');
+        send_json(428, ['error' => 'Refresh the proposal before sending feedback. Your saved choices will still be there.']);
+    }
+    if ($data['revision'] !== $loaded['revision']) {
+        $database->exec('ROLLBACK');
+        send_json(409, ['error' => 'Feedback changed in another tab. Refresh to review it before sending.']);
+    }
     $submittedAt = gmdate('c');
     $snapshot = [
         'id' => 'response-' . bin2hex(random_bytes(8)),
@@ -615,6 +718,7 @@ function handle_post(array $proposal): never
         'config_version' => $snapshot['configVersion'],
         'submitted_at' => time(),
     ]);
+    $database->exec('COMMIT');
 
     send_admin_email($snapshot);
     $update = $database->prepare('UPDATE submissions SET email_status = "sent" WHERE id = :id');
@@ -632,6 +736,10 @@ function handle_admin(array $proposal): never
 
     if ($action === 'create') {
         create_proposal($database);
+    }
+
+    if ($action === 'update_copy') {
+        update_proposal_copy($database, $proposal);
     }
 
     if ($action === 'set_status') {
@@ -671,7 +779,24 @@ function main(): void
     $clientToken = (string) ($query['token'] ?? ($_SERVER['HTTP_X_PROPOSAL_TOKEN'] ?? ''));
     $adminToken = (string) ($query['admin'] ?? ($_SERVER['HTTP_X_PROPOSAL_ADMIN'] ?? ''));
 
-    $proposal = find_proposal(bootstrap(), $clientToken, $adminToken);
+    $database = bootstrap();
+    $workspaceAdmin = is_workspace_admin($database, $adminToken);
+    $adminPath = in_array($path, ['/proposal/api.php/admin', '/proposal/api.php/admin/'], true);
+    if ($adminPath && $method === 'GET' && ($query['action'] ?? '') === 'list') {
+        if (!$workspaceAdmin) send_json(403, ['error' => 'Use the owner admin link to open all proposals.']);
+        list_proposals($database);
+    }
+
+    if (isset($query['proposal'])) {
+        // Only the workspace owner may select another proposal by ID.
+        if (!$workspaceAdmin) send_json(403, ['error' => 'Owner access is required.']);
+        if (!is_string($query['proposal'])) send_json(422, ['error' => 'Invalid proposal.']);
+        $statement = $database->prepare('SELECT * FROM proposals WHERE id = :id');
+        $statement->execute(['id' => $query['proposal']]);
+        $proposal = $statement->fetch() ?: null;
+    } else {
+        $proposal = find_proposal($database, $clientToken, $adminToken);
+    }
     if ($proposal === null) {
         send_json(404, ['error' => 'Proposal not found.']);
     }
@@ -681,7 +806,7 @@ function main(): void
             handle_get($proposal);
         }
         if ($method === 'PUT') {
-            handle_put($proposal, tokens_match((string) $proposal['admin_token_hash'], $adminToken));
+            handle_put($proposal, $workspaceAdmin || tokens_match((string) $proposal['admin_token_hash'], $adminToken));
         }
         if ($method === 'POST') {
             handle_post($proposal);
@@ -689,13 +814,13 @@ function main(): void
     }
 
     if (in_array($path, ['/proposal/api.php/admin', '/proposal/api.php/admin/'], true)
-        && $method === 'POST' && tokens_match((string) $proposal['admin_token_hash'], $adminToken)) {
+        && $method === 'POST' && ($workspaceAdmin || tokens_match((string) $proposal['admin_token_hash'], $adminToken))) {
         handle_admin($proposal);
     }
 
     if (
         in_array($path, ['/proposal/api.php/review', '/proposal/api.php/review/'], true)
-        && tokens_match((string) $proposal['admin_token_hash'], $adminToken)
+        && ($workspaceAdmin || tokens_match((string) $proposal['admin_token_hash'], $adminToken))
     ) {
         if ($method === 'GET') {
             handle_review($proposal);

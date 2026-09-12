@@ -4,6 +4,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { PROPOSAL_CONFIG } from "../lib/proposal/config.ts";
+
 // Isolated storage and a stub mail transport: never touches real proposals or sends email.
 const directory = mkdtempSync(path.join(tmpdir(), "proposal-check-"));
 const env = {
@@ -96,6 +98,14 @@ try {
   assert.equal(seed.status, 0, seed.stderr);
   const original = request("GET", "/proposal/api.php?token=test-client");
   assert.equal(original.status, 200);
+  assert.equal(original.data.clientPath, "/p/southern-star/");
+  const listUri = "/proposal/api.php/admin?action=list";
+  assert.equal(request("GET", listUri).status, 403);
+  assert.equal(request("GET", `${listUri}&token=test-client`).status, 403);
+  const initialList = request("GET", listUri, undefined, "test-admin");
+  assert.equal(initialList.status, 200);
+  assert.equal(initialList.data.proposals.length, 1);
+  assert.equal(initialList.data.proposals[0].clientUrl, "/p/southern-star/?token=test-client");
   const originalState = original.data.state;
   originalState.selections.displayName = "Original client";
   assert.equal(
@@ -169,7 +179,15 @@ try {
   const uri = `/proposal/api.php?token=${client}`;
   const loaded = request("GET", uri);
   assert.equal(loaded.status, 200);
+  assert.equal(loaded.data.clientPath, "/p/proposal/");
   assert.equal(loaded.data.config.title, config.title);
+  const proposalId = loaded.data.config.id;
+  assert.equal(request("GET", listUri, undefined, admin).status, 403);
+  const ownerReviewUri = `/proposal/api.php/review?proposal=${proposalId}`;
+  assert.equal(request("GET", ownerReviewUri, undefined, admin).status, 403);
+  assert.equal(request("GET", ownerReviewUri, undefined, client).status, 403);
+  assert.equal(request("GET", ownerReviewUri, undefined, "test-admin").data.config.id, proposalId);
+  assert.equal(request("GET", "/proposal/api.php/review?proposal=missing", undefined, "test-admin").status, 404);
   assert.equal(loaded.data.state.selections.baseSelected, false);
   assert.deepEqual(loaded.data.state.selections.oneTimeOptionIds, ["extra"]);
   assert.deepEqual(loaded.data.state.selections.recurringOptionIds, [
@@ -211,7 +229,9 @@ try {
     request("GET", `/proposal/api.php/review?token=${client}`).status,
     404,
   );
-  const submitted = request("POST", uri, { displayName: "Alex" });
+  assert.equal(request("POST", uri, { displayName: "Alex" }).status, 428);
+  assert.equal(request("POST", uri, { displayName: "Alex", revision: 1 }).status, 409);
+  const submitted = request("POST", uri, { displayName: "Alex", revision: reopened.revision });
   assert.equal(submitted.status, 200);
   assert.equal(submitted.data.snapshot.config.baseOption.price, 120);
   const review = request("GET", "/proposal/api.php/review", undefined, admin);
@@ -220,6 +240,50 @@ try {
   assert.equal(review.data.clientPath, "/p/proposal/");
   assert.equal(review.data.submissions.length, 1);
   assert.equal(review.data.submissions[0].state.doodles.length, 1);
+  const listing = request("GET", listUri, undefined, "test-admin");
+  assert.equal(listing.status, 200);
+  assert.equal(listing.data.proposals.length, 2);
+  const listed = listing.data.proposals.find((item: { id: string }) => item.id === proposalId);
+  assert.equal(listed.title, config.title);
+  assert.equal(listed.clientName, config.clientName);
+  assert.equal(listed.responseCount, 1);
+  assert.equal(listed.clientUrl, created.data.clientUrl);
+  assert.equal(listed.reviewUrl, `/proposal/review/?proposal=${proposalId}`);
+  assert.ok(Date.parse(listed.lastActivityAt) >= Date.parse(listed.createdAt));
+  assert.equal(listed.lastSubmittedAt, review.data.submissions[0].submittedAt);
+  for (const key of ["state", "config", "admin_token_hash", "client_token_hash", "adminToken"]) {
+    assert.equal(key in listed, false);
+  }
+  const ownerStatusUri = `/proposal/api.php/admin?action=set_status&proposal=${proposalId}`;
+  const copyUri = `/proposal/api.php/admin?action=update_copy&proposal=${proposalId}`;
+  const copy = { ...reopened.config, title: "The revised proposal", introduction: "Hello Alex. Here is the plan." };
+  assert.equal(request("POST", copyUri, { config: copy, configVersion: 1 }, client).status, 403);
+  assert.equal(request("POST", copyUri, { config: copy, configVersion: 1 }, admin).status, 403);
+  assert.equal(request("POST", copyUri, { config: copy }, "test-admin").status, 428);
+  assert.equal(request("POST", copyUri, { config: { ...copy, title: "" }, configVersion: 1 }, "test-admin").status, 422);
+  assert.equal(request("POST", copyUri, { config: { ...copy, sections: [] }, configVersion: 1 }, "test-admin").status, 422);
+  const edited = request("POST", copyUri, { config: { ...copy, baseOption: { ...copy.baseOption, price: 0 } }, configVersion: 1 }, "test-admin");
+  assert.equal(edited.status, 200);
+  assert.equal(edited.data.configVersion, 2);
+  assert.equal(edited.data.config.baseOption.price, config.baseOption.price);
+  const afterCopy = request("GET", uri).data;
+  assert.equal(afterCopy.config.title, copy.title);
+  assert.equal(afterCopy.config.introduction, copy.introduction);
+  assert.equal(request("GET", "/proposal/api.php/review", undefined, admin).data.submissions.length, 1);
+  assert.deepEqual(afterCopy.state, reopened.state);
+  assert.equal(afterCopy.revision, reopened.revision);
+  assert.equal(request("GET", "/proposal/api.php/review", undefined, admin).data.submissions[0].config.title, config.title);
+  assert.equal(request("GET", listUri, undefined, "test-admin").data.proposals.find((item: { id: string }) => item.id === proposalId).clientUrl, created.data.clientUrl);
+  assert.equal(request("POST", copyUri, { config: { ...copy, title: "Stale overwrite" }, configVersion: 1 }, "test-admin").status, 409);
+  assert.equal(request("GET", uri).data.config.title, copy.title);
+  assert.equal(request("POST", "/proposal/api.php/admin?action=update_copy", { config: copy, configVersion: 2 }, admin).status, 200);
+  // Copy changes do not add an extra review or confirmation step for clients.
+  const afterEditSubmission = request("POST", uri, { displayName: "Alex", revision: afterCopy.revision, configVersion: 1 });
+  assert.equal(afterEditSubmission.status, 200);
+  assert.equal(afterEditSubmission.data.snapshot.config.title, copy.title);
+  assert.equal(request("POST", ownerStatusUri, { status: "read_only" }, admin).status, 403);
+  assert.equal(request("POST", ownerStatusUri, { status: "read_only" }, "test-admin").status, 200);
+  assert.equal(request("GET", ownerReviewUri, undefined, "test-admin").data.status, "read_only");
   assert.equal(
     request("GET", "/proposal/api.php?token=test-client").data.state.selections
       .displayName,
@@ -279,8 +343,19 @@ try {
     request("GET", "/proposal/api.php/review", undefined, admin).status,
     200,
   );
+  const legacyBefore = request("GET", "/proposal/api.php?token=test-client").data;
+  const legacyEdit = request("POST", "/proposal/api.php/admin?action=update_copy&proposal=southern-star-website-rebuild", {
+    configVersion: 1,
+    config: { ...PROPOSAL_CONFIG, introduction: "Hi Erica and Taylor. Here is the plan." },
+  }, "test-admin");
+  assert.equal(legacyEdit.status, 200);
+  const legacyAfter = request("GET", "/proposal/api.php?token=test-client").data;
+  assert.equal(legacyAfter.config.introduction, "Hi Erica and Taylor. Here is the plan.");
+  assert.equal(legacyAfter.clientPath, "/p/southern-star/");
+  assert.deepEqual(legacyAfter.state, legacyBefore.state);
+  assert.equal(request("GET", listUri, undefined, "test-admin").data.proposals.find((item: { id: string }) => item.id === PROPOSAL_CONFIG.id).clientUrl, "/p/southern-star/?token=test-client");
   console.log(
-    "Proposal checks passed: legacy migration, creation, validation, access isolation, defaults, save/reopen, drawings, conflicts, snapshots, read-only, revocation, and expiry. No email sent.",
+    "Proposal checks passed: legacy migration, creation, validation, workspace listing and owner access, copy editing and version conflicts, stable links and feedback, per-proposal isolation, defaults, save/reopen, drawings, snapshots, read-only, revocation, and expiry. No email sent.",
   );
 } finally {
   rmSync(directory, { recursive: true, force: true });

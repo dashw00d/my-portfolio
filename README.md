@@ -48,7 +48,23 @@ The form posts JSON to `/api/contact.php`. PHP reads `SMTP_*` and `CONTACT_*` fr
 
 ## Interactive proposals
 
+### Admin panel
+
+Open `/proposal/` to see all proposals, search by client or title, filter by link status, and sort by creation or activity date. Each row shows created/latest activity dates, response counts, client links, and a private review link. **New proposal** opens the builder; **All proposals** returns from the builder or review screen.
+
+Unlock the panel with the original owner admin link/token (the admin token used to initialize the Southern Star record, initially `PROPOSAL_ADMIN_TOKEN`). Individual proposal admin links still access only their own review and cannot list or manage other proposals. Changing the environment variable does not rotate an existing stored owner token.
+
+Owner access is remembered in session storage for the current tab. **Lock** clears it. Panel review links contain a proposal ID and require owner access when opened; they do not reveal or replace existing per-proposal admin tokens. Client links remain shareable. If browser storage is disabled, paste the owner token again when opening a review.
+
+The list uses `GET /proposal/api.php/admin?action=list`; owner reviews and access changes select a record with `?proposal=ID`. Existing nginx PHP locations already cover these endpoints. No additional database columns or runtime services are needed.
+
+Choose **Edit copy** on a proposal row or review screen to update its wording at `/proposal/edit/`. Preview changes, then choose **Save changes** to update the existing client link. This preserves prices, option IDs, client selections, drawings, and submitted snapshots. Copy saves use a separate config version to reject stale edits from another tab. The original Southern Star proposal becomes database-backed on its first copy save while retaining its original link.
+
+Feedback submission checks the saved state `revision` while creating the snapshot. Copy edits do not introduce a client confirmation step. Unsaved feedback and pending submissions trigger the browser's leave-page warning.
+
 The private client page is `/p/southern-star/`, and Ryan's review screen is `/proposal/review/`. The proposal API is `public/proposal/api.php` and stores data in SQLite at `data/proposal/proposals.sqlite`, outside the public build output.
+
+The dev server starts one local PHP worker for proposal requests and keeps it warm, so opening and saving proposals do not reload PHP extensions on every request. The worker stops with the dev server; production still uses PHP-FPM.
 
 For local testing, export these before running `npm run dev`:
 

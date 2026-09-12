@@ -1,4 +1,5 @@
-import { Check } from "lucide-react";
+import { useId, useState } from "react";
+import { Check, ChevronDown } from "lucide-react";
 
 import type {
   ProposalOption,
@@ -11,6 +12,7 @@ import type {
   SectionFeedback,
 } from "@/lib/proposal/types";
 import ProposalMarkup from "./ProposalMarkup";
+import ProposalPawCheckbox from "./ProposalPawCheckbox";
 
 interface MarkupProps {
   doodles: DoodleStroke[];
@@ -29,10 +31,42 @@ export function ProposalOptionCard({
   selected: boolean;
   onSelect?: (selected: boolean) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const [drawing, setDrawing] = useState(false);
+  const detailsId = useId();
+  const hasMarks = markup.doodles.some(
+    (stroke) => stroke.targetId === option.id,
+  );
+  const showDetails = expanded || drawing || hasMarks;
   return (
-    <ProposalMarkup {...markup} targetId={option.id} title={option.label}>
+    <ProposalMarkup
+      {...markup}
+      targetId={option.id}
+      title={option.label}
+      onDrawingChange={(active) => {
+        setDrawing(active);
+        if (active) setExpanded(true);
+      }}
+      controls={
+        !hasMarks && option.includes.length > 0 ? (
+          <button
+            type="button"
+            className="proposal-option-disclosure"
+            aria-label={option.label}
+            title={option.label}
+            aria-expanded={showDetails}
+            aria-controls={detailsId}
+            disabled={drawing}
+            onClick={() => setExpanded((value) => !value)}
+          >
+            <ChevronDown className="h-4 w-4" />
+          </button>
+        ) : undefined
+      }
+    >
       <label
-        className={`proposal-card ${onSelect ? "cursor-pointer" : ""} ${selected ? "proposal-card--selected" : ""}`}
+        data-details-expanded={showDetails}
+        className={`proposal-card proposal-option-card ${onSelect ? "cursor-pointer" : ""} ${selected ? "proposal-card--selected" : ""}`}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -41,19 +75,21 @@ export function ProposalOptionCard({
               {option.label}
             </h3>
           </div>
-          <input
-            type="checkbox"
+          <ProposalPawCheckbox
             aria-label={`Include ${option.label}`}
             checked={selected}
             disabled={!onSelect}
             onChange={(event) => onSelect?.(event.target.checked)}
-            className="mt-1 h-5 w-5 flex-none accent-brand-600"
+            className="mt-1 h-5 w-5 flex-none"
           />
         </div>
         <p className="mt-3 text-sm leading-relaxed text-brand-900/75">
           {option.summary}
         </p>
-        <ul className="mt-4 space-y-2 text-sm leading-relaxed text-brand-900/65">
+        <ul
+          id={detailsId}
+          className="proposal-option-details mt-4 space-y-2 text-sm leading-relaxed text-brand-900/65"
+        >
           {option.includes.map((item) => (
             <li key={item} className="flex gap-2">
               <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-500" />
@@ -88,7 +124,12 @@ export function ProposalSectionCard({
     maybe_later: "Maybe later",
   };
   return (
-    <ProposalMarkup {...markup} targetId={section.id} title={section.title}>
+    <ProposalMarkup
+      {...markup}
+      targetId={section.id}
+      title={section.title}
+      tone="scope"
+    >
       <div className="proposal-card">
         <h3 className="text-lg font-semibold text-brand-950">
           {section.title}
@@ -149,22 +190,21 @@ export function ProposalRecurringCard({
   return (
     <ProposalMarkup {...markup} targetId={option.id} title={option.label}>
       <label
-        className={`proposal-card flex items-start gap-3 text-sm ${selected ? "proposal-card--selected" : ""} ${onSelect ? "cursor-pointer" : ""}`}
+        className={`proposal-card proposal-recurring-card flex items-start gap-3 text-sm ${selected ? "proposal-card--selected" : ""} ${onSelect ? "cursor-pointer" : ""}`}
       >
-        <input
-          type="checkbox"
+        <ProposalPawCheckbox
           aria-label={`Include ${option.label}`}
           checked={selected}
           disabled={!onSelect}
           onChange={(event) => onSelect?.(event.target.checked)}
-          className="mt-0.5 h-4 w-4 accent-brand-600"
+          className="mt-0.5 h-4 w-4 flex-none"
         />
         <span>
           <span className="block font-semibold text-brand-950">
             {option.label}
           </span>
           <span className="text-brand-900/75">{option.summary}</span>
-            <span className="mt-1 block font-bold text-brand-600">
+          <span className="mt-1 block font-bold text-brand-600">
             ${option.price.toLocaleString("en-US")} / {option.period}
           </span>
         </span>
