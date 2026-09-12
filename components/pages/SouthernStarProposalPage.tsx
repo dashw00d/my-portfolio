@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Check, Copy, Loader2, RefreshCw, Send } from "lucide-react";
 
 import { ProposalOptionCard, ProposalRecurringCard, ProposalSectionCard } from "@/components/proposal/ProposalCards";
@@ -27,8 +28,16 @@ function formatMoney(value: number) {
   return `$${value.toLocaleString("en-US")}`;
 }
 
-export default function SouthernStarProposalPage() {
-  const [state, setState] = useState<ProposalState>(emptyState);
+interface ReviewMirror {
+  state: ProposalState;
+  clientToken: string;
+  toolbar: ReactNode;
+  response: ReactNode;
+}
+
+export default function SouthernStarProposalPage({ review }: { review?: ReviewMirror }) {
+  const [localState, setState] = useState<ProposalState>(emptyState);
+  const state = review?.state ?? localState;
   const revision = useRef(1);
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const savedState = useRef<ProposalState | null>(null);
@@ -42,6 +51,7 @@ export default function SouthernStarProposalPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (review) return;
     const token = new URLSearchParams(window.location.search).get("token") || "";
     let cancelled = false;
     fetch(`/proposal/api.php?token=${encodeURIComponent(token)}`)
@@ -67,7 +77,7 @@ export default function SouthernStarProposalPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [review]);
 
   useEffect(() => {
     if (!previewToken || !editable || state === savedState.current) return;
@@ -172,7 +182,7 @@ export default function SouthernStarProposalPage() {
   const markup = { doodles: state.doodles, onDraw: editable ? addDoodle : undefined, onUndo: undoDoodle };
 
   function copyLink() {
-    const url = `${window.location.origin}/p/southern-star/?token=${encodeURIComponent(previewToken)}`;
+    const url = `${window.location.origin}/p/southern-star/?token=${encodeURIComponent(review?.clientToken ?? previewToken)}`;
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
@@ -185,22 +195,13 @@ export default function SouthernStarProposalPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-zinc-50 via-brand-50/30 to-white text-zinc-900">
       <div className="mx-auto max-w-6xl px-5 pb-24 pt-10 sm:px-8">
+        {review?.toolbar}
         <header className="rounded-3xl border border-brand-200 bg-white/85 p-7 shadow-xl shadow-brand-950/5 backdrop-blur sm:p-10">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand-600">Private proposal</p>
           <h1 className="mt-4 text-3xl font-black tracking-tight text-zinc-900 sm:text-5xl">{config.title}</h1>
           <p className="mt-5 max-w-3xl text-base leading-relaxed text-zinc-600">{config.introduction}</p>
-          <div className="mt-7 flex flex-wrap items-center gap-3">
-            <label htmlFor="displayName" className="text-sm font-semibold text-zinc-700">Your first name</label>
-            <input
-              id="displayName"
-              disabled={!editable}
-              value={state.selections.displayName}
-              onChange={(event) => updateSelections((previous) => ({ ...previous, displayName: event.target.value }))}
-              placeholder="Erica or Taylor"
-              className="w-44 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-            />
-          </div>
-          <p className="mt-4 text-sm text-brand-700">Use Draw on any option to circle details or sketch a note right on it.</p>
+
+          <p className="mt-4 text-sm text-brand-700">{review ? "The client’s proposal, with their selections, notes, and drawings in place." : "Use Draw on any option to circle details or sketch a note right on it."}</p>
         </header>
 
         <section className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -274,9 +275,14 @@ export default function SouthernStarProposalPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-lg">
+            {review ? review.response : <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-lg">
               <h2 className="text-lg font-bold text-zinc-900">Finish</h2>
               <p className="mt-2 text-sm text-zinc-600">Selections are for discussion, not a payment or binding acceptance.</p>
+              <label htmlFor="displayName" className="mt-4 block text-sm font-semibold text-brand-900">Who’s sending this? <span className="font-normal text-brand-700">(optional)</span></label>
+              <input id="displayName" disabled={!editable} value={state.selections.displayName}
+                onChange={(event) => updateSelections((previous) => ({ ...previous, displayName: event.target.value }))}
+                placeholder="Erica or Taylor" maxLength={40}
+                className="mt-2 w-full rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm text-brand-950 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" />
               <button
                 type="button"
                 onClick={submitFeedback}
@@ -294,7 +300,7 @@ export default function SouthernStarProposalPage() {
                 {saveStatus === "error" && <><RefreshCw className="h-4 w-4 text-danger-600" /> {saveMessage}</>}
                 {saveStatus === "idle" && <>Changes save automatically.</>}
               </div>
-            </div>
+            </div>}
 
             <div className="rounded-3xl border border-dashed border-zinc-300 bg-white/60 p-5">
               <button type="button" onClick={copyLink} className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-600 hover:text-brand-600">

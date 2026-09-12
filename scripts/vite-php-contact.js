@@ -115,6 +115,8 @@ function attachPhpProposal(server, root) {
           ...process.env,
           REQUEST_METHOD: req.method || "GET",
           REQUEST_URI: req.url || "/proposal/api.php",
+          HTTP_X_PROPOSAL_ADMIN: req.headers["x-proposal-admin"] || "",
+          HTTP_X_PROPOSAL_TOKEN: req.headers["x-proposal-token"] || "",
           CONTENT_TYPE: req.headers["content-type"] || "application/json",
           CONTENT_LENGTH: String(body.length),
           REMOTE_ADDR: req.socket?.remoteAddress || "127.0.0.1",
