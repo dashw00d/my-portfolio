@@ -17,6 +17,10 @@ export default {
   ],
   theme: {
     extend: {
+      boxShadow: {
+        soft: "0 1px 2px rgba(2, 56, 54, 0.04), 0 16px 40px -24px rgba(2, 56, 54, 0.35)",
+        "soft-lg": "0 2px 4px rgba(2, 56, 54, 0.05), 0 28px 64px -30px rgba(2, 56, 54, 0.45)",
+      },
       colors: {
         brand: {
           50: withOpacityValue('--color-brand-50'),

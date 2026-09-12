@@ -92,30 +92,12 @@
   background-size: 140px auto, 110px auto, 95px auto;
   background-repeat: no-repeat;
   background-position: 8% 22%, 52% 52%, 88% 72%;
-  mix-blend-mode: soft-light;
-  opacity: 0.2;
-  filter: saturate(115%);
-  animation: pawTrailWave 18s ease-in-out infinite alternate;
+  opacity: 0.14;
 }
 
 .paw-trail-layer--reverse {
   transform: scaleX(-1);
   transform-origin: center;
-}
-
-@keyframes pawTrailWave {
-  0% {
-    background-position: 8% 22%, 52% 52%, 88% 72%;
-    opacity: 0.16;
-  }
-  50% {
-    background-position: 10% 18%, 48% 56%, 82% 68%;
-    opacity: 0.3;
-  }
-  100% {
-    background-position: 12% 24%, 45% 50%, 78% 74%;
-    opacity: 0.18;
-  }
 }
 
 .bg-service-grid {
@@ -124,21 +106,6 @@
     linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px);
   background-size: 48px 48px;
   background-position: center;
-}
-
-.animate-grid-wave {
-  animation: gridWave 8s ease-in-out infinite;
-}
-
-@keyframes gridWave {
-  0%, 100% {
-    opacity: 0.08;
-    transform: translateY(0);
-  }
-  50% {
-    opacity: 0.5;
-    transform: translateY(-12px);
-  }
 }
 
 @layer base {
@@ -151,6 +118,10 @@
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: rgb(var(--color-brand-500) / 0.22);
   }
 
   /* Stronger focus states for accessibility and personality */
@@ -166,7 +137,7 @@
 
   /* Consistent spacing */
   section {
-    @apply py-16 md:py-20 lg:py-24;
+    @apply scroll-mt-20 py-16 md:py-20 lg:py-24;
   }
 
   /* Arrow consistency - standardize to → */
@@ -193,6 +164,16 @@
 
   .card-hover {
     @apply hover:-translate-y-1;
+  }
+
+  /* Section eyebrow pill used across the marketing pages */
+  .section-eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full border border-brand-200/70 bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-brand-700 shadow-sm backdrop-blur;
+  }
+
+  /* Base surface for raised content blocks */
+  .surface {
+    @apply rounded-3xl border border-zinc-200/80 bg-white/95 shadow-soft;
   }
 }
 

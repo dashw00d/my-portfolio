@@ -114,9 +114,16 @@ Let&apos;s talk
           </p>
         </div>
 
-        <div className="mt-16 grid gap-10 lg:grid-cols-2">
-          <div className="space-y-6 rounded-3xl border border-brand-500/30 bg-white/5 p-8 backdrop-blur">
-            <p className="text-sm font-semibold uppercase tracking-[0.35em] text-brand-200">What to include</p>
+        <div className="mt-16 grid items-start gap-10 lg:grid-cols-2">
+          <div className="relative isolate space-y-6 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] p-8 shadow-soft-lg">
+            <div className="pointer-events-none absolute -bottom-20 -right-16 -z-10 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(67,171,167,0.28),transparent_70%)]" />
+            <img
+              src="/images/Paw_Print.svg"
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-4 right-8 -z-10 h-28 w-28 opacity-[0.05]"
+            />
+            <p className="relative text-sm font-semibold uppercase tracking-[0.35em] text-brand-200">What to include</p>
             <ul className="space-y-4 text-sm text-brand-100">
               <li className="rounded-2xl border border-brand-500/30 bg-brand-500/10 p-4">
                 <span className="block text-xs font-semibold uppercase tracking-widest text-brand-200">1. Symptoms</span>
@@ -139,7 +146,7 @@ Let&apos;s talk
           <form
             id="contact-form"
             onSubmit={handleSubmit}
-            className="space-y-6 rounded-3xl border border-brand-500/40 bg-white/10 p-8 shadow-xl shadow-brand-950/30 backdrop-blur"
+            className="relative space-y-6 rounded-3xl border border-white/10 bg-white/[0.08] p-8 shadow-soft-lg"
             style={{ scrollMarginTop: '6rem' }}
           >
             <div className="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden="true">
@@ -167,7 +174,7 @@ Let&apos;s talk
                   required
                   value={formData.name}
                   onChange={handleChange}
-                  className="mt-2 w-full rounded-xl border border-brand-500/40 bg-brand-900/30 px-4 py-3 text-sm text-white placeholder:text-brand-200 focus:border-white focus:outline-none focus:ring-2 focus:ring-brand-200/70"
+                  className="mt-2 w-full rounded-xl border border-white/15 bg-brand-950/40 px-4 py-3 text-sm text-white placeholder:text-brand-200/60 transition focus:border-brand-300/70 focus:outline-none focus:ring-2 focus:ring-brand-300/30"
                   placeholder="Jane Doe"
                 />
               </div>
@@ -183,7 +190,7 @@ Let&apos;s talk
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className="mt-2 w-full rounded-xl border border-brand-500/40 bg-brand-900/30 px-4 py-3 text-sm text-white placeholder:text-brand-200 focus:border-white focus:outline-none focus:ring-2 focus:ring-brand-200/70"
+                  className="mt-2 w-full rounded-xl border border-white/15 bg-brand-950/40 px-4 py-3 text-sm text-white placeholder:text-brand-200/60 transition focus:border-brand-300/70 focus:outline-none focus:ring-2 focus:ring-brand-300/30"
                   placeholder="you@company.com"
                 />
               </div>
@@ -200,7 +207,7 @@ Let&apos;s talk
                 autoComplete="organization"
                 value={formData.company}
                 onChange={handleChange}
-                className="mt-2 w-full rounded-xl border border-brand-500/40 bg-brand-900/30 px-4 py-3 text-sm text-white placeholder:text-brand-200 focus:border-white focus:outline-none focus:ring-2 focus:ring-brand-200/70"
+                className="mt-2 w-full rounded-xl border border-white/15 bg-brand-950/40 px-4 py-3 text-sm text-white placeholder:text-brand-200/60 transition focus:border-brand-300/70 focus:outline-none focus:ring-2 focus:ring-brand-300/30"
                 placeholder="Acme Inc."
               />
             </div>
@@ -216,7 +223,7 @@ Let&apos;s talk
                 value={formData.project}
                 onChange={handleChange}
                 rows={5}
-                className="mt-2 w-full rounded-xl border border-brand-500/40 bg-brand-900/30 px-4 py-3 text-sm text-white placeholder:text-brand-200 focus:border-white focus:outline-none focus:ring-2 focus:ring-brand-200/70"
+                className="mt-2 w-full rounded-xl border border-white/15 bg-brand-950/40 px-4 py-3 text-sm text-white placeholder:text-brand-200/60 transition focus:border-brand-300/70 focus:outline-none focus:ring-2 focus:ring-brand-300/30"
                 placeholder="Slow checkout, no deliverability visibility, missing lead attribution..."
               />
             </div>
@@ -231,7 +238,7 @@ Let&apos;s talk
                 type="text"
                 value={formData.timeline}
                 onChange={handleChange}
-                className="mt-2 w-full rounded-xl border border-brand-500/40 bg-brand-900/30 px-4 py-3 text-sm text-white placeholder:text-brand-200 focus:border-white focus:outline-none focus:ring-2 focus:ring-brand-200/70"
+                className="mt-2 w-full rounded-xl border border-white/15 bg-brand-950/40 px-4 py-3 text-sm text-white placeholder:text-brand-200/60 transition focus:border-brand-300/70 focus:outline-none focus:ring-2 focus:ring-brand-300/30"
                 placeholder="In production by end of May"
               />
             </div>

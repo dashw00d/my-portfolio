@@ -1,6 +1,15 @@
-import React, { useMemo, useState, useEffect, useRef } from "react";
-import { ServerCrash, MailX, UserX, EyeOff } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { ServerCrash, MailX, UserX, EyeOff, Wrench } from "lucide-react";
 import TerminalBlock from "./TerminalBlock";
+
+const TERMINAL_LINES = [
+  "Checking your site...",
+  "> Slow load times killing conversions?",
+  "> Emails disappearing into spam?",
+  "> Leads slipping through cracks?",
+  "> Google ranking nowhere to be found?",
+  "I can fix that.",
+];
 
 interface Problem {
   icon: React.ComponentType<{ className?: string }>;
@@ -69,19 +78,6 @@ const proofPoints: ProofPoint[] = [
   { value: "12+", label: "industries supported to date", color: "accent" },
 ];
 
-function Problems() {
-  const terminalLines = useMemo(
-    () => [
-      "Checking your site...",
-      "> Slow load times killing conversions?",
-      "> Emails disappearing into spam?",
-      "> Leads slipping through cracks?",
-      "> Google ranking nowhere to be found?",
-      "I can fix that.",
-    ],
-    []
-  );
-
 // Using your custom Paw_Print.svg
 function createPawSVG(size: number, color: string) {
   return (
@@ -90,7 +86,6 @@ function createPawSVG(size: number, color: string) {
       height={size}
       viewBox="0 0 595.276 841.89"
       xmlns="http://www.w3.org/2000/svg"
-      className="drop-shadow-sm"
     >
       <g transform="translate(269.81467,-650.62904)">
         {/* Main paw pad */}
@@ -222,22 +217,22 @@ function PawTrail() {
 function TerminalAudit() {
   return (
     <div className="relative mt-20 sm:mt-16">
-      <div className="pointer-events-none absolute left-1/2 -top-[32px] flex w-32 -translate-x-1/2 drop-shadow-2xl sm:w-40">
-        <img
-          src="/images/doggo.png"
-          alt="Friendly dog peeking over the diagnostics terminal"
-          width={128}
-          height={104}
-          className="select-none"
-        />
-      </div>
       <div
-        className="rounded-3xl border border-zinc-200 bg-white/80 p-1 shadow-sm"
+        className="rounded-3xl border border-zinc-200/80 bg-white/85 p-1.5 shadow-soft"
         role="complementary"
         aria-label="Common red flags terminal audit"
       >
-        <div className="rounded-[1.45rem] border border-brand-100/80 bg-gradient-to-br from-brand-50/70 via-white to-brand-100/60 p-6 pt-10 sm:pt-12">
-          <TerminalBlock title="common red flags" lines={terminalLines} />
+        <div className="rounded-[1.35rem] border border-brand-100/80 bg-gradient-to-br from-brand-50/70 via-white to-brand-100/60 p-6">
+          <div className="relative">
+            <img
+              src="/images/doggo.png"
+              alt="Friendly dog peeking over the diagnostics terminal"
+              width={603}
+              height={460}
+              className="pointer-events-none absolute bottom-full left-1/2 z-10 h-auto w-28 -translate-x-1/2 translate-y-[12%] select-none sm:w-36"
+            />
+            <TerminalBlock title="common red flags" lines={TERMINAL_LINES} />
+          </div>
         </div>
       </div>
     </div>
@@ -247,7 +242,7 @@ function TerminalAudit() {
 function CtaCard() {
   return (
     <div
-      className="rounded-3xl border border-brand-200 bg-gradient-to-br from-brand-50 via-white to-success-50/30 p-6 text-left shadow-sm"
+      className="surface bg-gradient-to-br from-brand-50 via-white to-success-50/40 p-6 text-left"
       role="complementary"
       aria-label="Site audit call-to-action"
     >
@@ -255,10 +250,7 @@ function CtaCard() {
       <p className="mt-2 text-sm leading-relaxed text-zinc-600">
         I&apos;ll review performance, deliverability, and lead flows, then we walk the findings together on a 20-minute video call.
       </p>
-      <a
-        href="#contact-form"
-        className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-accent-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-brand-500/30 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 hover:shadow-lg hover:shadow-brand-500/40"
-      >
+      <a href="#contact-form" className="btn-primary mt-5 w-full justify-center text-sm">
         Hold my spot
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -283,14 +275,14 @@ function CtaCard() {
 function ProofPointCard({ point }: { point: ProofPoint }) {
   return (
     <article
-      className="group rounded-2xl border border-zinc-100 bg-zinc-50 p-4 text-left shadow-sm transition-all hover:scale-[1.02] focus-within:ring-2 focus-within:ring-brand-500"
+      className="group rounded-2xl border border-zinc-100 bg-gradient-to-b from-white to-zinc-50 p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-within:ring-2 focus-within:ring-brand-500"
       tabIndex={0}
       aria-label={`${point.value} for ${point.label}`}
     >
-      <p className={`text-xl font-bold whitespace-nowrap ${point.color ? colorClasses[point.color] : "text-brand-700"}`}>
+      <p className={`whitespace-nowrap text-2xl font-bold ${point.color ? colorClasses[point.color] : "text-brand-700"}`}>
         {point.value}
       </p>
-      <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 leading-tight">
+      <p className="mt-1.5 text-xs font-semibold uppercase leading-tight tracking-wide text-zinc-500">
         {point.label}
       </p>
     </article>
@@ -303,17 +295,14 @@ function ProofPoints() {
   }
 
   return (
-    <section
-      className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm"
-      aria-labelledby="proof-title"
-    >
-      <header className="flex items-center justify-between">
+    <section className="surface p-6" aria-labelledby="proof-title">
+      <header className="flex items-center justify-between gap-3">
         <h3 id="proof-title" className="text-xs font-semibold uppercase tracking-wide text-brand-500">
           What owners care about
         </h3>
         <span className="text-xs font-medium text-zinc-400">Benchmarks at a glance</span>
       </header>
-      <div className="mt-4 grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mt-4 grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-3">
         {proofPoints.map((point) => (
           <ProofPointCard key={point.label} point={point} />
         ))}
@@ -325,13 +314,13 @@ function ProofPoints() {
 function ProblemCard({ problem }: { problem: Problem }) {
   return (
     <article
-      className={`group relative grid gap-3 overflow-hidden rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl focus-within:ring-2 focus-within:ring-brand-400/40 before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-gradient-to-b ${problem.accent} before:opacity-60 sm:grid-cols-[auto,1fr]`}
+      className={`group relative grid gap-5 overflow-hidden rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-soft transition duration-300 hover:-translate-y-1 hover:shadow-soft-lg focus-within:ring-2 focus-within:ring-brand-400/40 before:absolute before:left-0 before:top-0 before:h-full before:w-1.5 before:bg-gradient-to-b ${problem.accent} before:opacity-70 sm:p-7`}
       tabIndex={0}
       role="article"
       aria-labelledby={`problem-title-${problem.title.toLowerCase().replace(/\s+/g, '-')}`}
     >
       <div
-        className={`mx-auto flex h-12 w-12 items-center justify-center rounded-2xl ${problem.iconBg}`}
+        className={`flex h-12 w-12 items-center justify-center rounded-2xl ${problem.iconBg}`}
         aria-hidden="true"
       >
         <problem.icon className={`h-6 w-6 ${problem.textColor}`} />
@@ -339,17 +328,18 @@ function ProblemCard({ problem }: { problem: Problem }) {
       <div>
         <h3
           id={`problem-title-${problem.title.toLowerCase().replace(/\s+/g, '-')}`}
-          className={`text-lg font-semibold ${problem.textColor}`}
+          className={`text-lg font-bold ${problem.textColor}`}
         >
           {problem.title}
         </h3>
-        <p className="mt-2 text-sm text-zinc-600">{problem.description}</p>
+        <p className="mt-2 text-sm leading-relaxed text-zinc-600">{problem.description}</p>
         <div
           className="mt-4 rounded-2xl border border-brand-100/70 bg-gradient-to-br from-brand-50/60 to-success-50/30 p-4 text-sm font-medium text-brand-900 shadow-inner"
           role="complementary"
           aria-label="The fix for this problem"
         >
-          <span className="uppercase tracking-widest text-xs font-semibold text-success-600">
+          <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-success-600">
+            <Wrench className="h-3.5 w-3.5" aria-hidden="true" />
             The fix
           </span>
           <p className="mt-2 leading-relaxed">{problem.fix}</p>
@@ -359,44 +349,48 @@ function ProblemCard({ problem }: { problem: Problem }) {
   );
 }
 
+function Problems() {
   return (
     <>
       <PawTrail />
       <section
         id="problems"
-        className="relative bg-gradient-to-b from-brand-50 via-white to-highlight-50/70 py-24 -mt-1"
+        className="relative -mt-1 bg-gradient-to-b from-brand-50 via-white to-highlight-50/70 py-24"
         aria-labelledby="problems-hero"
       >
         {/* Decorative gradients and patterns */}
         <div className="pointer-events-none absolute inset-x-0 -bottom-24 h-32 bg-gradient-to-t from-brand-900/20 via-brand-900/5 to-transparent" />
-        <div className="pointer-events-none absolute inset-0 paw-trail-layer paw-trail-layer--reverse opacity-15" />
+        <div className="paw-trail-layer paw-trail-layer--reverse absolute inset-0 opacity-10" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(3,101,100,0.1),_transparent_60%)]" />
 
-      <div className="relative mx-auto max-w-7xl px-6">
-        <div className="mb-12 text-center">
-          <h2 id="problems-hero" className="mx-auto mb-4 max-w-3xl text-4xl font-bold text-zinc-900 lg:text-5xl">
-            Spot the leak → deploy the fix
-          </h2>
-          <p className="mx-auto max-w-2xl text-lg leading-relaxed text-zinc-600">
-            These are the headaches owners describe on our first call. I pair diagnostics with a playbook that&apos;s proven to stop the bleeding fast.
-          </p>
-        </div>
+        <div className="relative mx-auto max-w-7xl px-6">
+          <div className="mb-14 text-center">
+            <h2
+              id="problems-hero"
+              className="gradient-heading mx-auto mb-4 max-w-3xl text-4xl font-bold lg:text-5xl"
+            >
+              Spot the leak → deploy the fix
+            </h2>
+            <p className="mx-auto max-w-2xl text-lg leading-relaxed text-zinc-600">
+              These are the headaches owners describe on our first call. I pair diagnostics with a playbook that&apos;s proven to stop the bleeding fast.
+            </p>
+          </div>
 
-        <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-          <aside className="flex flex-col gap-6 lg:sticky lg:top-24 lg:self-start" role="complementary">
-            <TerminalAudit />
-            <CtaCard />
-            <ProofPoints />
-          </aside>
+          <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+            <aside className="flex flex-col gap-6 lg:sticky lg:top-24 lg:self-start" role="complementary">
+              <TerminalAudit />
+              <CtaCard />
+              <ProofPoints />
+            </aside>
 
-          <div className="grid gap-6" role="main">
-            {problems.map((problem, index) => (
-              <ProblemCard key={index} problem={problem} />
-            ))}
+            <div className="grid gap-6" role="main">
+              {problems.map((problem, index) => (
+                <ProblemCard key={index} problem={problem} />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
     </>
   );
 }
