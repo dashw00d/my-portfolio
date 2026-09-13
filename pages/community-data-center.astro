@@ -1,0 +1,653 @@
+---
+import {
+  ArrowDown,
+  ArrowUpRight,
+  BriefcaseBusiness,
+  ChevronDown,
+  Coins,
+  Download,
+  Droplets,
+  House,
+  ShieldCheck,
+  Zap,
+} from "lucide-react";
+
+import MeetingChecklist from "../components/community-data-center/MeetingChecklist";
+import OfferExplorer from "../components/community-data-center/OfferExplorer";
+import PromiseDecoder from "../components/community-data-center/PromiseDecoder";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import {
+  EDITION_LABEL,
+  GUIDE_DOCX,
+  GUIDE_MARKDOWN,
+  GUIDE_PDF,
+  TOOLKIT_ZIP,
+  WORKSHEET_PDF,
+  agendaItems,
+  checklistItems,
+  glossary,
+  pageNavItems,
+  sources,
+  startingPoints,
+  topics,
+} from "../lib/community-data-center";
+import "../styles/community-data-center.css";
+
+const basicQuestions = [
+  {
+    heading: "Why here?",
+    explanation:
+      "A useful site can combine power, land, water, fiber, and timing. An advantage matters only if the project actually needs it.",
+    question:
+      "“What can this site deliver that your other realistic options cannot?”",
+  },
+  {
+    heading: "Who controls what?",
+    explanation:
+      "Residents, landowners, local governments, utilities, regulators, and Tribal governments have different roles. Identify the authorized party for each decision.",
+    question:
+      "“Which specific asset, agreement, or approval do you need, and who controls it?”",
+  },
+  {
+    heading: "Is it ready?",
+    explanation:
+      "A proposal needs credible land control, financing, an operator, and a utility path. A strong site alone does not make a funded project.",
+    question:
+      "“What evidence supports your financing, operator commitment, and service date?”",
+  },
+];
+
+const topicIcons = {
+  power: Zap,
+  water: Droplets,
+  life: House,
+  jobs: BriefcaseBusiness,
+  money: Coins,
+  promises: ShieldCheck,
+};
+
+const downloads = [
+  {
+    label: "Read the guide · PDF",
+    meta: "26-page shareable guide",
+    href: GUIDE_PDF,
+    download: false,
+  },
+  {
+    label: "Download the fillable worksheet · PDF",
+    meta: "12-page printable and fillable form",
+    href: WORKSHEET_PDF,
+    download: true,
+  },
+  {
+    label: "Editable guide · Word",
+    meta: "Word-compatible source",
+    href: GUIDE_DOCX,
+    download: true,
+  },
+  {
+    label: "Plain-text guide · Markdown",
+    meta: "Source text with links",
+    href: GUIDE_MARKDOWN,
+    download: true,
+  },
+];
+---
+
+<BaseLayout
+  title="Community Data Center Toolkit | Ryan Stefan"
+  description="A plain-language guide to data center proposals: understand public costs, explore the promises, and prepare better questions for your next community meeting."
+  path="/community-data-center"
+>
+  <a class="toolkit-skip-link" href="#toolkit-main">Skip to the field guide</a>
+  <main id="toolkit-main" class="community-toolkit" tabindex="-1">
+    <section id="start" class="ct-hero" aria-labelledby="ct-hero-heading">
+      <div class="ct-shell">
+        <div class="ct-hero-grid">
+          <div>
+            <p class="ct-eyebrow">Community field guide</p>
+            <h1 id="ct-hero-heading">
+              A data center is coming. What should your community ask?
+            </h1>
+            <p class="ct-lede">
+              Clear questions. Real protections. A practical place to start when
+              a large data center is proposed near you.
+            </p>
+            <div class="ct-actions">
+              <a class="ct-button" href="#starting-points">
+                Find your starting point
+                <ArrowDown size={18} aria-hidden="true" />
+              </a>
+              <a
+                class="ct-button ct-button--secondary"
+                href={TOOLKIT_ZIP}
+                download
+              >
+                <Download size={18} aria-hidden="true" />
+                Download the toolkit
+              </a>
+            </div>
+          </div>
+          <aside class="ct-fieldnote" aria-labelledby="ct-whole-idea">
+            <p class="ct-fieldnote-title" id="ct-whole-idea">The whole idea</p>
+            <ul class="ct-fieldnote-list">
+              <li>Know what they need.</li>
+              <li>Know what it costs you.</li>
+              <li>Get the promises in writing.</li>
+            </ul>
+            <p class="ct-fieldnote-body">
+              Work out the essential protections before discretionary
+              concessions or public assets are committed.
+            </p>
+            <p class="ct-edition">{EDITION_LABEL}</p>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section
+      id="starting-points"
+      class="ct-start"
+      aria-labelledby="ct-start-heading"
+    >
+      <div class="ct-shell">
+        <h2 class="ct-h2" id="ct-start-heading">Start where you are</h2>
+        <div class="ct-start-grid">
+          {
+            startingPoints.map((point) => (
+              <a class="ct-start-card" href={point.href}>
+                <span>
+                  <span class="ct-start-title">{point.title}</span>
+                  <span class="ct-start-desc">{point.description}</span>
+                </span>
+                <ArrowUpRight
+                  class="ct-start-arrow"
+                  size={22}
+                  aria-hidden="true"
+                />
+              </a>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <nav class="ct-pagenav" aria-label="On this page">
+      <div class="ct-pagenav-inner">
+        <span class="ct-pagenav-label">On this page</span>
+        <ul class="ct-pagenav-list">
+          {
+            pageNavItems.map((item) => (
+              <li>
+                <a class="ct-pagenav-link" href={item.href}>
+                  {item.label}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </nav>
+
+    <details class="ct-pagenav-mobile">
+      <summary class="ct-pagenav-mobile-summary">
+        On this page
+        <ChevronDown size={20} aria-hidden="true" />
+      </summary>
+      <ul class="ct-pagenav-mobile-list">
+        {
+          pageNavItems.map((item) => (
+            <li>
+              <a href={item.href}>{item.label}</a>
+            </li>
+          ))
+        }
+      </ul>
+    </details>
+
+    <section id="basics" class="ct-chapter" aria-labelledby="ct-basics-heading">
+      <div class="ct-shell">
+        <header class="ct-chapter-head">
+          <p class="ct-chapter-number" aria-hidden="true">01</p>
+          <div>
+            <h2 class="ct-h2" id="ct-basics-heading">
+              Start with three questions.
+            </h2>
+            <p class="ct-chapter-intro">
+              A useful deal starts with evidence about the site, the decision,
+              and the people behind the project.
+            </p>
+          </div>
+        </header>
+
+        <div class="ct-basics-grid">
+          {
+            basicQuestions.map((question) => (
+              <article class="ct-basic-card">
+                <h3>{question.heading}</h3>
+                <p>{question.explanation}</p>
+                <p class="ct-basic-question">
+                  <span class="ct-basic-question-label">Ask</span>
+                  {question.question}
+                </p>
+              </article>
+            ))
+          }
+        </div>
+
+        <details class="ct-disclosure">
+          <summary class="ct-disclosure-summary">
+            <span>Keep three different conversations separate</span>
+            <ChevronDown size={20} aria-hidden="true" />
+          </summary>
+          <div class="ct-disclosure-body">
+            <ul class="ct-lane-list">
+              <li class="ct-lane">
+                <strong>Rules and protections:</strong> legally supportable
+                requirements for project impacts and public health.
+              </li>
+              <li class="ct-lane">
+                <strong>Commercial terms:</strong> terms for land, utility
+                service, or authorized discretionary incentives.
+              </li>
+              <li class="ct-lane">
+                <strong>Community benefits:</strong> separately negotiated
+                commitments through a capable, authorized party.
+              </li>
+            </ul>
+            <p>
+              Putting an ask in a separate agreement or calling it voluntary
+              does not automatically make it lawful. Have local counsel confirm
+              authority and the appropriate instrument.
+            </p>
+          </div>
+        </details>
+
+        <p class="ct-note">
+          These are separate questions, not points to add together. Missing
+          authority or an unready project cannot be fixed by a high score
+          elsewhere.
+        </p>
+      </div>
+    </section>
+
+    <section
+      id="priorities"
+      class="ct-chapter"
+      aria-labelledby="ct-priorities-heading"
+    >
+      <div class="ct-shell">
+        <header class="ct-chapter-head">
+          <p class="ct-chapter-number" aria-hidden="true">02</p>
+          <div>
+            <h2 class="ct-h2" id="ct-priorities-heading">
+              Six things worth getting right.
+            </h2>
+            <p class="ct-chapter-intro">
+              Pick a topic. Get the question, the evidence to request, and a
+              promise worth looking at more closely.
+            </p>
+          </div>
+        </header>
+
+        <div class="ct-topic-grid">
+          {
+            topics.map((topic) => {
+              const Icon = topicIcons[topic.icon];
+              return (
+                <details class="ct-topic" id={`topic-${topic.id}`}>
+                  <summary class="ct-topic-summary">
+                    <span class="ct-topic-number" aria-hidden="true">
+                      {topic.number}
+                    </span>
+                    <span class="ct-topic-icon" aria-hidden="true">
+                      <Icon size={22} strokeWidth={1.9} />
+                    </span>
+                    <span class="ct-topic-head">
+                      <h3 class="ct-topic-title">{topic.title}</h3>
+                      <span class="ct-topic-blurb">{topic.summary}</span>
+                    </span>
+                    <ChevronDown
+                      class="ct-topic-chevron"
+                      size={22}
+                      aria-hidden="true"
+                    />
+                  </summary>
+                  <div class="ct-topic-body">
+                    <div class="ct-topic-block">
+                      <h4 class="ct-topic-label">Ask this</h4>
+                      <p>{topic.askThis}</p>
+                    </div>
+                    <div class="ct-topic-block">
+                      <h4 class="ct-topic-label">Look for</h4>
+                      <ul class="ct-topic-list">
+                        {topic.lookFor.map((item) => (
+                          <li>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div class="ct-topic-block ct-topic-block--caution">
+                      <h4 class="ct-topic-label">Look closer when</h4>
+                      <p>{topic.lookCloser}</p>
+                    </div>
+                    <div class="ct-topic-deeper">
+                      <a href={GUIDE_PDF}>
+                        {topic.deeper}
+                        <ArrowUpRight size={16} aria-hidden="true" />
+                      </a>
+                      {topic.worksheet && (
+                        <span class="ct-topic-worksheet">
+                          Worksheet reference: {topic.worksheet}
+                        </span>
+                      )}
+                      {topic.extraLink && (
+                        <a href={topic.extraLink.href}>
+                          {topic.extraLink.label}
+                          <ArrowDown size={16} aria-hidden="true" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </details>
+              );
+            })
+          }
+        </div>
+      </div>
+    </section>
+
+    <section
+      id="promises"
+      class="ct-chapter ct-chapter--decode"
+      aria-labelledby="ct-promises-heading"
+    >
+      <div class="ct-shell">
+        <header class="ct-chapter-head">
+          <p class="ct-chapter-number" aria-hidden="true">03</p>
+          <div>
+            <h2 class="ct-h2" id="ct-promises-heading">
+              Sounds good. What does it actually mean?
+            </h2>
+            <p class="ct-chapter-intro">
+              An announcement is a starting point. Turn it into a question
+              someone can answer with evidence.
+            </p>
+          </div>
+        </header>
+        <PromiseDecoder client:visible />
+      </div>
+    </section>
+
+    <section id="money" class="ct-chapter" aria-labelledby="ct-money-heading">
+      <div class="ct-shell">
+        <header class="ct-chapter-head">
+          <p class="ct-chapter-number" aria-hidden="true">04</p>
+          <div>
+            <h2 class="ct-h2" id="ct-money-heading">
+              The biggest check isn't always the best deal.
+            </h2>
+            <p class="ct-chapter-intro">
+              Move the timeline to see how recurring value and public costs
+              change the comparison.
+            </p>
+          </div>
+        </header>
+        <OfferExplorer client:visible />
+      </div>
+    </section>
+
+    <section
+      id="meeting"
+      class="ct-chapter"
+      aria-labelledby="ct-meeting-heading"
+    >
+      <div class="ct-shell">
+        <header class="ct-chapter-head">
+          <p class="ct-chapter-number" aria-hidden="true">05</p>
+          <div>
+            <h2 class="ct-h2" id="ct-meeting-heading">
+              Walk in with better questions.
+            </h2>
+            <p class="ct-chapter-intro">
+              Use these six prompts to prepare an agenda. Keep the evidence and
+              detailed notes in the companion worksheet.
+            </p>
+          </div>
+        </header>
+
+        <div class="ct-meeting-grid">
+          <MeetingChecklist client:visible />
+          <aside class="ct-agenda" aria-labelledby="ct-agenda-heading">
+            <h3 id="ct-agenda-heading">A useful first 90 minutes</h3>
+            <ul class="ct-agenda-list">
+              {
+                agendaItems.map((item) => (
+                  <li>
+                    <span class="ct-agenda-time">{item.time}</span>
+                    <span>{item.activity}</span>
+                  </li>
+                ))
+              }
+            </ul>
+            <p class="ct-agenda-footnote">
+              A workshop agenda, not a statutory review schedule.
+            </p>
+          </aside>
+        </div>
+
+        <div class="ct-fieldnote ct-fieldnote--decision">
+          <p class="ct-fieldnote-title">Before a decision</p>
+          <h3 class="ct-decision-heading">
+            Some gaps cannot be averaged away.
+          </h3>
+          <p>
+            Unresolved authority, unacceptable resource impacts, unprotected
+            public spending, or obligations that cannot be enforced need
+            resolution through the appropriate process. A larger payment does
+            not cancel them out.
+          </p>
+          <a class="ct-text-link" href={WORKSHEET_PDF}>
+            Use worksheet page 12 with the authorized decision body
+            <ArrowUpRight size={18} aria-hidden="true" />
+          </a>
+          <p class="ct-decision-support">
+            Record whether to proceed, seek revisions, defer a discretionary
+            commitment, or decline through the lawful process, with reasons and
+            a next date.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section
+      id="downloads"
+      class="ct-chapter"
+      aria-labelledby="ct-downloads-heading"
+    >
+      <div class="ct-shell">
+        <header class="ct-chapter-head">
+          <p class="ct-chapter-number" aria-hidden="true">06</p>
+          <div>
+            <h2 class="ct-h2" id="ct-downloads-heading">
+              Take it to the table.
+            </h2>
+            <p class="ct-chapter-intro">
+              Use the full guide for the detail and the worksheet to keep the
+              conversation concrete.
+            </p>
+          </div>
+        </header>
+
+        <div class="ct-downloads-primary">
+          <a class="ct-button ct-button--highlight" href={TOOLKIT_ZIP} download>
+            <Download size={18} aria-hidden="true" />
+            Download everything · ZIP
+          </a>
+          <div class="ct-download-grid">
+            {
+              downloads.map((download) => (
+                <a
+                  class="ct-download-card"
+                  href={download.href}
+                  download={download.download ? true : undefined}
+                >
+                  <span>
+                    <span class="ct-download-card-label">{download.label}</span>
+                    <span class="ct-download-card-meta">{download.meta}</span>
+                  </span>
+                  {download.download ? (
+                    <Download size={20} aria-hidden="true" />
+                  ) : (
+                    <ArrowUpRight size={20} aria-hidden="true" />
+                  )}
+                </a>
+              ))
+            }
+          </div>
+          <p class="ct-download-note">
+            Download the worksheet and open it in a PDF reader that supports
+            forms if your browser will not let you type. Save your own completed
+            copy. Calculations in the worksheet are manual.
+          </p>
+        </div>
+
+        <details class="ct-disclosure">
+          <summary class="ct-disclosure-summary">
+            <span>Terms in plain English</span>
+            <ChevronDown size={20} aria-hidden="true" />
+          </summary>
+          <div class="ct-disclosure-body">
+            <dl class="ct-terms">
+              {
+                glossary.map((entry) => (
+                  <div>
+                    <dt>{entry.term}</dt>
+                    <dd>{entry.definition}</dd>
+                  </div>
+                ))
+              }
+            </dl>
+          </div>
+        </details>
+
+        <details class="ct-disclosure">
+          <summary class="ct-disclosure-summary">
+            <span>Sources &amp; edition notes</span>
+            <ChevronDown size={20} aria-hidden="true" />
+          </summary>
+          <div class="ct-disclosure-body">
+            <p>
+              Adapted from the Community Guide to Data Center Negotiations, US
+              edition, September 12, 2026. The supplied guide contains the
+              source references below. Source descriptions reflect that edition;
+              linked policies and rules may change.
+            </p>
+            <ol class="ct-sources">
+              {
+                sources.map((source) => (
+                  <li class="ct-source">
+                    <span class="ct-source-number" aria-hidden="true">
+                      {source.number}
+                    </span>
+                    <div>
+                      <a
+                        class="ct-source-title"
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {source.title}
+                        <span class="ct-visually-hidden">
+                          {" "}
+                          (opens in a new tab)
+                        </span>
+                      </a>
+                      <span class="ct-source-status">{source.status}</span>
+                    </div>
+                  </li>
+                ))
+              }
+            </ol>
+          </div>
+        </details>
+
+        <p class="ct-legal-note">
+          This toolkit is negotiation guidance, not a ready-to-sign contract or
+          legal opinion. Use verified local evidence and appropriate legal,
+          utility, engineering, and tax review before adopting terms.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <section class="ct-print" aria-label="Printed meeting preparation sheet">
+    <p class="ct-print-title">Community data center — meeting preparation</p>
+    <p class="ct-print-subtitle">
+      A blank preparation sheet. Record what you learn and what remains unknown.
+    </p>
+
+    <div class="ct-print-fields">
+      <div class="ct-print-field">
+        <span class="ct-print-field-label">Project</span>
+        <span class="ct-print-field-line"></span>
+      </div>
+      <div class="ct-print-field">
+        <span class="ct-print-field-label">Meeting date</span>
+        <span class="ct-print-field-line"></span>
+      </div>
+      <div class="ct-print-field">
+        <span class="ct-print-field-label">Next meeting</span>
+        <span class="ct-print-field-line"></span>
+      </div>
+    </div>
+
+    <h2 class="ct-print-section-title">Six topics to prepare</h2>
+    <ul class="ct-print-checklist">
+      {
+        checklistItems.map((item) => (
+          <li class="ct-print-check">
+            <span class="ct-print-checkbox" aria-hidden="true" />
+            <div>
+              <p class="ct-print-check-title">{item.label}</p>
+              <p class="ct-print-check-helper">{item.helper}</p>
+              <div class="ct-print-writing" />
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+
+    <h2 class="ct-print-section-title">A useful first 90 minutes</h2>
+    <ul class="ct-print-agenda">
+      {
+        agendaItems.map((item) => (
+          <li>
+            <span class="ct-print-agenda-time">{item.time}</span>
+            <span>{item.activity}</span>
+          </li>
+        ))
+      }
+    </ul>
+
+    <div class="ct-print-reminder">
+      <p>
+        <strong>For each unresolved claim:</strong> record the source, its status
+        (verified, developer supplied, estimated, or unknown), the reviewer, and
+        the next action.
+      </p>
+      <p>This tracks preparation, not whether a project is ready for approval.</p>
+    </div>
+
+    <div class="ct-print-meta">
+      <p>
+        US edition · September 12, 2026 ·
+        https://dashwood.net/community-data-center/
+      </p>
+      <p>
+        Adapted from the Community Guide to Data Center Negotiations. This
+        toolkit is negotiation guidance, not a ready-to-sign contract or legal
+        opinion.
+      </p>
+    </div>
+  </section>
+</BaseLayout>

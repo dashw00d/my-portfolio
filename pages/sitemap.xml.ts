@@ -34,6 +34,7 @@ export const GET: APIRoute = () => {
     ["/forgekit", "monthly", "0.4"],
     ["/cleanlogs", "monthly", "0.4"],
     ["/card", "monthly", "0.4"],
+    ["/community-data-center", "monthly", "0.6"],
   ];
 
   const body = [
