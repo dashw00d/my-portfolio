@@ -4,6 +4,42 @@ import Contact from "../components/Contact";
 import CustomBuildCta from "../components/CustomBuildCta";
 import { SITE_URL } from "../lib/site";
 
+const liveProjects = [
+  {
+    title: "Austin’s Elite Events",
+    category: "Business website",
+    description:
+      "An event staffing and planning website that brings services, venues, packages, and proposal requests together so customers can plan their next event.",
+    features: ["Service directory", "Venue discovery", "Proposal requests"],
+    url: "https://wehelpyouparty.com/",
+    image: "/images/projects/austins-elite.jpg",
+    imageAlt: "Austin’s Elite Events homepage with event services and hospitality photography",
+    linkLabel: "Visit website",
+  },
+  {
+    title: "Lake Forest POA",
+    category: "Interactive demo · Sample data",
+    description:
+      "A neighborhood association portal for notices, events, shared documents, and owner services. Explore payment and account workflows using sample records.",
+    features: ["Community notices", "Owner portal", "Payment workflows"],
+    url: "https://lakeforestpoa.com/",
+    image: "/images/projects/lake-forest.jpg",
+    imageAlt: "Lake Forest association demo with community navigation and neighborhood information",
+    linkLabel: "Explore demo",
+  },
+  {
+    title: "SpeechEdit",
+    category: "Browser app demo",
+    description:
+      "An editor that lets you cut recordings by editing the transcript. Review pauses, filler words, and alternate takes alongside a timeline and preview.",
+    features: ["Transcript editing", "Suggested cuts", "Timeline preview"],
+    url: "https://speechedit.dashwood.net/",
+    image: "/images/projects/speechedit.jpg",
+    imageAlt: "SpeechEdit workspace showing a transcript, editing suggestions, and recording timeline",
+    linkLabel: "Try SpeechEdit",
+  },
+];
+
 const demos = [
   {
     title: "Client Staff Log Intelligence Engine",
@@ -48,7 +84,7 @@ const jsonLd = {
   "@type": "CollectionPage",
   name: "Project Demos - Ryan Stefan",
   description:
-    "A curated collection of revenue-focused engineering case studies by Ryan Stefan, including AI automation and legacy-data intelligence projects.",
+    "Websites, community portals, custom apps, and automation projects by Ryan Stefan, with live links and interactive demos.",
   url: `${SITE_URL}/projects`,
   author: {
     "@type": "Person",
@@ -59,38 +95,38 @@ const jsonLd = {
   },
   mainEntity: {
     "@type": "ItemList",
+    numberOfItems: liveProjects.length + demos.length,
     itemListElement: [
-      {
-        "@type": "SoftwareApplication",
-        name: "Client Staff Log Intelligence Engine",
-        description:
-          "Transformed a client's 15 years of staffing logs into actionable marketing intelligence and campaign acceleration.",
-        applicationCategory: "WebApplication",
-      },
-      {
-        "@type": "SoftwareApplication",
-        name: "Elite Agent Automation Platform",
-        description:
-          "Composable multi-agent orchestration platform adaptable across operations, support, content, and growth workflows.",
-        applicationCategory: "WebApplication",
-      },
-      {
-        "@type": "SoftwareApplication",
-        name: "2026 Revenue Systems Modernization",
-        description:
-          "Modern Laravel 12 + AI automation architecture with SEO infrastructure and observability tied to growth outcomes.",
-        applicationCategory: "WebApplication",
-      },
+      ...liveProjects.map((project, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        item: {
+          "@type": "CreativeWork",
+          name: project.title,
+          description: project.description,
+          url: project.url,
+          image: `${SITE_URL}${project.image}`,
+        },
+      })),
+      ...demos.map((demo, index) => ({
+        "@type": "ListItem",
+        position: liveProjects.length + index + 1,
+        item: {
+          "@type": "CreativeWork",
+          name: demo.title,
+          description: demo.description,
+        },
+      })),
     ],
   },
 };
 ---
 
 <BaseLayout
-  title="Project Demos - Ryan Stefan | AI Automation + Revenue Systems"
-  description="Case studies and demos: a 20× marketing boost from a client's 15 years of staff logs, adaptive agent automation platforms, and 2026-ready revenue engineering systems."
+  title="Project Demos | Websites & Custom Apps by Ryan Stefan"
+  description="Explore Austin’s Elite Events, Lake Forest POA, and SpeechEdit: business websites, community portals, and custom apps built by Ryan Stefan."
   path="/projects"
-  keywords="AI automation portfolio, Laravel 12 projects, agent orchestration, marketing intelligence, revenue systems, Ryan Stefan, dashwood"
+  keywords="web development portfolio, small business websites, custom apps, project demos, Austin’s Elite Events, Lake Forest POA, SpeechEdit, Ryan Stefan"
   jsonLd={jsonLd}
 >
   <main class="min-h-screen bg-gradient-to-b from-white via-brand-50/30 to-white text-zinc-900">
@@ -103,15 +139,14 @@ const jsonLd = {
 
       <div class="mx-auto flex max-w-4xl flex-col gap-6 text-center">
         <p class="mx-auto inline-flex items-center gap-2 rounded-full border border-brand-200/60 bg-white/70 px-4 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-brand-600 shadow-sm">
-          2026 featured systems
+          Websites & custom apps
         </p>
         <h1 class="text-4xl font-black tracking-tight md:text-6xl">
-          High-leverage builds, not portfolio fluff
+          Real websites. Useful tools.
         </h1>
         <p class="text-lg leading-relaxed text-zinc-600">
-          From turning a client’s 15 years of staffing logs into a 20× marketing boost
-          to building adaptable agent automation platforms, these are the
-          systems I deploy when outcomes matter.
+          Business websites, community portals, and tools that make everyday work
+          easier. Explore the projects below to see what I build.
         </p>
         <div class="mt-2">
           <CustomBuildCta
@@ -119,8 +154,54 @@ const jsonLd = {
             className="mx-auto w-full max-w-xl"
             eyebrow="Have a blank canvas?"
             headline="Kick off a custom product build"
-            subcopy="Share your roadmap and I'll scope the architecture, team, and delivery milestones."
+            subcopy="Tell me what you need, and I’ll map out the scope, cost, and next steps."
           />
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="live-projects-heading" class="px-6 pb-16 pt-8">
+      <div class="mx-auto max-w-6xl">
+        <div class="mb-8">
+          <h2 id="live-projects-heading" class="text-3xl font-bold tracking-tight text-brand-950">Take a look around</h2>
+          <p class="mt-3 text-base leading-relaxed text-zinc-600">Open a project to explore the website or try the demo.</p>
+        </div>
+        <div class="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+          {liveProjects.map((project) => (
+            <article class="flex min-w-0 flex-col overflow-hidden rounded-3xl border border-brand-100 bg-white shadow-soft">
+              <img
+                src={project.image}
+                alt={project.imageAlt}
+                width={1440}
+                height={1000}
+                loading="lazy"
+                decoding="async"
+                class="aspect-[36/25] w-full border-b border-brand-100 object-cover"
+              />
+              <div class="flex flex-1 flex-col gap-4 p-6">
+                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-brand-700">{project.category}</p>
+                <h3 class="text-2xl font-bold text-brand-950">{project.title}</h3>
+                <p class="text-sm leading-relaxed text-zinc-600">{project.description}</p>
+                <ul class="flex flex-wrap gap-2 text-xs text-brand-700" aria-label="Project features">
+                  {project.features.map((feature) => (
+                    <li class="rounded-full bg-brand-50 px-3 py-1.5">{feature}</li>
+                  ))}
+                </ul>
+                <div class="mt-auto pt-3">
+                  <a
+                    href={project.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${project.linkLabel}: ${project.title} (opens in a new tab)`}
+                    class="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-brand-700 underline decoration-brand-200 underline-offset-4 transition-colors hover:text-brand-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-4"
+                  >
+                    {project.linkLabel}
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                </div>
+              </div>
+            </article>
+          ))}
         </div>
       </div>
     </section>
@@ -129,6 +210,10 @@ const jsonLd = {
       <div class="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-brand-50 via-white to-transparent"></div>
       <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(205,179,128,0.12),_transparent_60%)]"></div>
       <div class="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white via-white/60 to-transparent"></div>
+      <div class="relative mx-auto mb-8 max-w-6xl">
+        <h2 class="text-3xl font-bold tracking-tight text-brand-950">More project work</h2>
+        <p class="mt-3 text-base text-zinc-600">A closer look at data, automation, and the systems behind the scenes.</p>
+      </div>
       <div class="relative mx-auto grid max-w-6xl gap-10 lg:grid-cols-3">
         {demos.map((demo) => (
           <article
@@ -136,7 +221,7 @@ const jsonLd = {
           >
             <div class="space-y-2">
               <p class="text-xs uppercase tracking-widest text-brand-500">{demo.caption}</p>
-              <h2 class="text-2xl font-semibold text-zinc-900">{demo.title}</h2>
+              <h3 class="text-2xl font-semibold text-zinc-900">{demo.title}</h3>
               <p class="text-sm leading-relaxed text-zinc-600">{demo.description}</p>
             </div>
 
