@@ -1,0 +1,28 @@
+---
+title: "Shipping Orchestrator Next, an Event-Driven Agent Workflow Engine"
+date: "2026-03-14"
+excerpt: "An initial release, then four fixes in an hour as I hammered the install and dispatch path into shape."
+tags: ["Python", "Orchestration", "AI", "Release", "Tooling"]
+author: "Ryan Dashwood"
+---
+## The Initial Release
+
+Late at night I cut the first release of Orchestrator Next (620f071d), an event-driven multi-agent workflow orchestrator. The core idea is that agents don't call each other directly—they emit events, and a dispatcher routes work based on those events. That decoupling makes it possible to add, replace, or retry a step without rewiring the whole pipeline.
+
+The first commit staked out the design: a workflow definition, an event bus, and a dispatcher that manages timeouts. I wanted the dispatcher to own timeouts centrally so no individual agent has to implement its own watchdog.
+
+## Fixing the Install Path
+
+The release immediately failed on install. I fixed the install URL, the update command, and the dispatcher timeouts (c8409135). Getting the update command right matters more than it sounds—if the tool can't update itself cleanly, every user is stuck on the version they first installed.
+
+## Replacing the Packaging Approach
+
+I had been relying on `uv tool install`, which turned out to be the wrong fit. I replaced it with live wrapper scripts (8af6c215) that point at the working tree instead of a copied package. Then I removed `force-include` and `entry_points` to prevent stale copies of `cli.py` from being shipped (8c07b84c). That second fix addressed a genuinely confusing failure: editing the CLI and seeing no change because the installed copy shadowed the source.
+
+## Why Event-Driven
+
+I keep coming back to event-driven designs for agent work because retries and observability fall out naturally. If a step fails, the event can be replayed. If I want to know what happened, I read the event log. The orchestrator is small right now, but the architecture is the part I care about—it has to survive contact with real workflows.
+
+## Next
+
+I'll exercise it on an actual multi-step workflow soon. The install story is fixed and the dispatcher has real timeouts, which are the two things that must be true before it's worth trusting.

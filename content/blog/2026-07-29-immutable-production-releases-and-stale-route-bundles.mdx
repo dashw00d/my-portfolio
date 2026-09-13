@@ -1,0 +1,22 @@
+---
+title: "Immutable Production Releases and Stale Route Bundles"
+date: "2026-07-29"
+excerpt: "Streamlining immutable releases, killing stale route bundles, and simplifying the shared inbox with branded folders."
+tags: ["Deployment", "Docker", "Email", "Caching"]
+author: "Ryan Dashwood"
+---
+## Immutable Releases
+
+I streamlined immutable production releases (a97ad41f). An immutable release means each deploy produces a new, self-contained artifact that isn't mutated in place. It makes rollback a matter of pointing at the previous artifact and makes "which code is running" answerable. The trade-off is that asset paths and caches have to be release-aware, which is exactly what broke next.
+
+## Stale Route Bundles
+
+I fixed stale route bundles surviving a deploy (f703f365). The browser had cached route chunks that no longer matched the deployed build, which produces the classic symptom of a working-looking app that throws on navigation. Making bundles release-specific means a new deploy forces new bundle URLs and the cache invalidates naturally.
+
+## Shared Inbox and Branded Folders
+
+I simplified the shared inbox and added branded mail folders (5919f9a6). The shared inbox had accumulated complexity that didn't earn its keep, and simplifying it made the remaining behavior easier to explain. Branded folders give the mail client a sense of place instead of a generic tree.
+
+## The Deployment Discipline
+
+A mail platform that deploys frequently needs releases that are atomic, cache-correct, and rollback-safe. Today was one of the unglamorous days that makes frequent deploys safe rather than scary.

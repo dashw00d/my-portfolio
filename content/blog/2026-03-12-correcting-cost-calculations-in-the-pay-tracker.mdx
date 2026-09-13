@@ -1,0 +1,20 @@
+---
+title: "Correcting Cost Calculations in the Pay Tracker"
+date: "2026-03-12"
+excerpt: "A short day spent making the numbers honest—fixing how costs are computed so staff pay reflects reality."
+tags: ["Laravel", "PHP", "Bug Fix", "Finance"]
+author: "Ryan Dashwood"
+---
+## Fixing the Cost Math
+
+Today was a single fix applied to both repos: correcting how cost is calculated (e1c665d9). The pay tracker had been producing totals that were close but wrong in ways that compounded. Cost calculations are unforgiving—being off by a rounding rule or a rate lookup means someone gets paid the wrong amount, and trust erodes quickly.
+
+I traced the discrepancy to how the rate was being resolved at calculation time versus how it was stored on the time entry. The two could diverge when a rate changed after an entry was logged. I aligned the calculation so it uses the entry's own recorded rate rather than re-resolving the current one, which is the correct behavior for historical pay.
+
+## Why I Took the Whole Day
+
+I could have shipped the one-line change in twenty minutes. Instead I spent time verifying it against existing entries, confirmed the totals matched expectations on a known pay period, and made sure the fix landed identically in the production mirror. Financial code deserves the extra pass; a bug here is worse than a bug almost anywhere else because the failure mode is a person being shorted.
+
+## Looking Ahead
+
+Next I want to add a regression test around the pay calculation so this class of bug can't return quietly. That's the natural follow-up, and it ties into the broader testing push from earlier in the month.

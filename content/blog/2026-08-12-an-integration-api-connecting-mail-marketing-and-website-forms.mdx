@@ -1,0 +1,22 @@
+---
+title: "An Integration API Connecting Mail, Marketing, and Website Forms"
+date: "2026-08-12"
+excerpt: "Exposing a Staff Integration API so website forms, Mail, and marketing workflows can talk to each other."
+tags: ["API", "Integration", "Laravel", "Email", "Architecture"]
+author: "Ryan Dashwood"
+---
+## The Integration API
+
+I added an Integration API for Mail and marketing workflows (06df547d). The mail platform and the marketing side had been separate systems, and the only way to move data between them was manual. An API makes the relationship programmatic.
+
+## Austin's Elite Workflow Integration
+
+I added the Austin's Elite workflow integration (35067bee) and published website forms through the Staff Integration API (1ee076aa). Now a form submission on the website flows into the staff systems automatically—someone filling out a contact or quote form creates a record where staff actually work, rather than an email that has to be forwarded.
+
+## One Change, Four Repos
+
+The integration touched the platform, the production site, the Next.js frontend, and the mail deploy (aace1491, 772d9717, 1967fd54). An API is only useful once every producer and consumer agrees on it, which is why the change had to land across all surfaces on the same day.
+
+## Integration as Architecture
+
+The most valuable systems in a small business are the ones that remove a human copy-paste step. This API is that: website forms to staff workflows, mail to marketing, all programmatic. The next step is watching which integrations actually get used and deepening those rather than adding more.

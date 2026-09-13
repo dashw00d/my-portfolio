@@ -1,0 +1,32 @@
+---
+title: "Absorbing Eight Projects Into a Canonical TinyCLD Monorepo"
+date: "2026-07-28"
+excerpt: "A 48-commit day using git subtrees to fold tinycld, calendar, mail, drive, contacts, and more into one repo—plus a shared inbox workflow."
+tags: ["Monorepo", "Git", "Architecture", "Email", "CI"]
+author: "Ryan Dashwood"
+---
+## The Problem With Eight Repos
+
+TinyCLD and its satellite projects—calendar, mail, drive, contacts, calc, text, google-takeout-import—had grown as separate repos with separate histories. Coordinating a change across them meant coordinating eight commits and eight deploys. I decided to make one canonical monorepo.
+
+## Using git subtree
+
+I absorbed each project using `git subtree`, preserving its history: tinycld (f729b8f2), calendar (cd20b63a), mail (982b32c9), google-takeout-import (644c0896), text (a0e41159), calc (1a63b78b), drive (ca3c4376), and contacts (5187bea6). Subtree merges keep the original commits reachable, which matters—a monorepo that flattens history is a monorepo you can't bisect.
+
+I captured the current production customization state first (cd538480) and prepared the deployment repo for monorepo source (b22c3c50), then established the canonical monorepo (1900f751). The same restructuring landed in the deploy repo so both stay aligned.
+
+## Fixing CI
+
+A monorepo breaks CI assumptions. I fixed the pnpm setup (6eb1440d) and updated the CI toolchain setup (91a5575b). Moving from per-repo pipelines to a single pipeline means the toolchain has to cover every package's needs at once.
+
+## Shared Inbox Workflow
+
+I added a shared inbox workflow with saved mail views (97dc2cce) and documented the mail platform's operating context (237fe689). Shared inboxes are the feature that turns mail from a personal tool into a team one—multiple people can see and act on the same thread without forwarding.
+
+## Why a Monorepo
+
+The projects share code and users. A single repo makes atomic changes possible: update the shared library and every consumer in one commit. The cost is a more complex build, and I paid some of that today in the CI fixes. But the coordination win is immediate, and it's the right shape for a suite that's meant to be deployed together.
+
+## The Mechanics Matter
+
+Subtree over subtree without `--squash` on the history is the detail that preserves bisectability. It's worth understanding the tool before running it eight times in an afternoon.

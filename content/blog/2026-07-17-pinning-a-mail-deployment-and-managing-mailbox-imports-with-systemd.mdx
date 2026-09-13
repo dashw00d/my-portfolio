@@ -1,0 +1,30 @@
+---
+title: "Pinning a Mail Deployment and Managing Mailbox Imports with systemd"
+date: "2026-07-17"
+excerpt: "Hardening the TinyCLD mail deployment: pinned builds, persistent state, health waits, and memory-bounded imports."
+tags: ["Docker", "systemd", "Email", "Go", "Deployment"]
+author: "Ryan Dashwood"
+---
+## Pinning the Deployment
+
+I pinned the TinyCLD mail deployment (1bb01692) so the deployed version is reproducible instead of tracking a moving target. I followed it with a series of deployment hardening changes, all mirrored between the platform repo and the mail-deploy repo.
+
+## Persistent State and Compose Identity
+
+I moved server state to persistent paths (6c0b647e) so a redeploy doesn't discard data, made the deployment scripts executable (a2697a51), and retained the Compose project identity (d8111e67). Project identity sounds trivial until a redeploy creates a parallel stack with a new name and orphans every volume—keeping the name stable is what makes "up" actually replace the previous stack.
+
+## Health Waits and Build Context
+
+I made the deployment wait for TinyCLD health (8cabaf45) instead of racing ahead while the service was still starting. I also pinned the server build context (9287a063) so the image builds from a deliberate directory rather than whatever happens to be nearby.
+
+## Managing Imports with systemd
+
+I moved mailbox imports under systemd (00f5ef8f) so they run reliably outside the deploy process. Importing mail is long-running and needs retries, logging, and a unit that survives a deploy. Then I bounded Go memory during mailbox imports (51439d8d)—an unbounded importer will happily consume all available memory on a large mailbox.
+
+## Admin Visibility
+
+I exposed personal mailbox metadata to admins (26533934) so they can see what's been imported and diagnose problems without shelling into the server.
+
+## Why Mail Is Hard
+
+Mail is a pile of standards with decades of edge cases, and a self-hosted stack has to handle them all. Today's commits are the foundation: a reproducible deployment, persistent state, and bounded resource use. The ugly edge cases come next.

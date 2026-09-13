@@ -1,0 +1,26 @@
+---
+title: "A Rehire Cache Bug and the Southern Star Proposal Feature"
+date: "2026-09-11"
+excerpt: "Fixing rehired staff disappearing from rosters, then building a client proposal feature into this site."
+tags: ["Laravel", "Caching", "Astro", "React", "Product"]
+author: "Ryan Dashwood"
+---
+## Rehired Staff Disappearing
+
+I fixed rehired staff disappearing from cached rosters (6cbec84c). When a staff member was soft-deleted and then rehired, the roster cache still held the pre-rehire state, so the person vanished from views until the cache expired. It's the same cache-invalidation class of bug I keep meeting: a write that changes membership needs to invalidate the membership cache, and if it doesn't, the UI lies.
+
+I repaired the Staff clean-install lockfile for CI (889a33bb) and recorded the verified rehire deployment (5c9329d4).
+
+## The Southern Star Proposal
+
+I implemented the Southern Star proposal feature on this portfolio (bdfe9d8a). This is a client-facing proposal experience built directly into the site—a polished, shareable page rather than a PDF attachment. I fixed proposal access and persistence for deployment (aa2d348d) and kept the proposal data shared across ServerChirp releases (ccddd33e). The persistence detail matters: in a server-based deployment, data stored on the instance can vanish on redeploy, so proposal state has to live somewhere release-independent.
+
+I enhanced the proposal review and Southern Star pages (fd1fa873) and mirrored the client proposal and drawings in a live admin review (7ff94e5d). The admin mirror means the client sees one thing and the team reviews exactly that, rather than two diverging views.
+
+## Fiction Codec Housekeeping
+
+I updated the `.gitignore`, enhanced `AGENTS.md` with product direction, introduced archive index and snapshot files, added an ingestion contract, and removed obsolete files (0bcf3188). Keeping a young project's docs and archives current prevents the next session from starting with a scavenger hunt.
+
+## Building a Product Surface
+
+The proposal feature is a different kind of work for this site—it's not a blog or a portfolio, it's a client deliverable. The interesting constraint is that it has to look excellent, work when shared with someone outside the system, and survive a deploy.

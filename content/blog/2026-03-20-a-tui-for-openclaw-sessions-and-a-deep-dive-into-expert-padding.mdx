@@ -1,0 +1,30 @@
+---
+title: "A TUI for OpenClaw Sessions and a Deep-Dive Into Expert Padding"
+date: "2026-03-20"
+excerpt: "A day split between shipping a terminal viewer for agent sessions and chasing an expert-alignment bug in local model builds."
+tags: ["Python", "TUI", "Local LLM", "Debugging", "Tooling"]
+author: "Ryan Dashwood"
+---
+## Adding a Deleted-Events Tab and Restore
+
+The day opened on the AustinsElite side with a deleted event tab and a restore button (b0250221). Events could be soft-deleted but there was no way to see or recover them from the admin UI. Adding the tab and restore path makes the deletion behavior reversible, which is the difference between a safety feature and a trap.
+
+## OpenClaw Viewer
+
+I shipped the initial release of openclaw-viewer (e0522f15), a standalone terminal UI that wraps OpenClaw sessions. I spend a lot of time in the terminal and wanted a first-class view of running agent sessions rather than scrolling JSONL by hand.
+
+Getting a TUI usable took a string of small fixes: a `UnicodeDecodeError` on non-UTF-8 bytes in the JSONL logs (c6478ef7), keyboard input not being accepted (d5f62872), a missing `operator.write` scope for gateway auth (a19a471c), device identity signing plus the `/ws` path (cfc80228), and a `Ctrl+K` binding to abort an active run (b12dfb86). The auth fix was the fiddliest—the gateway expects a signed device identity, not just a token, and the WebSocket path had to match exactly.
+
+## The Expert Padding Bug
+
+On ArcLLM I was benchmarking a new build and hit an alignment bug while padding experts. The first finding (c01b07ae) was that `GGML_PAD` between tensors is required—without it, the padded region isn't where the kernel expects. A later pass (995ba5f8) fixed the alignment and added a shared-expert filter. In between I confirmed via `expert-0` duplication that the bug was structural, not a data problem (614eb376). That distinction saved me from chasing the wrong layer for hours.
+
+The build was running MoE at 25.9 t/s once padded correctly (1c52349b).
+
+## Housekeeping
+
+I reorganized `CLAUDE.md` around the current state (4e1ec4d6), removed dead code and ignored worktrees and caches (13a9addc), and untracked the context archive so session databases stopped polluting the repo (804f51e7).
+
+## The Shape of the Day
+
+Tool, bug, cleanup, repeat. The TUI is the kind of tool that pays back immediately because it's the lens I use for everything else, and the padding bug is the kind that only shows up when you look at the actual memory layout.

@@ -1,0 +1,30 @@
+---
+title: "Porting DesktopFly to Electron and Sending Errors to Sentry"
+date: "2026-08-19"
+excerpt: "A public port of a desktop pet to Electron, staffing warnings instead of blocks, and real error reporting."
+tags: ["Electron", "TypeScript", "Cross-Platform", "Observability", "Email"]
+author: "Ryan Dashwood"
+---
+## Real Fly Goes Public
+
+I ported DesktopFly to Electron and made a public version in the `realfly` repo: the initial public port (78367609), packaging `uiohook` into the Windows build while ignoring `vendor/` (e40e6402), and adding version and author metadata so electron-builder can pack for Windows (005b86a7). I fixed the Windows tray icon, a leftover fly on display switch, and the monitor picker (7216d8cc).
+
+Then I shipped 0.1.2 with window ledges, a brain HUD, extra-fly mood, and habitat cues (96e2b880), and wired hunger, thirst, sleep, and clock from the FlyWire types (63038e8b). A desktop pet sounds trivial until you handle multiple monitors, tray behavior, and app packaging across platforms—the fun is in the details, and the details are all edge cases.
+
+## Staffing Warnings Instead of Blocks
+
+Back in the staff platform, I changed unusual staffing from a hard block to a warning and let staff unapply (1d0d109c). Blocking a legitimate edge case is worse than warning and letting a human decide; the warnings preserve intent without preventing work.
+
+I also pinged My Spots for unseen work and kept Request Position obvious (ab084c49), and took the daily OpenRouter social-post job off the public scheduler (578caad9)—an external LLM job doesn't belong on the web scheduler.
+
+## Error Reporting
+
+I sent Staff and public errors to the Austin's Elite Sentry (df3ccdef). Until errors are aggregated, every bug is discovered by a user. Sentry turns "someone said it broke" into a stack trace with context, which is the difference between a fix in an hour and a fix in a day.
+
+## Mail Fixes
+
+I stopped Mail IMAP from dropping HTML-as-plain message parts and landed the rest of the local Mail work (48be8cd8), and added an OpenShip adapter Dockerfile so Contabo can build Mail from the monorepo root (a00b3075). The IMAP fix matters because a message rendered as plain text when it's actually HTML loses all its formatting and links.
+
+## Breadth
+
+A game-adjacent desktop toy, staffing policy, observability, and mail plumbing in one day. The variety is the job.

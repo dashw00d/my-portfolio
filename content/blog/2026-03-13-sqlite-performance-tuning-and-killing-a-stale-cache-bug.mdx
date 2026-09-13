@@ -1,0 +1,26 @@
+---
+title: "SQLite Performance Tuning and Killing a Stale Cache Bug"
+date: "2026-03-13"
+excerpt: "WAL mode, PRAGMAs, missing indexes, and a date-comparison sweep after the SQLite cutover surfaced stale pay-tracker entries."
+tags: ["SQLite", "Laravel", "Performance", "Database", "Caching"]
+author: "Ryan Dashwood"
+---
+## Fixing the Stale Pay Tracker
+
+The SQLite cutover had left one painful symptom: time entries weren't appearing in the pay tracker (14c91749). The data was in the database; the UI just wasn't seeing it. A stale cache was serving a previous result set, and because the cache key didn't account for the new write path, invalidation never fired.
+
+I fixed the cache invalidation, then dug into the next layer: time entries whose timestamps didn't match date-only queries (b9fd2c4b). SQLite stores datetimes differently from the old engine, and a `WHERE date = ?` comparison against a datetime string silently returns nothing. I standardized the comparison so a date-only query matches any timestamp within that day.
+
+## A Codebase-Wide Date Sweep
+
+Rather than fix one query, I swept the codebase for date comparisons that would behave differently under SQLite (30ffdbf0). This was tedious but important—date handling is exactly the kind of thing that works in testing and fails in production because the test fixture happened to store the right shape. I centralized the comparison logic so there's one correct way to ask "is this entry on this day?"
+
+## SQLite Performance Tuning
+
+With correctness handled, I turned to speed. I enabled WAL mode and added the right PRAGMAs for the workload, plus several missing indexes (bd41d217). WAL mode is the single biggest win for a read-heavy SQLite app because it lets readers proceed while a writer is active. The indexes targeted the columns I query most: assignment lookups, event joins, and time-entry filtering.
+
+I also added resource detection and cache levels (47ac0b2a) so the app can adapt its caching behavior based on the available resources rather than assuming a fixed environment.
+
+## What the Cutover Taught Me
+
+Migrations aren't done when the data moves—they're done when the edge cases stop appearing. This was the day the SQLite work finally settled. The stale cache, the date shapes, and the missing indexes were all predictable consequences of changing engines, and I'd rather meet them head-on than paper over them.

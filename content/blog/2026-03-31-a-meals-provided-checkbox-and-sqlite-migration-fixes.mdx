@@ -1,0 +1,20 @@
+---
+title: "A Meals-Provided Checkbox and SQLite Migration Fixes"
+date: "2026-03-31"
+excerpt: "A small event-form feature plus repairing two mobile token migrations that broke under SQLite."
+tags: ["Laravel", "SQLite", "PHP", "Migrations"]
+author: "Ryan Dashwood"
+---
+## The Meals Checkbox
+
+I added a meals-provided checkbox to the event create/edit forms (df9e45f5). Events that include meals needed to say so, and there was no field for it. Simple feature, but it's the kind of detail that affects staff planning—whether to expect food changes how a shift is run.
+
+## Repairing the Mobile Token Migrations
+
+The more important work was fixing two migrations that broke under SQLite: `mobile_device_tokens` (c651bd2b) and `mobile_access_tokens` (b1d25653). Both had been written against the old engine and didn't translate. A failed migration is a landmine—it blocks fresh installs and can leave existing databases in a half-migrated state.
+
+I fixed the column definitions and index syntax so the migrations run cleanly on both a fresh SQLite database and an existing one. Then I verified a from-scratch migration path, because "it works on my database" isn't the same as "it works on a new one."
+
+## The Lesson From the Cutover
+
+These migration fixes are the long tail of the SQLite migration. Every day I find one more place where the old engine's behavior was assumed. It's a reminder to test the full install path after a database change, not just the queries on a database that already exists.

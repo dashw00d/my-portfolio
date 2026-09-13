@@ -1,0 +1,26 @@
+---
+title: "Serving API Docs, Serializing Tick Writes, and Starting a Backfiller"
+date: "2026-05-17"
+excerpt: "Docs in the image, write serialization for tick ingest, dynamic pricing scaffolding, and a Solana DEX backfiller."
+tags: ["FastAPI", "Data Pipelines", "Trading", "Solana", "Documentation"]
+author: "Ryan Dashwood"
+---
+## Docs Shipped With the Service
+
+I made candle-service serve its API docs directly (50320c31) and included the docs in the image (617648a7). Shipping docs with the service means consumers never read a stale version—the reference is always the running build.
+
+## Fixing Ingest Writes
+
+I fixed snapshot candle recompute rows (91721884) and serialized pool tick ingest writes (bb801676). Concurrent writes to SQLite from multiple ingest paths were causing contention and occasional corruption of recompute rows. Serializing the writes trades a little throughput for correctness, which is the right trade at this stage. I also normalized the Dexpaprika pool side (f30ae19a), since inconsistent casing or naming from an upstream breaks identity matching.
+
+## Dynamic Pricing and Capital Routing
+
+I added dynamic pricing and a capital routing scaffold to dex-trader (887f63e4), wired the live paper universe settings (e5cb7be3), and refreshed the capital guard scaffold pack (108c6e9f). Dynamic pricing adjusts quoted costs as market conditions change, and capital routing decides which strategies get capital first. I fixed Jupiter quote fill impact accounting (e80a83af) so simulated fills reflect the price impact a real swap would incur.
+
+## The Backfiller
+
+I implemented a Solana DEX backfiller (c0a2b5ac), added sub-minute bars and a live watcher (8d5a8e8b), and wrote an operations runbook (1bfada14). The backfiller fills historical gaps so research has a continuous series; the watcher keeps it current. Writing the runbook on the same day it's built is the only time I'll remember the operational details.
+
+## The Infrastructure Beneath the Strategy
+
+Today's work isn't strategy—it's the plumbing that makes strategy results believable. Serialized writes, correct fill accounting, and a complete historical series are prerequisites for trusting anything the research produces.

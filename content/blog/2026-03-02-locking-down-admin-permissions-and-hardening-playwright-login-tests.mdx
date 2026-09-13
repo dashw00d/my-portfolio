@@ -1,0 +1,32 @@
+---
+title: "Locking Down Admin Permissions and Hardening Playwright Login Tests"
+date: "2026-03-02"
+excerpt: "A focused day normalizing role/action session values, logging permission denials, and building an E2E suite that could actually log in reliably."
+tags: ["Laravel", "PHP", "Playwright", "Testing", "Security"]
+author: "Ryan Dashwood"
+---
+## Normalizing Role and Action Session Values
+
+The day started in the permission layer of the AustinsElite app. I kept running into cases where an admin session would hold slightly different representations of the same role and action, which made authorization checks flaky depending on how the user had arrived at a page. I fixed this by normalizing role and action session values directly in `admin_priv` (d46d32b9), so every downstream check reads a canonical value instead of trusting whatever the session happened to carry.
+
+To make future debugging painless, I followed that with structured logging for permission denials (86aab684). The log line now includes the session context—role, action, and the route that triggered the check—so when something is denied incorrectly I can tell whether it's a data problem or a logic problem without re-instrumenting the code. Both changes landed in the platform repo and the mirrored production repo.
+
+## Fixing Typed Time-Picker Values Before Geofence Submit
+
+The event log has a time picker that users can either select from or type into. The typed path was submitting a stale value because the input's change hadn't been committed to the underlying model before the geofence submission fired. I fixed it by syncing typed time-picker values before the geofence submit (dc315c42), which closed a subtle data-integrity bug where a staff member could clock an event against the wrong timestamp.
+
+## Cleanup and Hiding the Mobile App
+
+Later I did a cleanup pass (b809e422), removed a few dead references, and hid the mobile app entry point (6e7649f8) while the native shell is still being worked on. Nothing dramatic—just reducing surface area so users don't wander into an unfinished flow.
+
+## Building an E2E Suite That Could Actually Log In
+
+The bulk of the day went into a Playwright suite covering staff hours and admin visibility (3b934308). The first version looked reasonable and failed immediately. The login helper couldn't get past the animated form handler, redirects weren't stabilizing, and the fixtures didn't exist.
+
+I worked through it in layers. First I seeded QA users and a staff assignment fixture (636aef6a) so the login flows had something real to authenticate against. Then I pointed the tests at stable event-log routes and derived the fixture event id instead of hardcoding it (479a49ab). The session itself was still unreliable, so I switched authentication to a form POST request context (b8dce47d), which bypasses the browser animation entirely and gives the test a real session cookie.
+
+The last obstacle was the animated login handler swallowing the submit. I forced a native form submit (91eecbac) so the test drives the form deterministically. By the end of the night the suite could log in as each QA role and assert the staff-hours and admin-visibility paths.
+
+## What I Took Away
+
+Two lessons. First, authorization bugs are usually data-shape bugs in disguise—normalizing at the boundary is cheaper than defending everywhere. Second, E2E tests fail for reasons that have nothing to do with the feature: animations, redirects, and fixtures. Stabilizing the harness is real work and worth committing to, because once the login helper is solid the actual assertions become easy.

@@ -1,0 +1,26 @@
+---
+title: "Editorial Polish: Logos, Reveals, and Correcting the Founding Date"
+date: "2026-04-18"
+excerpt: "The second day on the design system: real logos, reveal animations, and a site-wide fact correction."
+tags: ["Frontend", "Design System", "Tailwind", "UX", "Next.js"]
+author: "Ryan Dashwood"
+---
+## The Wordmark Becomes a Logo
+
+I swapped the text wordmark for the actual PNG logo across the hero, nav, and footer, and retuned the hero spacing and image treatment (a25e9991). A real logo changes the proportions of everything around it, so the spacing retune was as much of the change as the swap itself.
+
+## Vendor Logos and Partner Row
+
+I replaced the text vendor names with logos in the hero (6b00feda) and moved the partner row to use `featured_logo` with a silhouette treatment for logos that don't read on a dark background (5bea59bc). Silhouetting is a nice trick: rather than maintain light and dark versions of every logo, I render a single-color silhouette that works on the ink surface.
+
+## Reveal Animations and Pagination
+
+I did a broad editorial polish pass covering reveal animations, pagination, CTAs, and a venues dropdown (8e384207). I also added a category filter rail to the services listing and shortened the image aspect, plus nudged the nav chat dot into place (4bf107ed).
+
+## The Founding Date Correction
+
+The most important change of the day wasn't visual: I corrected the founding date site-wide from 1995 to 2004 (bb5f28bf). That same commit bundled editorial emails, mobile hero fixes, a radio-group bug, form horizontal rules, and container gutters. The factual correction is the kind of thing that damages trust quietly, and I'm glad it surfaced.
+
+## Two Weeks of Design Work
+
+The design system is now coherent: tokens, component classes, real logos, and consistent motion. The remaining rough edges are individual pages rather than the system itself, which is exactly where I want to be.

@@ -1,0 +1,36 @@
+---
+title: "A Venue Integration Program and a Static Deploy for This Site"
+date: "2026-08-15"
+excerpt: "64 commits executing a worktree program for venue integration while moving dashwood.net to a mounted static release."
+tags: ["Laravel", "Astro", "Deployment", "Integration", "Venues"]
+author: "Ryan Dashwood"
+---
+## The Worktree Program
+
+I planned the priorities 1-7 worktree program (d9a70376) and executed it as a series of focused branches, each merged back as it landed. Working in separate worktrees lets changes that touch the same large repo progress without stepping on each other.
+
+## Restoring Trust in Forms and Traffic
+
+I restored trustworthy Public forms and venue URLs (352084e1), restored Sales inbox navigation (dba98a0c), and preserved Public service category navigation (617b947d). I made "New" the default lead view (49e8f6ed), allowlisted lead tab filters (9f5a05d6), made file uploads unmistakable (1ca425f4), fixed the full profile photo source (b2009745), and simplified the Staff topbar hierarchy (09e4e1fc). These are the small trust fixes that come after a large merge—restoring the behavior users rely on.
+
+## The Venue Integration
+
+I added a venue ownership contract (280d831a), made the venue projection migration runnable (c284ed04), normalized Public venue projections (5840e658), required canonical venues in the Staff event wizard (48d00e78), kept the venue creation fence current (ffa0b767), kept the event wizard review in sync (29e1893d), and replaced fuzzy venue photo sync with a deterministic contract (70a6a106).
+
+I characterized venue transition dependencies with tests (f9ce2e8f), added venue health controls (ebd78bf1), compiled the health assets (07417d1e), enforced a cutover health gate (261e387a), ran a fictional cutover rehearsal (5495f36c), and deleted the legacy venue automation (54c35577) once the new path was proven.
+
+The pattern here is the one I keep returning to: characterize current behavior, build the replacement, gate the cutover on health, then delete the old path.
+
+## My Portfolio Goes Static
+
+I moved this site, dashwood.net, to static HTML with long-lived cache (16e42f38). I tried building images in GitHub Actions (fad7a200), then stopped (3b254a6c) and tested both local and server image deploys (cfa00ea5, d69eea5d). I added support for mounted static releases (4fc78c6c), fixed the mounted static runtime boot (abd494ae), and versioned the static export (204a9631). I also sharpened the homepage copy (6023947c, d90e5685).
+
+Moving a portfolio to a mounted static release is the right long-term shape: no build on the server, no runtime PHP, just files swapped atomically. The back-and-forth on the image build was worth it—the simplest deploy won.
+
+## Resource Discipline
+
+I cut production resource use on Lake Forest (20310b5c) with a sleeping cron, on-demand PHP, and long cache, and cut storage churn in Actions (14915f97). Running many small sites means every idle process and every build artifact is a recurring cost.
+
+## A Wide Day
+
+Venue integration, staff UX, and this site's own deployment in one day. The portfolio work is a nice bookend: the site that logs the work is now deployed as immutable static files.

@@ -1,0 +1,32 @@
+---
+title: "Rebuilding Venue Matching: Dedup, Aliases, and Honest Listings"
+date: "2026-05-05"
+excerpt: "A 40-commit day reworking venue matching with a canonical ledger, merge-aware aliases, and listing copy that doesn't mislead."
+tags: ["Laravel", "PHP", "Data Modeling", "Deduplication", "Frontend"]
+author: "Ryan Dashwood"
+---
+## A Dedup Ledger
+
+The core change was adding a `processed_legacy_events` ledger as the canonical match-dedup mechanism (2b087ff3). Without it, the same legacy event could be matched more than once across runs, inflating venue stats. A ledger makes matching idempotent: an event is processed once and recorded, and re-runs skip it.
+
+## Alias Manager and Merge Awareness
+
+I made the matcher merge-aware with persistent venue aliases (aba67ec1) and added a Filament alias manager (304216b5). Venues get merged in the real world—two records turn out to be the same place—and without aliases, a merged venue's events scatter. Persisting aliases means merges are permanent decisions the matcher honors.
+
+I also fixed a `RerouteMergedVenueEvents` bug where a drain ran during a merge cycle and lost events (6f00011b), collapsed non-live venues into aggregates (d35cf75e), restored drained venues from production and locked the destructive operations (2036401e), and added 301 redirects for the orphaned slugs of soft-deleted merged venues (ff7a2650). The redirect ordering needed care so trashed private and junk venues fall through to the aggregate instead of 404ing (6b1cf156).
+
+## Keeping Stats and Schedules Fresh
+
+I scheduled a nightly venue matching pipeline (3432e59a) and made venue stats refresh after every `event_ids` change (8c22ea5d). Matching that only runs on demand goes stale; a nightly job plus event-driven refresh keeps the listing honest.
+
+## Honest Storytelling
+
+The listing itself got a storytelling pass: a `best_badge`, an active-since field, and an honest velocity meter (e348201a). I relabeled the Established badge to "Since YYYY" (fea46f11), consolidated badges into one location (9b1f7a07), and qualified capacity numbers by source so the listing doesn't imply more confidence than the data supports (ece1c8b8). I lowered the `demand_trend` threshold so the listing tag is actually informative (96426e70).
+
+## Housekeeping
+
+I added archive-and-prune for the email log and form submissions (45035d1c), a one-shot `seo:refresh-venue-references` command (d1462435), and fixed the corporate-pivot review regressions (cc856a27). I also added a "now hiring" banner in the v3 editorial style (87d5a37e).
+
+## The Theme
+
+Data honesty. A venue listing that merges records, dedupes matches, and qualifies its numbers is trustworthy. A listing that doesn't is a liability. Today was about making the data model support the claims the UI makes.

@@ -1,0 +1,24 @@
+---
+title: "Fixing a Quick-Question Leak and Shipping March Patch Notes"
+date: "2026-03-11"
+excerpt: "A late-night bug where quick questions leaked into the venue-lead pipeline, plus view cleanup and the March patch notes."
+tags: ["Laravel", "PHP", "Bug Fix", "Frontend"]
+author: "Ryan Dashwood"
+---
+## Stopping Quick Questions From Leaking as Venue Leads
+
+Just after midnight I found a nasty little data bug: quick questions were being written into the venue-lead pipeline (f28262d2). A "quick question" is a lightweight contact form, and a "venue lead" is a higher-intent signal that sales treats very differently. Having one masquerade as the other meant the sales side was chasing people who'd only asked a casual question.
+
+The fix was to separate the two paths at the point of ingestion rather than trying to filter them out downstream. I also applied it to the Next.js frontend (6bf0a8af) so both surfaces route correctly. This is the kind of bug that's invisible until someone notices the wrong people in a pipeline, and then it's expensive.
+
+## View Factory Cleanup
+
+I did a small view factory cleanup (d3a1ebd7) to remove duplicated rendering logic. It's a boring commit but it keeps the Blade layer from growing a second way to do the same thing.
+
+## Fixing an Icon and Writing Patch Notes
+
+There was a quick icon fix (d5e879a7) and then the March 2026 patch notes (965a6290). Writing patch notes is a good forcing function: I have to describe what actually changed in user-facing terms, which sometimes reveals that a change is less coherent than I thought. This month's notes covered the permissions work and the SQLite cutover.
+
+## A Short Night
+
+This was a four-hour-or-so block: one real bug, one cleanup, one icon, one document. The quick-question leak is the one that mattered. It's a reminder that form routing is a data-classification problem, not a UI problem—if two different intents share a table, the boundaries will blur eventually.

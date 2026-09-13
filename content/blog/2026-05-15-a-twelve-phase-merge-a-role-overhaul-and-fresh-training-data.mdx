@@ -1,0 +1,34 @@
+---
+title: "A Twelve-Phase Merge, a Role Overhaul, and Fresh Training Data"
+date: "2026-05-15"
+excerpt: "Bringing two dex-trader branches together phase by phase while overhauling roles and wiring a daily training-data pipeline."
+tags: ["TypeScript", "Laravel", "Architecture", "Data Pipelines", "Trading"]
+author: "Ryan Dashwood"
+---
+## Merging Two Divergent dex-trader Branches
+
+dex-trader had two lines of work: mine and a friend's UI contributions. I merged them in labeled phases to keep the reconciliation legible—bringing over the friend's UI carryovers (03fc7748), adding backend endpoints and columns to support that UI (ade0c71c), then a `/api/variables` shim mapping their keys to `paperConfig` (2dc3f6d9), and finally porting the customization UI onto my backend (ded998d3).
+
+From there I completed confidence-aware sizing (abfef5c7), enriched the pack family appearance with exit profile and minimum age (5ca02d17), re-added API wrappers (1d6646d9), added `/settings` (f785da45) and `/rules` pages (fc16eee3), switched the nav and routes and deleted the old pages (5a4a14c1), and did a review pass that dropped a dead runtime path, fixed reset semantics, surfaced validation, and killed a few races (a3bdb5b4). The phase labels are what kept a large merge from becoming an unreadable diff.
+
+## Tick Archive and Federated Ingest
+
+I added a high-frequency tick archive with an inspector route (3083144f), a `POST /v1/pool-ticks` endpoint in candle-service for federated DexScreener snapshots (6a494b3a), and a tick forwarder that drains `paper_ticks` into candle-service (b6814b4a). Federated ingest means each client contributes its observations, which thickens the dataset for everyone.
+
+## Training-Data Freshness
+
+In edge-lab I specified and built a training-data freshness pipeline (f50e09ca, b395540a): a SQL migration for drag samples and a Binance regime table plus `pyarrow` (d8798f1f), sub-specs and stage ordering (3f945c21), executor dispatch (846fa64c), and three stages—pool snapshots to per-day parquet (598b71f8), drag curves into `drag_samples` (5142b416), and Binance regime into its table (f88e10a7). I wired the stages into the bootstrap profile (ec7afa80), smoke-tested the executor end to end (d3e6d1d9), and documented a daily cron line (06dbb163).
+
+The freshness loop matters because a research pipeline fed by stale data produces confident, wrong answers.
+
+## AustinsElite Reliability
+
+On the platform side I did a role system overhaul with session permission refresh and cache and schema fixes (8c289464), added a deleted-user view and edit, a profile-picture apply gate, a suspend system, and swapped the training video (317b69ba). I also made the staff user-list tabs discover roles dynamically instead of hardcoding them (2c566f70) and fixed the active tab highlight (59fcf3fc).
+
+## Late-Night Guards
+
+Just before midnight I added three guards against same-coin loss cascades (40b6af69) and closed the remaining execution and training-data gaps with a `TRAINING.md` (dfe34365).
+
+## The Thread
+
+Merging, federating, refreshing. All three are about keeping multiple sources of truth coherent—two branches, many clients, and a data pipeline that has to stay current.

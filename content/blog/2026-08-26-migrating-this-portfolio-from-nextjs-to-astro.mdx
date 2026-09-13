@@ -1,0 +1,28 @@
+---
+title: "Migrating This Portfolio From Next.js to Astro"
+date: "2026-08-26"
+excerpt: "A framework migration for the portfolio, plus two new projects and a contact form that works over SMTP."
+tags: ["Astro", "Next.js", "Email", "SMTP", "Architecture"]
+author: "Ryan Dashwood"
+---
+## The Migration
+
+I migrated this portfolio from Next.js to Astro (3f69f73c). A portfolio is almost entirely static content, and Next.js was carrying a runtime it didn't need. Astro ships static HTML by default and only hydrates the interactive islands, which fits the site perfectly: mostly content, a few React components.
+
+The migration also simplified the deploy story. Combined with the mounted static release work from earlier in the month, the site is now a directory of files that can be swapped atomically.
+
+## SMTP and the Contact Form
+
+I added environment configuration for SMTP and updated the contact form handling (9b1a9c7f). A contact form that only logs submissions isn't a contact form, so I wired it to send mail, with environment-based configuration so credentials never live in the repo. The pattern is the same one I use elsewhere: process environment first, then a gitignored `.env` fallback.
+
+## Two New Projects
+
+I added the initial project structure for `umbrella` (455906dd) and `writercourt` (007b9324). Both are early scaffolds—configuration and example setup—established cleanly so they can grow deliberately.
+
+## Small Staff Fix
+
+I updated `composer.lock` and the dev-lab seed with new dependencies and fictional data in the staff platform (9859999f). Fictional seed data is important for a lab environment; realistic-looking fake data exercises the UI without exposing real information.
+
+## Why Migrate a Working Site
+
+The site worked on Next.js. But every dependency and every runtime assumption is a future maintenance cost, and a static marketing site has no business owning a server framework. The migration was a day, and the operational win is permanent.

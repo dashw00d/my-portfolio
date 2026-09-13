@@ -1,0 +1,30 @@
+---
+title: "SpeechEdit Lands With a Swarm of Features"
+date: "2026-08-24"
+excerpt: "A new video-editing project went from init to agent loop, ASR providers, and scenes in a single day."
+tags: ["TypeScript", "Video Editing", "MCP", "AI", "Speech"]
+author: "Ryan Dashwood"
+---
+## A Greenfield Day
+
+I started `speechedit` (cef5304e) and then landed most of its feature surface in one session. SpeechEdit is an editor for talking-head video built around the transcript: you edit words, and the video follows.
+
+## The Feature Swarm
+
+The commits read like a feature list: breaths, lead/trail, and repeat detection in analysis (0f18e3c3); an FFmpeg 4.4 export graph with volume monitoring (b553c28c); `scenes[]` and `keepTake` so takes can be chosen rather than just cut (3caa18df); pluggable ASR providers with a dedicated transcribe path (1bf12216); interchange, captions/titles, and a diarization hook (dc75b90e); a word-snap timeline with ripple edits and music beds (a6417cee); auto-edit review groups and a demo-guard restore (0ce9a350); play-from-word, P/A/C modes, `revertAt`, and put-back chips (b23873c1); and an MCP/agent loop on the project command bus (5c76deed).
+
+I merged each stream back as it landed—analysis engine, export preview, transcribe providers, word snap, scene intelligence, auto-edit, intelligence, and captions/interchange/diarization. Working as parallel streams and merging kept the day from becoming one giant unverifiable change.
+
+## Correctness Under the Hood
+
+I fixed bugs that only matter if the editor is going to be trusted: keeping island-word cuts from wiping the reel and making file I/O real (ec61aa5a), making preview play the same export job FFmpeg renders (b8d10276), letting users cancel export mid-FFmpeg and keeping import from getting stuck (cc2f4431), and keeping B-roll and music picks inside the one-job-at-a-time gate (1cbc721e). Preview matching export is the single most important correctness property of a video editor—if the preview lies, nothing else matters.
+
+I added local `whisper.cpp` integration (6b53c26b) and proxy handling for media assets (012a2e31).
+
+## Meanwhile on the Client Work
+
+I enhanced venue management with workspace features and avatar support (80eb7ac2), hardened mail sanitization for oversized stylesheets (0efa7b3c), improved event ownership and calendar UX (57e9d595), and streamlined event application logic (1a708910). I also fixed the Lake Forest officer panel by serving Livewire JavaScript (2c02fee4).
+
+## The Command Bus
+
+The through-line of SpeechEdit is a project command bus. Every feature—scenes, edits, agent commands—goes through one place. An agent and a human operate on the same commands, which is what makes the MCP integration coherent rather than bolted on.

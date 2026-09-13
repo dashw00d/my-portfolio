@@ -1,0 +1,34 @@
+---
+title: "Pre-Integration Guards, Faster Mail, and the Sales Shared Inbox"
+date: "2026-08-13"
+excerpt: "A 46-commit day making the integration safe to deploy, speeding up Mail, and building the sales shared-inbox surface."
+tags: ["Laravel", "Performance", "Email", "Integration", "Deployment"]
+author: "Ryan Dashwood"
+---
+## Deploy-Safe Integration
+
+The integration work from the day before introduced a classic problem: code that references new tables and columns deploys before the migration runs, and pages 500 in the gap. I kept Lead pages working before the integration tables exist (96cc88a6) and stopped "Request a Quote" from 500ing before the integration columns exist (017ffecb). Then I added a follow-up migration for the integration `mail_link_id` (f1c5afa7).
+
+Defensive code that tolerates a partially migrated schema is what makes a zero-downtime cutover possible. The alternative is a maintenance window.
+
+## Credentials and Networking
+
+I loaded host integration credentials on the Mail deploy (9f75a846), read the AE integration credentials from the host env file (2f9b884f), and let Mail reach the Staff Integration API from Docker (e85bafa2). Cross-container API calls need explicit network configuration and the right credential source—this was the glue that made the two systems actually talk.
+
+## Faster Mail
+
+I sped up the Mail list, open, and delete paths (093c97e1), fixed assigned delete, a hover list wipe, and the Docs WebSocket proxy (e585c71c), and fixed UI details: newest mail first and an obvious mobile sidebar (ac117885) and mail reader formatting checks (020548a4). I also stopped native apps from crashing on a missing `navigator.userAgent` (8b981670)—a small cross-platform guard.
+
+## Mail Links and Document Spaces
+
+I replaced synthetic mail conversation creation with a `mail_link_id` attach (0c9bf985), stamped `mail_link_id` on sales notifications and staff intake (824d36f1), kept IMAP raw headers, and trusted tagged mail-link HTML (c4d6a4dc). Attaching to an existing mail link instead of fabricating a conversation keeps the mail record tied to the real message.
+
+I added company document spaces with audience sharing (0746b2ca) and message rendering metadata with a reader UX pass (cda1856f).
+
+## The Sales Shared Inbox
+
+I built the sales shared inbox work surface (2e9bea77). Sales and staff both needed a view of the inbox that matches how they work, and giving sales its own surface keeps the two teams from fighting over one generic list.
+
+## Integration Is Glue
+
+Almost everything today was connective tissue: guards, credentials, network paths, link IDs. Integration days don't produce a feature you can point at—they produce two systems that finally behave like one.

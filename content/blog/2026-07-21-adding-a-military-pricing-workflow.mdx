@@ -1,0 +1,22 @@
+---
+title: "Adding a Military Pricing Workflow"
+date: "2026-07-21"
+excerpt: "Introducing a military pricing path across the platform, the production site, and the Next.js frontend."
+tags: ["Laravel", "Pricing", "Feature", "Frontend"]
+author: "Ryan Dashwood"
+---
+## The Feature
+
+I added a military pricing workflow (4e10aeeb), applied across the platform, the production repo, and the Next.js frontend. The workflow introduces a distinct pricing path for military customers and the logic to qualify and apply it.
+
+## Why It Touches Three Repos
+
+Pricing is one of those concerns that spans the stack: the backend owns the calculation and eligibility, the production site needs to display and collect the right inputs, and the frontend needs to render the state consistently. Keeping all three in sync on the same commit day is the only way to avoid a half-shipped pricing path.
+
+## Pricing Is Business Logic
+
+Discount logic always looks simple until you consider eligibility, stacking, rounding, and what happens when a customer's status changes mid-quote. I kept the rules explicit and centralized rather than scattering conditions through the form, because pricing bugs are trust bugs—they're visible, they're financial, and they're remembered.
+
+## One Feature, Three Surfaces
+
+A focused day. The feature is small, but it demoes the discipline the mirror repos demand: one logical change, three synchronized commits.

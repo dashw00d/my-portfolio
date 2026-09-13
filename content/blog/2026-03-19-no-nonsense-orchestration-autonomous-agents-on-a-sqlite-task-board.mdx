@@ -1,0 +1,22 @@
+---
+title: "No-Nonsense Orchestration: Autonomous Agents on a SQLite Task Board"
+date: "2026-03-19"
+excerpt: "A fresh orchestrator built around one hard constraint—only one agent may own the GPU at a time."
+tags: ["Python", "Orchestration", "AI", "SQLite"]
+author: "Ryan Dashwood"
+---
+## The Idea
+
+I shipped an initial release of No-Nonsense Orchestration (58b51078): autonomous AI agent orchestration built on a SQLite task board. After a few iterations on orchestration design, I wanted the simplest possible coordination primitive—a shared table of tasks with states—rather than a message bus or a distributed queue. SQLite gives me transactional claims, visibility into what every worker is doing, and zero operational overhead.
+
+## Fixing the Migrations Layout
+
+The first thing that broke was migrations. The code assumed a repo-relative migrations directory, which failed when the tool was embedded in another project. I fixed the lookup to work in both layouts (4a770513) and added the missing migrations directory with the initial schema (b43fb69a). It was a useful early lesson: if a tool can run from two locations, path assumptions will bite immediately.
+
+## GPU Exclusivity
+
+The interesting rule came last: GPU exclusivity (a8f8501b). Local inference saturates the GPU, so running two model calls concurrently doesn't speed anything up—it just makes both slower and risks out-of-memory failures. I encoded an exclusivity rule so only one agent can hold the GPU at a time while other agents continue on CPU-bound or non-inference work. That single constraint did more for throughput than any scheduling heuristic I might have written.
+
+## Why Simple Wins
+
+The whole system is a table, a claim protocol, and a scheduling rule. That's it. At this scale, a boring design is a feature—I can inspect the entire state of the machine with one `SELECT`, and there's no broker to keep alive. I'll add capability once the simple version hurts.

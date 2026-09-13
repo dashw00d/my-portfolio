@@ -1,0 +1,20 @@
+---
+title: "Unique Venue Slugs and a Detailed Email Queue View"
+date: "2026-08-28"
+excerpt: "Preventing slug collisions with hidden entries and making the email queue genuinely inspectable."
+tags: ["Laravel", "PHP", "SEO", "Admin", "Email"]
+author: "Ryan Dashwood"
+---
+## Unique Slugs Against Hidden Entries
+
+I ensured venue slugs stay unique and don't collide with hidden entries (51db326d). Slug uniqueness is usually enforced against visible records, but hidden and soft-deleted entries still own their URLs—especially if they might be restored or redirected. Checking against all entries prevents a slug from being reused and breaking a live link.
+
+## Email Queue Detail
+
+I built out the email queue view over several commits: updated pagination and result fragment handling (8f1bc585), enhanced pagination controls and accessibility (18f9cf9d), implemented a detailed email queue view with bulk delivery evidence (9051c16f), and added recipient account information to the detail view (7f6b0e90).
+
+An email queue is only useful if you can answer "what happened to this message?" Delivery evidence—which attempt, what the provider said, when—turns a queue from a list of pending items into an audit tool. Recipient account information closes the loop between a queued email and the person on the other end.
+
+## Admin Surfaces Deserve Care
+
+The email queue is an internal screen, which is exactly why it's easy to leave crude. But staff spend their day in these views, and a queue that can't explain a failure forces someone to go read logs. Making it good is a force multiplier on everyone's time.

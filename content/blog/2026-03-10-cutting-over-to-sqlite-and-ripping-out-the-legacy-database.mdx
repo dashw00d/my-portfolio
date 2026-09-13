@@ -1,0 +1,28 @@
+---
+title: "Cutting Over to SQLite and Ripping Out the Legacy Database"
+date: "2026-03-10"
+excerpt: "The big one: a full cutover to SQLite, direct lead routing, and an anonymized activity feed after months of planning."
+tags: ["SQLite", "Laravel", "Database", "Migration", "PHP"]
+author: "Ryan Dashwood"
+---
+## The Full Cutover
+
+Today the AustinsElite app moved off its shared legacy database and onto SQLite (5cbad5c1). This wasn't a side quest—it was the migration I'd been building toward. The shared-database approach had become a liability: cross-app coupling, connection limits, and a schema controlled elsewhere. SQLite gives the app its own file, its own migrations, and a dramatically simpler deployment story.
+
+The cutover landed as pull request #12 (7a001932) after a `fix1`/`fix2`/`fix3` sequence where I worked through the inevitable fallout—foreign-key assumptions, connection setup, and query differences between the old engine and SQLite. I also merged PR #158, which I'd labeled `sqlite-rip-legacy-db` (13881d4e), because the point was not to run both databases in parallel forever. The legacy path needed to actually go away.
+
+## Swapping From Shared DB to Direct Leads
+
+With the database landed, I moved lead generation from the shared database to direct lead writes (84c5c297), then fixed the lead path (2861e800) when the first version dropped records in an unexpected order. This change means a lead is now written by the app that owns it rather than fished out of a shared table. The same fix went into the Next.js frontend (1c3a733c) so both sides agree on where leads live.
+
+## Staff Portal Activity Search and Calendar Invalidation
+
+Earlier in the day I fixed three related staff-portal issues (39e02c1b): a bad `description` query in activity search, a calendar that didn't invalidate when assignments changed, and My Events auto-bounding results by date unless the user explicitly filtered. The calendar bug was the worst of the three—staff would change an assignment and still see the old schedule until a hard refresh. I now invalidate the calendar cache on assignment changes and stopped the default date scoping.
+
+## Anonymizing the Limited Activity Feed
+
+I also anonymized the limited activity feed and removed a stale link to the old site (5f56cb3b). The feed had been showing identifying details to users who only needed an aggregate view. Anonymizing it reduces the amount of personal data flowing through the UI and removes a confusing escape hatch to the previous version of the site.
+
+## What It Took
+
+A cutover day is mostly stamina. The first merge is the easy part; then come the fixes. By the end the app owned its data, leads flowed directly, and the UI stopped leaking the old system. Worth the long night.

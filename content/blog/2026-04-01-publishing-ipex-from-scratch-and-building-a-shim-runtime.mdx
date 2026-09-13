@@ -1,0 +1,22 @@
+---
+title: "Publishing ipex-from-scratch and Building a Shim Runtime"
+date: "2026-04-01"
+excerpt: "Prepping a GitHub-safe snapshot of the IPEX reimplementation and advancing the shim interposers."
+tags: ["SYCL", "C++", "Reverse Engineering", "Open Source", "Benchmarking"]
+author: "Ryan Dashwood"
+---
+## A GitHub-Safe Snapshot
+
+I prepared a publishable snapshot of `ipex-from-scratch` (90c9e933). The project had accumulated large binary artifacts, IGC dumps, and generated files that don't belong in a repository. Curating what to publish forced me to separate source from artifacts, which is genuinely useful—the repo is now smaller and the build is clearer.
+
+## The Shim Runtime
+
+I added a shim runtime with bootstrap docs and an iteration queue (eb0df504). The shim is the layer that interposes the IPEX implementations on top of upstream llama.cpp. A runtime shim, as opposed to a compile-time link, means I can enable or disable specific interposers and measure each one.
+
+## Advancing the Interposers
+
+I tightened the benchmark loop and advanced the shim interposers (142b4685). The iteration loop matters here: change one interposed op, run the benchmark, compare throughput and correctness, record the result, repeat. Making that loop fast is what makes the whole project tractable.
+
+## Why Publish It
+
+Most of my local-inference work lives in private repos. `ipex-from-scratch` is worth publishing because the reverse-engineering methodology is broadly useful—how to go from a proprietary kernel to a verifiable reimplementation. Publishing also imposes a quality bar that a private repo never does.

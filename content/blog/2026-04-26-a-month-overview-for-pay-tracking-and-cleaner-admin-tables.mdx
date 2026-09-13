@@ -1,0 +1,22 @@
+---
+title: "A Month Overview for Pay Tracking and Cleaner Admin Tables"
+date: "2026-04-26"
+excerpt: "Adding a month-at-a-glance pay view and improving admin events and time-off screens."
+tags: ["Laravel", "PHP", "UI", "Admin", "Feature"]
+author: "Ryan Dashwood"
+---
+## Month Overview for Pay Tracking
+
+I added a month overview to pay tracking (e80b52e4). The pay tracker had been per-period and per-entry, which made it hard to answer the obvious question: how does this month compare to the last one? A month-level summary gives that at a glance and makes anomalies visible without drilling in.
+
+## Reducing Table Crowding
+
+The new overview made the table too crowded, so I fixed that (21b6d0e7). Adding data to a table is easy; keeping it readable is the actual work. I tightened the columns, rebalanced what's shown inline versus what's on hover, and made sure the mobile layout still stacked sensibly.
+
+## Admin Events and Time Off
+
+I also improved the admin events and time-off screens (f235a462). These are the screens staff and admins use most, and small friction there multiplies. The changes focused on clearer status display and fewer clicks to reach the common actions.
+
+## Mirrored Again
+
+All three changes landed in both the platform and the production repo. I keep a mental checklist now for mirrored changes—feature, migration, and asset—because drift between them is the most common source of "it works in staging" surprises.

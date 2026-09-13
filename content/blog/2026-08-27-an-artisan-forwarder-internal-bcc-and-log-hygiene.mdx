@@ -1,0 +1,22 @@
+---
+title: "An Artisan Forwarder, Internal BCC, and Log Hygiene"
+date: "2026-08-27"
+excerpt: "Three small changes: forwarding Laravel commands, BCCing internal copies, and removing an environment-specific log."
+tags: ["Laravel", "PHP", "Email", "Tooling"]
+author: "Ryan Dashwood"
+---
+## Forwarding Artisan Commands
+
+I added an artisan script to forward Laravel commands to the public app (22a6f347). In a monorepo with multiple applications, running a command in the right context is a recurring annoyance. A forwarder removes the guesswork.
+
+## Internal BCC Copies
+
+I enhanced the sales notification system with internal BCC copies (02ca5312). Sales notifications were going out without an internal record, which made it hard to confirm what had been sent. A BCC to an internal address gives the team an audit trail without changing the customer-facing email.
+
+## Removing an Environment-Specific Log
+
+I removed an environment-specific PHP error log (813cc7b7). Config and log paths that reference a specific environment inevitably end up committed and then wrong somewhere else. Better to solve it with standard logging configuration.
+
+## Small Commits, Clear Intent
+
+Three focused changes. The BCC one is the most valuable—every outbound business email should have an internal copy, and the cost of adding it is a single header.

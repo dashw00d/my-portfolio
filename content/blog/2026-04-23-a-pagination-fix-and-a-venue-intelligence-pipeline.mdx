@@ -1,0 +1,22 @@
+---
+title: "A Pagination Fix and a Venue Intelligence Pipeline"
+date: "2026-04-23"
+excerpt: "Fixing the corporate-pivot pagination, then building a stealth-browser site auditor that drives a real browser over CDP."
+tags: ["Laravel", "Python", "Automation", "Browser", "AI"]
+author: "Ryan Dashwood"
+---
+## The Pagination Fix
+
+The corporate pivot had left pagination broken on the services listing. I fixed it (80089c71) and merged the branch between the platform and Next.js repos (79697a7b). The bug came from the v3 component refactor changing how the pagination component received its props—a good reminder that large UI migrations break behavior, not just appearance.
+
+## The Venue Intelligence Pipeline
+
+On the arclab side I started a venue intelligence pipeline (8a80f11c). The idea is to gather structured venue data automatically from the web rather than researching it by hand. This connects the local-model infrastructure to a real data problem—exactly the kind of use case the kernel work was for.
+
+## Swapping to a Stealth Browser
+
+I swapped the agent browser for a stealth fork and made the site auditor drive a real Brave instance over CDP (63a2fe75). Sites that matter are often hostile to headless automation, so using a real browser with a stealth profile is more reliable than fighting bot detection with a synthetic client. I then wired fingerprint verification (9a788a59) so the auditor can confirm it's presenting a coherent fingerprint rather than a detectable patchwork.
+
+## The Connection
+
+The AustinsElite work and the arclab work look unrelated, but they're converging: venue data is the same domain, and the local models make it cheap to process at volume. Today was the first step of that bridge.

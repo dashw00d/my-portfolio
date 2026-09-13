@@ -1,0 +1,26 @@
+---
+title: "A Hybrid Build System and 42 Decompiled IPEX Modules"
+date: "2026-03-27"
+excerpt: "Completing the IPEX kernel decompilation and stitching upstream llama.cpp together with a patched IPEX shim."
+tags: ["SYCL", "CMake", "Reverse Engineering", "Build Systems", "Intel"]
+author: "Ryan Dashwood"
+---
+## Completing the Decompilation
+
+I finished decompiling the IPEX kernels: 42 modules, 976 IGC dumps, and a full ABI gap analysis (758536f0). That's the reference library I'd been building toward. With every module mapped, the ABI gaps between upstream llama.cpp and IPEX became concrete requirements instead of speculation.
+
+## The Hybrid Build System
+
+On top of that I built a CMake-based hybrid build system (70985318) with ABI patches and an IPEX shim. The goal is to compile upstream llama.cpp, then selectively interpose the IPEX implementations for the ops where it's faster. The build script for Qwen3.5 stitches upstream together with the IPEX `libggml-sycl` (319cf85a).
+
+## Fixing the Op Enum Reorder
+
+The shim exposed a concrete bug: the op enum reorder was missing 14 ops (efbd882f). When you interpose a dispatch table, every op must map correctly or you silently route to the wrong implementation. Adding the missing ops closed that gap.
+
+## Benchmark Tooling and Specs
+
+I added benchmark tooling with results from the ESIMD/IPEX testing (3dde77a7) and wrote the specs and plans for Qwen3.5 production plus an IPEX op router (632895f8). The op router is the design that lets the build choose IPEX or upstream per operation at runtime, which is more flexible than a compile-time choice.
+
+## The Bigger Picture
+
+This is the payoff of the reverse-engineering days. Decompilation gave me the map; the hybrid build gives me the vehicle. I can now run a correct upstream graph and push individual heavy ops onto the IPEX fast path, validating each one against the reference output.

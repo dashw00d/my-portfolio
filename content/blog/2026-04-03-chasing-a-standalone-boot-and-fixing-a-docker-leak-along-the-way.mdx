@@ -1,0 +1,37 @@
+---
+title: "Chasing a Standalone Boot and Fixing a Docker Leak Along the Way"
+date: "2026-04-03"
+excerpt: "Removing the real IPEX library dependency one stub at a time, with a swarm automation overhaul in between."
+tags: ["SYCL", "C++", "Debugging", "Automation", "Benchmarking"]
+author: "Ryan Dashwood"
+---
+## The Goal: Boot Without the Real Library
+
+The local dispatch was working, but it still linked against the real `libggml-sycl`. I wanted a standalone boot—my own backend with no proprietary binary—so I could reason about and ship the implementation cleanly. Today was an exercise in removing that dependency one interface stub at a time.
+
+## A Methodical Stub Series
+
+Each stub was regression-checked with the real library so I couldn't accidentally break the working path:
+
+- Boot probe without the real library, blocked on SYCL init (45358683).
+- Registry interface stubs (621ece22) and device interface stubs (0ca6707f).
+- Standalone SYCL init (3cd1cb86), blocked on buffer-type allocation.
+- Standalone buffer type using SYCL USM (cfd4f403), then the buft-name-as-function-pointer fix with host buft stubs (1a1ff0bf).
+- Splitting the buffer-type and host buft stubs (eaa70549).
+- Disabling `next<>` fallthrough when there's no real library (9c03a7de), then adding `next_sycl` for device and registry functions (4520558e)—and reverting it after a static init order issue surfaced (f4f9dea5).
+- Guarding `dev_get`/`count`/`by_name` behind a real-registry check (2270accc) and adding a crash handler for standalone debugging (fed62fba).
+- An `offload_op` stub plus an `initialize_local_devices()` guard (6a9c6099), then fixing the missing forward declaration (a506c6c4).
+
+Each step moved the crash slightly later in the startup sequence. Following it that way is the only sane approach when there's no debugger story for the interposed path.
+
+## Buffer Ownership Audit
+
+I also did a buffer, device, and context ownership audit (a2893d3d) and passed with no real-library pointer leaks—important, because a leak in the interposition layer would be nearly impossible to find later.
+
+## Swarm Automation Overhaul
+
+Between boot attempts I overhauled the swarm automation: a daemon with session persistence and auto-completion (a223b4f0). I also fixed a Docker container leak in the bench scripts by adding a cleanup trap (d8d226b9) and added a throughput floor to the bench gate so a regression below the floor is rejected automatically (3311f1e2). The leak was small but it would eventually exhaust the machine during long benchmark runs.
+
+## Where It Stands
+
+Five blockers identified and steadily eliminated. Standalone boot isn't stable yet, but the failure point keeps moving deeper, which is exactly the signal I want.

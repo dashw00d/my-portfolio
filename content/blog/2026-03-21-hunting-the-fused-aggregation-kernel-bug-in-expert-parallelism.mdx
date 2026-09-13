@@ -1,0 +1,37 @@
+---
+title: "Hunting the Fused Aggregation Kernel Bug in Expert Parallelism"
+date: "2026-03-21"
+excerpt: "A 12-hour debugging session documented commit by commit until I isolated the EP bug to a fused aggregation kernel."
+tags: ["Local LLM", "Debugging", "Kernels", "Python", "AI"]
+author: "Ryan Dashwood"
+---
+## The Setup
+
+Expert parallelism (EP) was the next priority after padding (bccc1005). EP splits experts across devices, and the failure mode was subtle: tokens produced plausible output that was slightly wrong. Not a crash—just quietly incorrect results, which is the worst kind of bug.
+
+## Documenting the Hunt
+
+I did something unusual and kept a running `BOOTSTRAP.md`, updating it as I learned. That turned into the spine of the day:
+
+- First EP bug fixed, second under investigation (a006bfae).
+- Added an EP debug methodology section (66b0b7ab).
+- Recorded an agent's findings and a `get_i_delayed` lead (c8396312).
+- Confirmed the data is correct and the issue is structural (20443269).
+- Dumped the graph and saw attention AllReduce firing normally (0f24b302).
+- Compacted the doc and refocused on a GLU split-state bug (762a9359).
+- Identified the aggregation chain as the culprit (a667480c).
+- Concluded the fused aggregation kernel is the EP bug (0ba5077f).
+
+Being able to re-read my own reasoning in order was what made the final step possible. Without it I'd have re-tested the same hypotheses.
+
+## The Fused Kernel Conclusion
+
+The bug lived in a fused aggregation kernel. Because it was fused, the intermediate values that would normally be inspectable never existed—the kernel did several things at once. I confirmed the surrounding data and graph were fine, which narrowed the search to the kernel itself. The fix is the next step; today was about proving where not to look.
+
+## Making the Setup Reproducible
+
+Alongside the debugging I added a `.env.example` and a systemd service (a424932b), plus a `FLAGSHIP.md` with verified settings and Discord bot setup (388c84b7). I also wrote `BOOTSTRAP-CORRECTIONS.md` after auditing the doc and finding eight inaccuracies (4e126e26, 67146c09). If a setup isn't reproducible, every debugging session starts from an unreliable baseline.
+
+## What Long Debug Days Teach
+
+Patience and note-taking. I spent the day not fixing a bug but shrinking the space where it could live. By midnight I knew the exact kernel. That's a real result, even though the output didn't change yet.

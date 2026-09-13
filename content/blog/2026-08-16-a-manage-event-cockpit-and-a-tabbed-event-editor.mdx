@@ -1,0 +1,36 @@
+---
+title: "A Manage-Event Cockpit and a Tabbed Event Editor"
+date: "2026-08-16"
+excerpt: "A day of staff portal features: a status-driven event cockpit, a tabbed editor, and honest lead cancellation."
+tags: ["Laravel", "Livewire", "Staff Portal", "UX", "State Machines"]
+author: "Ryan Dashwood"
+---
+## The Manage-Event Cockpit
+
+I added a Manage-event cockpit with live status and guided actions (2dfa741c), then a branded state control driven by status enums (89eea441) with a state-control tray (44cfe979). The cockpit is the idea that an event has a state and the UI should present exactly the actions valid for that state. Driving it from enums means the UI can't drift from the server's model of what's allowed.
+
+I kept Manage show/edit from crashing on an unknown pay status (c6a8d658) and kept the current Cancelled clickable while applying the chosen status on no-venue (f77bb037). Defensive handling on unknown state matters because real data always contains values the enum forgot.
+
+## Tabbed Editing
+
+I added a tabbed Save/Cancel editor for existing events (05be0e84) and tabbed event editing with multi-section internal notes (0b94ca5d). Long forms benefit from tabs when the sections are genuinely distinct; the task is making sure Save and Cancel behave consistently across tabs.
+
+## Event Wizard and Calendar
+
+I removed competing "Step N of 5" text from the wizard panels (46c3df02), added a calendar refresh listener for special-day CRUD (294db669), and fixed the root calendar reloading when a special date changes (269ce668, 8e84c9fd). I painted special days on the mobile calendar week grid (f5aa0f46) and truncated long calendar event titles.
+
+## Pay Status and Titles
+
+I made pay status prefer the column and stopped writing title prefixes (cb8bbc51), and kept a set pay status when only the title changes (db25c4dd). This is a migration away from encoding state in the title string toward a real column—cleaning up a legacy pattern while preserving existing data.
+
+## Honest Lead Termination
+
+I added a Close-lead action to the lead detail page (26085733), closed a lead with a reason and restored related events (e8e75fd7), made the copy and restore toasts tell the truth (2525a634), and enforced a single-event lead cancellation boundary (bd208c2b). Closing a lead has side effects on events, and those need to be reversible and accurately described.
+
+## And More
+
+I showed the profile photo in the Staff topbar with an initial fallback (4aed4ed6), fixed invoice totals color filter normalization (9c0a8dc3), added a Late flag to staff check-in (436300ff), and added an event policy graphic with an interactive acknowledgment flow (5f0c98ff).
+
+## State Machines Make Good UI
+
+The cockpit is the clearest expression of a principle: model the states, derive the actions, and the interface becomes self-explanatory. Most of today's bugs came from places where state was implicit rather than modeled.

@@ -1,0 +1,26 @@
+---
+title: "Starting Fiction Codec: Multi-Format Book Ingestion"
+date: "2026-08-30"
+excerpt: "A new project for processing books across formats, with an ingest pipeline, structured storage, and handoff docs."
+tags: ["Python", "Text Processing", "NLP", "CLI", "Architecture"]
+author: "Ryan Dashwood"
+---
+## The Problem
+
+I started `fiction-codec` (5f8ae039) to ingest books across multiple formats and turn them into structured data. If I want to work with long-form fiction programmatically—analysis, transformation, whatever comes next—the first problem is always getting clean, structured text out of a pile of EPUBs, PDFs, and other containers.
+
+## The Ingest Pipeline
+
+I enhanced book ingestion with multi-format support and new CLI commands (899c46c9), adding an ingest pipeline with error handling and artifact management and expanding the supported formats. Ingest pipelines fail in a hundred ways—corrupt files, unexpected encodings, missing metadata—so handling those as first-class outcomes rather than exceptions is what makes the pipeline usable at volume.
+
+## Structured Storage
+
+I refactored book processing to support structured storage in a `shared/books/<id>/` layout (56571e1e), updated the README and `AGENTS.md`, and aligned the CLI and core functions with the new schema. Moving to an id-based directory layout means a book is a self-contained unit with its source and derived artifacts together—much easier to reason about than flat files with naming conventions.
+
+## Handoff Docs and Ref Management
+
+I added handoff documentation for a monorepo migration and a `remap-refs` command on the book processor, plus archive management and improved chapter structure processing (82dd5069). I also added a maximum chapter paragraph limit to the quality evaluation—a simple heuristic that flags chapters that are clearly malformed.
+
+## Building for Future-Me
+
+The handoff docs and schema decisions are an investment in resuming this project after a gap. I've learned that the projects that survive long pauses are the ones with a clear storage model and a written summary of where things stand.

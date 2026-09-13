@@ -1,0 +1,26 @@
+---
+title: "SpeechEdit Documentation, UX Audits, and Docker Support"
+date: "2026-08-25"
+excerpt: "Consolidating SpeechEdit's feature inventory, auditing the UX, and containerizing the editor."
+tags: ["TypeScript", "Docker", "Documentation", "UX", "Astro"]
+author: "Ryan Dashwood"
+---
+## Inventory Before More Features
+
+I added a user action inventory and UX audit documentation (4a088af6), enhanced agent principles and ASR integration (537ee0ea), and expanded the feature inventory and media handling (449cfde3). Building a new app fast produces a lot of surface, and an explicit inventory is how I find out what's actually inconsistent before adding more.
+
+## Iterating on the Actions
+
+I updated the feature inventory and command tests (d5875d14), enhanced user actions and export functionality (34829b58), refactored user actions and export features (ddff9479), and updated project configuration while removing unused assets (f3915fed). Refactoring user actions is the work of turning a pile of features into a coherent interaction model—same capabilities, fewer surprises.
+
+## Themes and Docker
+
+I added theme preview images and updated package scripts (2659e9a7), then added Docker support and environment configuration (fbd00aba). A container makes the editor runnable anywhere with the right FFmpeg and model dependencies, which matters because SpeechEdit's dependencies are heavy and specific.
+
+## This Portfolio's ESLint
+
+I migrated the ESLint configuration for this site to the flat config format and updated dependencies (d08f78fc). Config migrations are mechanical until they aren't—plugin compatibility is where the time goes.
+
+## Consolidation After Greenfield
+
+After a feature-heavy day, a day of inventory, docs, and infrastructure. The app is more describable and more runnable, which is the right foundation before the next push.

@@ -1,0 +1,36 @@
+---
+title: "Regime Feeds, Volume Workers, and Curation in Candle Service"
+date: "2026-05-12"
+excerpt: "Adding a Binance regime feed, backfilling volume, and dropping a concept that didn't earn its complexity."
+tags: ["Python", "Market Data", "SQLite", "Performance", "Refactor"]
+author: "Ryan Dashwood"
+---
+## A Market-Regime Feed
+
+I added a Binance five-minute market-regime feed (799df672). Regime context is what turns a raw candle series into something a strategy can condition on—knowing whether the market is trending or chopping changes how a signal should be interpreted.
+
+## DEX Metadata and Pool Filtering
+
+I captured DEX metadata on pools, backfilled existing rows, and added filtering by `dex_id` (7aef7508). Then I fixed a schema bug by not creating the `idx_pools_dex` index in `schema.sql` (df521be9), avoiding a conflict with the migration path. I documented the drag, regime, and DEX-filter endpoints (b5436e25).
+
+## Worker Reliability
+
+I kept the heartbeat alive when Jupiter rejects a token (bece325e) and initialized worker heartbeats at construction with a start period (a132fdd8). Both fixes address the same class of problem: a worker that's actually fine but looks dead. A rejected token shouldn't kill the heartbeat, and heartbeats should exist from the moment the worker starts rather than after its first loop.
+
+## Patching Volume
+
+I added a boundary-aligned `VolumeWorker` to patch Jupiter candle volume (3bf9ce8c). Volume data from one source can be incomplete on boundary candles, and aligning the patch to candle boundaries keeps the series consistent.
+
+## Auditing
+
+I did an audit pass covering heartbeat consistency, constant-time auth comparison, a WAL checkpoint, and assorted fixes (dad54f78). Constant-time comparison on an API key check is basic hygiene that's easy to skip until it matters.
+
+## Adding and Removing a Concept
+
+I added a held-pool hot tier and daily shit-coin curation (c2e45df1), then later dropped the held-pool concept entirely and made `/backfill` idempotent (a8e1efce). I also added a composite tradability rank with hot and warm Jupiter tiers (bdb5ca76) and cut `pool_state` aggregate churn while deduping identical ticks and moving to an hourly WAL checkpoint (41d5d0e8).
+
+Dropping the held-pool concept on the same day I added its documentation is the right call. A concept that complicates the model without earning it should go, and the sooner the better.
+
+## The Lesson
+
+Velocity includes subtraction. Adding features is easy; recognizing a feature is net-negative and removing it the same day is the harder, better discipline.

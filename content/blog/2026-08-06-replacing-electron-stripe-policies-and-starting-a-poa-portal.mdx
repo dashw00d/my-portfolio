@@ -1,0 +1,28 @@
+---
+title: "Replacing Electron, Stripe Policies, and Starting a POA Portal"
+date: "2026-08-06"
+excerpt: "Desktop mail improvements, dropping Electron, adding payment policies to the portfolio, and starting Lake Forest POA."
+tags: ["Email", "Stripe", "Astro", "PHP", "Architecture"]
+author: "Ryan Dashwood"
+---
+## Desktop Mail and Replacing Electron
+
+I improved the desktop mail experience (4b57a985) and then replaced Electron and hardened app updates (a98c232f). Electron is a heavy dependency for a focused desktop client, and the update story is a recurring source of bugs. Replacing it reduces the app's footprint and makes updates more reliable.
+
+## CI and Browser Readiness
+
+I triggered the production CI (87a4954d) and allowed guarded manual CI releases (c6364b12), then improved browser app readiness and compose UX (b55171e7), and improved compose reliability with fast releases (392ce78a). The mail platform now has a release path that can be triggered deliberately or automatically without ambiguity about which is which.
+
+## Stripe Policies on the Portfolio
+
+I added Stripe-ready policies and footer links to my portfolio (9dea7a7f). If I'm going to take payments anywhere, the legal pages need to exist and be reachable, so I prepped the portfolio with the right policies and footer links.
+
+## Lake Forest POA Begins
+
+I started the Lake Forest POA portal (23a76bf0) and immediately built the resident and treasurer portal workflows (016cb0c7). Then I fixed former-owner access and stale webhooks (7b4c58c0), hardened resident payment actions (7f9904f5), closed Stripe payment lifecycles safely (ab16a696), reconciled Stripe cancellations and credits (30c0d901), narrowed payment handling to MVP scope (4e309fc6), and guarded uncollectible invoice states (e685d276).
+
+Starting the payment work on day one was deliberate. Stripe webhooks arrive out of order, retries duplicate events, and cancellations have to be reconciled against credits. Handling those in the data model from the beginning is far cheaper than retrofitting them onto a system that assumed happy paths.
+
+## A Day of Two Halves
+
+Mail polish in the afternoon, a new payment-heavy portal in the evening. The evening was the harder half, and the decision to narrow scope early kept it shippable.

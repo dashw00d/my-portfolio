@@ -1,0 +1,24 @@
+---
+title: "An Enum-Cast Bug That Failed Silently, and a Cleaner Event Needs Card"
+date: "2026-04-27"
+excerpt: "Fixing a comparison bug that failed without erroring, trimming an unnecessary form question, and redesigning the Event Needs section."
+tags: ["Laravel", "PHP", "Bug Fix", "Enum", "UI"]
+author: "Ryan Dashwood"
+---
+## The Silent Enum Bug
+
+I fixed a comparison where an enum cast was being compared against a `->value` (c3e68510). On the surface this looks fine, but depending on the PHP version and the enum's backing type, the comparison can fail without throwing—it just returns false. Silent failures like this are the worst kind because nothing logs and no exception fires; the feature simply doesn't work.
+
+The fix was to normalize both sides of the comparison to the same type. I swept for similar patterns across the codebase because when one enum comparison is wrong, its siblings usually are too.
+
+## Removing the "Need a Stage" Question
+
+I removed the "need a stage" question from the quote form (ee2b5e07). It was low-signal and added friction at the exact moment a user is trying to convert. Removing a field is usually a bigger UX win than adding one, and this one also simplified the conditional logic further down the form.
+
+## Redesigning Event Needs as a Unified Card
+
+I redesigned the Event Needs section as a unified card with a row layout (5f6aa19e). The previous version was a scattered set of controls that made the section feel like a checklist instead of a single decision. The card groups related needs so the structure communicates what the section is for.
+
+## The Type-Discipline Theme
+
+The enum bug and the form cleanup share a theme: correctness comes from making the types and the structure obvious. A comparison that can't silently fail and a form that reads as one coherent question both reduce the number of ways a user or a future change can go wrong.

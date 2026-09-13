@@ -1,0 +1,30 @@
+---
+title: "Guarding Against Stale Candles and Freeing Up Data Sources"
+date: "2026-05-16"
+excerpt: "Stopping paper trades on stale data, uncapping freshness so pools aren't starved, and broadening the source pool."
+tags: ["Trading", "Data Pipelines", "Debugging", "Market Data"]
+author: "Ryan Dashwood"
+---
+## No Trading on Stale Data
+
+I stopped dex-trader from trading on stale Gecko and synthetic Jupiter candles (f1907fb6). A paper trade against a stale candle is worse than no trade—it produces a realistic-looking result that's actually fiction. The guard rejects candles older than a threshold and distinguishes real candles from synthetic ones.
+
+## Un-starving Pools
+
+I bounded the Gecko score and uncapped freshness so stale pools aren't starved (190f7422). An unbounded score could dominate the priority queue, and a freshness cap meant genuinely stale pools never got refreshed at all. Balancing score and freshness keeps the queue fair. I also added cooldowns for no-progress fetches and fixed a grace-check bug (530c3ee4) so the workers stop hammering upstreams that aren't going to respond.
+
+## A Bucket-Math Bug
+
+I fixed local candle bucket math to use the literal `BUCKET_S` value instead of a bound parameter (e9ef807d). A bound parameter was shadowing the constant, producing wrong bucket boundaries—the kind of bug that's invisible until the numbers are subtly off.
+
+## Bringing dex-trader Knobs Into edge-lab
+
+I imported the dex-trader operator knobs into edge-lab's `RunSpec` and swept them in the pump (b49cafec). This closes the loop between the live paper-trading settings and offline research, so a parameter tuned in the dashboard can be swept offline and vice versa.
+
+## More Sources, Better Quotes
+
+I added free public candle sources (c4d2c396) and optimized Jupiter swap quote usage (fa36678e). More sources reduce dependence on any single upstream, and smarter quote usage stretches the free tier.
+
+## The Data-Quality Theme
+
+Every change today was about trusting the data. Reject stale candles, keep pools fresh, fix bucket math, diversify sources. A trading system is only as good as the truth of its inputs.

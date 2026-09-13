@@ -1,0 +1,28 @@
+---
+title: "Community Events, a Resident Directory, and an Interactive Lot Map"
+date: "2026-08-08"
+excerpt: "Adding neighborhood features to Lake Forest POA: events, a private directory, and a vector lot map."
+tags: ["Laravel", "Livewire", "Maps", "Privacy", "Product"]
+author: "Ryan Dashwood"
+---
+## Community Surfaces
+
+I added community events and a neighborhood board (2e9179c0), a resident home summary with directory export (6d865662), and a private resident neighborhood directory (702a3486). Then I integrated the overnight features (b97e8d7c) and polished the community surfaces (2898fd37).
+
+A resident directory is a privacy problem dressed as a feature. I hardened the community visibility boundaries (c6782ff4) and fixed the clarifying details—scoping the document list tab badges to the viewer (3bbc7b16), keeping the My Documents list within the openable set for specialists (854ea465), and clarifying the directory export preview (e263725b) with a stabilized fixture (a50914f7). Visibility bugs in a directory are the kind that leak a neighbor's phone number, so the boundary work is the feature.
+
+## The Lot Map
+
+I added vector-based interactive lot map documentation (ca005685), scoped the resident map to Lake Forest (4d640338), and addressed neighborhood map review feedback (0287713d). A vector map is far better than a raster one here—it stays sharp at any zoom and lets me attach data to parcels, which is the foundation for anything map-driven later.
+
+## Roles and Navigation
+
+I polished the role-aware officer workspaces (d5916303), simplified shared site navigation (5e960486), aligned officer sign-in language (3d7410bb), and tightened resident account continuity (9b4c56fc). A portal that a volunteer board runs has to be self-explanatory, because there's no training budget.
+
+## Merge Points
+
+I merged the community operations branch (PR #3, e49fe419) and the overnight stretch goals branch (PR #4, 16d05c71), and polished board member access and community event details (287f4ed2).
+
+## Privacy Is the Product
+
+For a neighborhood portal, the feature and the privacy boundary are the same thing. Every surface I added today needed an explicit answer to "who can see this?"—and getting that wrong is worse than not shipping the feature.

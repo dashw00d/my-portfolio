@@ -1,0 +1,22 @@
+---
+title: "Adding a CC Field to Event Detail Emails"
+date: "2026-04-10"
+excerpt: "A small email feature that let staff loop in the right people when event details go out."
+tags: ["Laravel", "PHP", "Email", "Feature"]
+author: "Ryan Dashwood"
+---
+## The Missing CC
+
+When staff sent event details, they could only choose a single recipient. In practice these emails often need to loop in a coordinator, a venue contact, or a second staff member. I added a CC field to the send-event-details email flow (dbddec21).
+
+## Implementation Notes
+
+The change touched the send form, the validation, and the mailer call. I kept the CC list optional so the existing behavior is unchanged for anyone who doesn't use it, and reused the existing email validation rather than introducing a second rule set. Invalid CC addresses are rejected at the form level instead of silently dropped at send time.
+
+## Verification
+
+I tested the empty case, a single CC, and multiple CCs, then confirmed the sent message included the expected headers. I also verified the change in the production mirror since this repo pair has historically drifted when only one side is updated.
+
+## A Quiet Day
+
+One feature, shipped clean. Not every day needs a story—some days the whole point is that a gap in the workflow got closed without introducing a new one.

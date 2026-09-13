@@ -1,0 +1,22 @@
+---
+title: "Restoring a User Account in AustinsElite"
+date: "2026-04-30"
+excerpt: "A single restore commit—bringing back a user and confirming the account recovery path works."
+tags: ["Laravel", "PHP", "Admin"]
+author: "Ryan Dashwood"
+---
+## The Restore
+
+I restored a user account in the AustinsElite platform (5630755d). Soft-deletes are common in this app, but the restore path had seen enough changes lately that I wanted to exercise it end to end rather than assume it still worked.
+
+## What Restoring Actually Touches
+
+Restoring a user is rarely just flipping a deleted flag. The account's assignments, permissions, and related records all need to be in a consistent state afterward. Earlier in the month I made soft-deleting a staff member revoke requests and remove future assignments, which means the restore path has to bring the account back in a way that doesn't leave stale or duplicated relationships.
+
+## Checking the Mirror
+
+The change landed in both the platform and production repos (aee71e59). I verified the user could log in and see the right data afterward.
+
+## A Small Commit With Real Stakes
+
+Account recovery is one of those operations that's invisible until it goes wrong, and then it's very visible to the person affected. Worth the care, even on a quiet day.

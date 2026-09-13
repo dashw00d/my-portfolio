@@ -1,0 +1,30 @@
+---
+title: "Gear to Glory Gets a Major Systems Overhaul"
+date: "2026-03-18"
+excerpt: "Skills, crafting, alchemy, quests, fog of war, and a full balance pass—all landed in one large systems commit."
+tags: ["Game Dev", "Godot", "Systems Design", "GDScript"]
+author: "Ryan Dashwood"
+---
+## The Overhaul Commit
+
+Today I landed a major systems overhaul in Gear to Glory (11d0806d): skills, crafting, alchemy, quests, fog of war, and a balance pass, all in one large commit. It's rare for me to commit this much at once, but these systems are interdependent—crafting feeds alchemy, skills gate recipes, and quests are the delivery mechanism for all of it. Splitting them would have left the game in a broken middle state, so I pushed the whole slice together.
+
+## Skills and Crafting
+
+The skill system now tracks progression per discipline rather than a single global level. Crafting consumes materials and produces items, with quality influenced by the relevant skill. I kept the data-driven so recipes can be authored without touching code, which matters because I already know I'll be tuning them constantly.
+
+## Alchemy and Quests
+
+Alchemy reuses the crafting pipeline with a different input class—ingredients instead of materials—and its own quality rules. Quests are event-driven: they subscribe to system events (item crafted, enemy defeated, location discovered) and advance objective state as those fire. That decoupling means I can add a quest without editing the systems it observes.
+
+## Fog of War
+
+Fog of war was the most technically involved piece. It tracks discovered regions and reveals them as the player moves, which requires both a data model for discovery and a rendering path that doesn't tank performance on larger maps. I kept the discovery model independent from the visual layer so I can change how fog looks without touching the logic.
+
+## The Balance Pass
+
+The balance pass touched the numbers across all of the above—skill gain rates, recipe costs, quest rewards, and enemy scaling. Balance is never done, but a first pass gives the systems a baseline to tune from rather than leaving everything at placeholder values.
+
+## Merging Remote Changes
+
+I finished by merging remote changes with the overhaul (bbcaf9bd). There were conflicts in the shared data files, and resolving them forced me to double-check that none of the balance values got clobbered. It was a good reminder that even solo projects accumulate branches worth merging carefully.

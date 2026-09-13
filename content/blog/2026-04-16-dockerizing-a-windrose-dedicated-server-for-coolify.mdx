@@ -1,0 +1,24 @@
+---
+title: "Dockerizing a Windrose Dedicated Server for Coolify"
+date: "2026-04-16"
+excerpt: "Building a UE5 dedicated server image, fighting wine prefixes, and writing down the debugging war stories."
+tags: ["Docker", "Coolify", "Self-Hosting", "Wine", "Infrastructure"]
+author: "Ryan Dashwood"
+---
+## The Goal
+
+Windrose needed a dedicated server I could deploy like any other container. I built the initial image for Coolify (13870dfa) with the intent of keeping it simple: one image, one service, standard deploy.
+
+## The Wine Problems
+
+Windows game servers under Wine are a parade of environment bugs. The first was wine prefix ownership when using named volumes (a8952c30)—the container user and the mounted volume disagreed about who owned the prefix, so the server couldn't write its own config. I switched to the `wine` binary instead of `wine64` (a019bd78) after the 64-bit path failed to launch the executable correctly.
+
+Next I stopped seeding `ServerDescription.json` with the wrong schema (f2001427). I had been pre-writing a config file based on an outdated shape, and the server rejected it silently. Passing the `-log` flag gave me visibility into why. The last structural fix was skipping the bootstrapper and launching the real UE5 server directly (d770dc8d), with wine errors surfaced to the container log instead of swallowed.
+
+## Writing the Runbook
+
+I added a runbook with the debugging war stories (f2e86913). Containerized game servers fail in ways that are hard to reconstruct weeks later—which wine version, which prefix layout, which launch flag. Capturing the failures alongside the fix means the next deploy doesn't rediscover them.
+
+## Why Coolify
+
+I've been consolidating services onto Coolify because it gives me a clean deploy surface without hand-rolled systemd units. A game server is a good test of that: it's stateful, needs ports, and fails loudly. If the pattern holds here, it holds for the rest.

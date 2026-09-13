@@ -1,0 +1,38 @@
+---
+title: "Fixing 20-60 Second Page Loads Across the AustinsElite Codebase"
+date: "2026-03-30"
+excerpt: "A performance day: SQLite query fixes, frontend bottlenecks, and performance smoke tests to keep it from regressing."
+tags: ["SQLite", "Performance", "Laravel", "Playwright", "Frontend"]
+author: "Ryan Dashwood"
+---
+## The Symptom
+
+Pages were taking 20-60 seconds to load. Not on a bad connection—in normal use. After the SQLite cutover the app had accumulated query patterns that worked but didn't scale, and the frontend was amplifying the cost.
+
+## Fixing Queries Across the Codebase
+
+I did a broad SQLite query performance pass (b9cb716d). This wasn't one slow query; it was a pattern repeated in enough places that the whole app felt heavy. I focused on eliminating N+1 access, adding the joins that were missing, and making sure queries could use the indexes added during the tuning pass. Because the fix touched many call sites, I kept it as one commit so the relationship between the changes stayed visible.
+
+## Fixing the Frontend Bottlenecks
+
+The database wasn't the whole story. The frontend had its own bottlenecks contributing to the 20-60 second loads (e47c741f). Much of the cost was rendering work that blocked the main thread—large lists, unbatched DOM updates, and assets that loaded before they were needed. I trimmed the blocking work and deferred the rest.
+
+## Performance Smoke Tests
+
+To keep this from creeping back, I added Playwright performance smoke tests with cold and warm cache runs (fbdaf714). A cold run catches the expensive first-paint path; a warm run catches caching regressions. Having both gives me a baseline I can compare against instead of relying on a feeling that the app is fast again.
+
+## UI Cleanup Along the Way
+
+I also reworked two-row stacked tables and added email queue pagination (49468de3), both of which reduce the amount of DOM the browser has to build for the admin views.
+
+## Guarding Data Integrity
+
+Separately I fixed a real data-safety bug: positions with staff assigned could be deleted (4730acbe). Now the delete is blocked when assignments exist, which prevents orphaned assignments and lost history.
+
+## The Last Push
+
+Late in the day I fixed the event edit form to include the missing venue suggestion features (f144e81c), then chased a broken venue dropdown on the create/edit forms (f621aa09), and finally fixed a template literal in the event log form's `x-data` attribute that was breaking Blade rendering (e83becf8). I added JS error checking to the tests so a broken `x-data` expression fails a test instead of silently producing a dead control.
+
+## What Performance Work Feels Like
+
+It's anticlimactic—no new feature, just things not being slow. But the smoke tests make it durable, and that's the part I'd been missing.

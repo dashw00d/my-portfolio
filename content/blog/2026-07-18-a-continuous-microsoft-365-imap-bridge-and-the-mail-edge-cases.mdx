@@ -1,0 +1,30 @@
+---
+title: "A Continuous Microsoft 365 IMAP Bridge and the Mail Edge Cases"
+date: "2026-07-18"
+excerpt: "Delegated OAuth, namespace mapping, header-based dedup, and legacy charsets—a day of mail-import edge cases."
+tags: ["Email", "IMAP", "OAuth", "Go", "Integration"]
+author: "Ryan Dashwood"
+---
+## The Continuous Bridge
+
+I added a continuous Microsoft 365 IMAP bridge (2b968a41) and marked the sync scripts executable (87a748b6). The bridge keeps mail flowing into the local stack on an ongoing basis instead of in one-off imports.
+
+## Delegated OAuth
+
+I switched the GoDaddy mailbox sync to delegated OAuth (b0e0d8a8) and added support for confidential delegated OAuth clients (35a7dc00). Delegated access is the correct model for mailbox sync—you're acting on behalf of the mailbox owner, not as the application—but it requires handling the client credentials flow correctly.
+
+## Namespace Mapping
+
+A large chunk of the day was reconciling namespaces. I limited sync to active delegated mail folders (e6f93889), excluded non-mail Outlook folders (10e50b09), respected TinyCLD mailbox namespace roots (375cf4c9), handled virtual IMAP namespaces (5d5aeddd), and mapped source mailboxes to TinyCLD namespaces (9a6bd4be). When two mail systems both have hierarchical folder concepts, the mapping between them is where mail ends up in the wrong place or vanishes.
+
+## Dedup and Shutdown
+
+I deduplicated from IMAP headers before fetching bodies (94f985e6). Fetching a body is expensive, and checking headers first avoids re-downloading mail that's already imported. I also bounded mailbox sync shutdown time (6e41148f) so a deploy or restart doesn't hang waiting for a slow sync to finish.
+
+## The Long Tail of Charsets and Subjects
+
+I built TinyCLD with legacy charset support (41e4ec0d), handled subjectless messages (a4ddadff), and handled prefix-only subjects in mail threads (c5328fff). Real mail contains messages with no subject, subjects that are only a "Re:" prefix, and bodies in encodings from another era. Each one is a small bug that corrupts the import if unhandled.
+
+## Mail Is a Standards Museum
+
+Every one of these changes is a concession to the reality of email. The bridge works because I handled the awkward cases rather than assuming well-formed input.

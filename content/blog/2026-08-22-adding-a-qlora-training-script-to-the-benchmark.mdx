@@ -1,0 +1,22 @@
+---
+title: "Adding a QLoRA Training Script to the Benchmark"
+date: "2026-08-22"
+excerpt: "Adding fine-tuning capability, consolidating docs, and refactoring the training factory."
+tags: ["AI", "QLoRA", "Fine-Tuning", "Python", "Documentation"]
+author: "Ryan Dashwood"
+---
+## Training, Not Just Benchmarking
+
+I added a QLoRA training script with documentation updates (76141e6c). Benchmarking told me which small models perform, but I wanted to close the loop: take a promising base model, fine-tune it on a task, and measure the difference. QLoRA makes that possible on modest hardware because the base weights stay quantized while low-rank adapters are trained.
+
+## Consolidating Documentation
+
+I updated the README and consolidated the documentation (059caf28), refactored the training factory structure (35995f31), and enhanced the docs for the evaluation deck and training processes (91f8ad8a). Research code accumulates stale docs faster than any other kind, so consolidating early keeps the docs worth reading.
+
+## Configuration Hygiene
+
+I added a `.env.example` and updated `.gitignore` for the training environment (99ec6721). Training runs produce large artifacts and need local paths and secrets; keeping them out of version control and documenting the expected environment is what makes a run reproducible by future-me.
+
+## Closing the Research Loop
+
+The benchmark project now spans evaluation and training. That's the point of a personal lab: measure, improve, and measure again. The QLoRA path means I can test whether a specialized small model beats a general one on the tasks that matter—and have the numbers to prove it.

@@ -1,0 +1,22 @@
+---
+title: "Formatted Field Improvements and a Pay Snapshot Fix"
+date: "2026-05-27"
+excerpt: "After a break: improving formatted fields and fixing the pay snapshot once I was back at the keyboard."
+tags: ["Laravel", "PHP", "UI", "Bug Fix"]
+author: "Ryan Dashwood"
+---
+## Coming Back
+
+After a stretch away—most of it spent in Path of Exile 2 rather than a terminal—I picked the AustinsElite work back up. The first commits were formatted field improvements (ca345fda), followed by a pay snapshot fix (eacca7ee).
+
+## Formatted Fields
+
+The formatted-field work improves how structured data is displayed and edited in forms. Small presentation changes, but fields are where users spend their time, and a confusing formatted field costs every entry.
+
+## The Pay Snapshot
+
+The pay snapshot bug mattered more. A snapshot is supposed to freeze a pay period's state, and something in the snapshot wasn't reflecting the current data. I traced it, fixed it, and verified against a known period.
+
+## Getting Back in Rhythm
+
+Long breaks are normal, and the first commit back is always slower—reloading context, remembering why a thing is the way it is. The repo and the doc trail carried me. That's a recurring argument for writing things down: the notes are for future-me, who arrives with no memory of the week the code was written.

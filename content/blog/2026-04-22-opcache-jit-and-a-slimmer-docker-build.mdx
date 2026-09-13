@@ -1,0 +1,22 @@
+---
+title: "OpCache, JIT, and a Slimmer Docker Build"
+date: "2026-04-22"
+excerpt: "Trimming image build time while turning on PHP performance features and extracting a reusable migration kit."
+tags: ["Docker", "PHP", "Performance", "OpCache", "SQLite"]
+author: "Ryan Dashwood"
+---
+## Trimming the Build
+
+A deploy that takes too long is a deploy you avoid. I spent the morning shrinking the Docker build. I folded the `chown` into the build `RUN` and used `COPY --chown` (769d70e7), dropped `autoload --optimize` (86a5f84d), then dropped the tree-wide `chown` in favor of only `bootstrap/cache` (84c8c87a), and skipped a second `composer dump-autoload` (1f129fda). Each change removes a layer or an expensive filesystem walk. The tree-wide `chown` on a large codebase is surprisingly costly, and it only needs to apply to the writable directories anyway.
+
+## OpCache, JIT, and Pool Sizing
+
+With the build leaner, I turned to runtime performance: OpCache with JIT, PHP-FPM pool sizing, SQLite WAL, and a `nice`d scheduler (c8c2cc53). OpCache with JIT is a large win for a PHP app running in a container, and sizing the FPM pool to the actual CPU allocation prevents both idle waste and request queuing. Putting the scheduler at a lower priority keeps background jobs from starving web requests. I also switched to `artisan optimize` at boot instead of running individual cache commands (700cabdf), which is one command and one less place to miss a step.
+
+## The Coolify Migration Kit
+
+I extracted the reusable parts into a `coolify-migration-kit` (b923ca13), including the performance settings (da2eb9ff), docker group access with a host-side artisan wrapper (cd1f3a08), and a Laravel entrypoint template using `artisan optimize` (be2eae61). Extracting a kit means the next project gets the hardened setup on day one instead of rediscovering it.
+
+## The Pattern
+
+Every project eventually converges on the same handful of deployment concerns. Codifying them once turns each new deploy from a project into a task.

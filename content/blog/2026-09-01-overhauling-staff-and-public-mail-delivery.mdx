@@ -1,0 +1,30 @@
+---
+title: "Overhauling Staff and Public Mail Delivery"
+date: "2026-09-01"
+excerpt: "A mail audit, a delivery overhaul, application eligibility, and calendar status indicators."
+tags: ["Laravel", "Email", "Audit", "Applications", "Calendar"]
+author: "Ryan Dashwood"
+---
+## The Mail Audit
+
+I introduced comprehensive mail audit documentation and enhanced the email notification logic (a6c4c86d). Before overhauling delivery, I wanted a written account of every path a notification takes—who it goes to, what triggers it, and where it can go wrong. Audits find the duplicate sends, the missing recipients, and the paths nobody remembers.
+
+## The Overhaul
+
+I overhauled staff and public mail delivery (7f94db67). This is the big change: unifying how the staff platform and the public site send mail so both obey the same rules. Divergent mail paths are how a customer gets two replies and an internal notification nobody sees.
+
+## Applications and Eligibility
+
+I enhanced application request handling and eligibility checks (25733778) and consolidated duplicate application entries before enforcing uniqueness (38bc5dd9). Adding a uniqueness constraint always reveals existing duplicates, and the migration has to merge them first. Eligibility checks are the gate that keeps unqualified applications from consuming staff time.
+
+## Calendar Status
+
+I enhanced event visibility and personal status indicators on the calendar (fc8c1436). A calendar that shows what's happening but not your relationship to it—assigned, interested, unavailable—leaves the user to cross-reference. Personal status makes it answer the question people actually have.
+
+## Mail Performance
+
+I improved mail error handling and optimized query performance (c13e4b87), then hardened sync, search, and client performance (cddbbcb0). Mail is the highest-traffic surface in the platform, so its performance is felt most.
+
+## Mail Is Where Trust Lives
+
+Every mail bug is visible to a customer. The audit-then-overhaul sequence is the right order: understand the current behavior completely before changing it.

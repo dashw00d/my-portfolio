@@ -1,0 +1,22 @@
+---
+title: "Coolify Deploy Configs Across All Four AustinsElite Repos"
+date: "2026-04-21"
+excerpt: "Dockerfiles, compose files, nginx config, and entrypoints—standardized so every surface deploys the same way."
+tags: ["Docker", "Coolify", "Deployment", "nginx", "Infrastructure"]
+author: "Ryan Dashwood"
+---
+## Standardizing the Deploy Path
+
+I added Coolify deploy configs—Dockerfile, compose file, and entrypoint—to the platform, the production site, and the Next.js frontend (a7c5ba87). Each repo had grown its own ad-hoc deploy story, and the goal was one consistent path across all of them.
+
+## nginx and the Ignore Rule
+
+I added a `docker/nginx.conf` and narrowed the `nginx.conf` ignore to the root only (59ec0752). The narrow ignore matters: once nginx configs move into the repo, ignoring them broadly means the deployed config silently diverges from source.
+
+## Two Small Fixes That Matter
+
+I added `--no-scripts` to the `composer dump-autoload` step (eaa6eac9). Composer scripts can do surprising things during image builds, and disabling them makes the build deterministic. Then I switched the healthcheck from `localhost` to `127.0.0.1` (361c0c15). Under some container network setups `localhost` resolves to IPv6 while the service listens on IPv4, so the healthcheck fails even though the app is fine. Small detail, but it would have caused confusing deploy failures.
+
+## Why This Counts as Engineering
+
+Deploy configs aren't glamorous, but they're the difference between a deploy that works every time and one that works when I'm watching. Standardizing across four repos means one mental model and one place to fix problems.

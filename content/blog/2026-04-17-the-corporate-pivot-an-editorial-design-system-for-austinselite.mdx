@@ -1,0 +1,28 @@
+---
+title: "The Corporate Pivot: An Editorial Design System for AustinsElite"
+date: "2026-04-17"
+excerpt: "A full-day, two-repo migration to a v3 editorial design system, from tokens and component classes to nav and charts."
+tags: ["Design System", "Tailwind", "Frontend", "Next.js", "Laravel"]
+author: "Ryan Dashwood"
+---
+## The Pivot
+
+AustinsElite got a new visual direction today: a v3 editorial design system applied site-wide (d53a5fa1, d9e4e4a0). The intent was to move away from decorative gradients and toward an editorial, corporate feel—ink surfaces, restrained color, and typography doing the work. It's the largest single-day UI change I've made on the project.
+
+## Building the System
+
+I wrapped the v3 component classes in `@layer components` (0d291a42) so utility precedence stayed predictable, then applied the design tokens (f6acde4e) and migrated inline purple values and standard pixel sizes to semantic tokens (b2ae7772). Migrating to tokens is the part that makes the system maintainable—changing the palette later becomes a one-file edit instead of a search-and-replace.
+
+I consolidated repeated inline patterns into `v3-*` component classes (038cbd96), unified the sub-card data tile pattern (a7c83ca3), and removed the decorative purple blur orbs from the venue analytics (27d48436).
+
+## Coherence and Fixes Along the Way
+
+A venue page coherence pass introduced a sage "verified" token (8cec860f). I guarded heatmap year-fill against out-of-range dates (aff7ea40), fixed sidebar text stat overflow and swapped emerald alerts for sage (9688f3cb), and redesigned the sidebar CTA as an editorial ink surface (d32ce273).
+
+## Finishing the Sweep
+
+The evening brought a deep polish pass with agent fan-out and consolidation (b5742d5b), restoration of the service dropdowns and chat panel with charts refactored to the palette (330d71ff), and an About dropdown in the nav linking Contact, Gallery, Testimonials, and Blog (cf475b98).
+
+## Working Across Both Surfaces
+
+Every change landed in both the platform repo and the Next.js frontend. Keeping two surfaces visually identical is tedious, but doing it in the same commit pair keeps them from drifting. The design system work was as much about the discipline of the token migration as the visual result.

@@ -1,0 +1,26 @@
+---
+title: "Making the Venue Churn Pipeline Deterministic"
+date: "2026-04-24"
+excerpt: "A late night stabilizing a fleet of model profiles, capping inference hangs, and promoting a faster quantized fleet."
+tags: ["Python", "Local LLM", "Reliability", "AI", "Infrastructure"]
+author: "Ryan Dashwood"
+---
+## Determinism First
+
+I made the venue churn pipeline deterministic (b13ca9ad). The pipeline processes venue data in batches, and non-deterministic behavior made results hard to compare across runs. Making it reproducible means I can trust that a change in output came from a code change rather than run-to-run variance.
+
+## Fleet and Profile Tuning
+
+I switched the fleet default to a new Qwen quant (67e51370), restored the Henry concurrency profile (7bf335bd), stabilized the Henry Discord profile (53bd58d0), swapped Henry to IQ3 XS (4c332374), and moved it to GPU2 (bf5d5ef5). "Henry" is a long-running model persona in my local fleet, and its profile needs to balance context size, quantization, concurrency, and which GPU it lives on. Tuning that is real work—each change trades throughput, quality, and stability.
+
+## Capping Inference Hangs
+
+I capped Discord inference hangs (eaa162ae). A hung inference call in an interactive bot is worse than an error—it silently holds a slot and the user waits forever. Adding a cap means a stuck generation fails fast and frees the worker.
+
+## Promoting the Turbo Fleet
+
+I ended by promoting the Q3_K_M Turbo fleet (3a4541fa). At this point the fleet runs fast enough that the bottleneck is data processing, not inference, which is exactly where I wanted to land.
+
+## The Shape of Fleet Work
+
+Managing local models is closer to managing servers than calling an API. Profiles, GPUs, concurrency, and timeouts all interact. Today was the unglamorous tuning that makes the fleet dependable.

@@ -1,0 +1,32 @@
+---
+title: "Twelve Iterations on a Contact Map and a Snappier Shared Inbox"
+date: "2026-08-18"
+excerpt: "A day of visual iteration on the contact map, plus performance and correctness work in the shared inbox."
+tags: ["Frontend", "Design", "Performance", "Email", "SEA"]
+author: "Ryan Dashwood"
+---
+## The Map Iterations
+
+The contact page map went through a dozen revisions today. I replaced the Google map with an editorial Austin plate (620768c1), moved to a real paper-toned Austin OSM map (48b26756), added contrast and reduced the overlay (7db33423), added a downtown pin (f5ae71bc), styled it like the neighborhood venue maps (59007217), showed a broader Greater Austin staffing heat map (d5cb17ef), softened the heat into a service glow (bef95cd0), made the heat a paper blush rather than a burn (b155dd58), kicked the basemap contrast up twice so streets actually read (51373a99, d5dff814), and finally replaced it with a named-hub coverage plate (c8be2a72).
+
+Eleven commits to land on a direction, and that's fine. Map styling is hard to evaluate without seeing it, and iterating on a real page is faster than trying to specify it in the abstract.
+
+## Shared Inbox Performance
+
+I made the shared-inbox mail snappy and kept drafts, assignment, and counts honest (646911c4). Mail performance is a compounding problem—each list render, each open, each count query adds up when someone processes hundreds of messages.
+
+## Correctness Around Events
+
+I unified public venue event counts and labeled capacity (467ec6a5), blocked staffing writes on closed events and counted only live assignments (ece01211), and made Lead Tracker use the shared list chrome while keeping Next on `/leads` (ceaf95f1). Counting only live assignments is the same class of fix as the cancelled-pay work: make the denominator match the business intent.
+
+## Deployment and Mobile
+
+I kept the Coolify public storage linked after image rebuilds (f0a634f3), shipped Mail mobile swipe and directory with Coolify release docs (bcbec8d7), and skipped colocated screen tests when generating Expo routes (f39d3c8c).
+
+## SEO and Polish
+
+I styled the SEO sidebar quote buttons as paper-on-ink pills (f717fffb).
+
+## Visual Iteration Is Real Work
+
+The map took most of the day and produced no logic. But the contact page is often the first close look someone gets at the brand, and getting it from "default map" to "intentional plate" is worth the passes.

@@ -1,0 +1,26 @@
+---
+title: "26 Iterations: Porting Cleanroom Kernels to Gemma 4"
+date: "2026-04-12"
+excerpt: "A single day of rapid iteration took the Gemma 4 port from a baseline to validated QKV fusion, invalidating several assumptions along the way."
+tags: ["SYCL", "Kernels", "Local LLM", "Performance", "Iteration"]
+author: "Ryan Dashwood"
+---
+## The Setup
+
+I started `gemma4-ipex` by importing the frozen 55 t/s ESIMD kernels and establishing a Gemma 4 baseline at 7.35 t/s (9b5e0034), then fixed stale absolute paths left over from the copied scripts (23971662). With that, I ran a long, structured iteration loop: change one thing, measure, record, decide.
+
+## Invalidating My Own Narratives
+
+Iteration 2 was a profile pass that invalidated my "CPU fallback / graph split" theory (202b46c2). That's the value of profiling before optimizing—my mental model was wrong, and the numbers said so. Iteration 9 claimed the ESIMD kernel was 4.5x slower than stock at one shape (b22435ae); iteration 11 corrected that narrative after proper XMX timing (c746f47c). I kept both entries rather than rewriting history, because the correction is the lesson.
+
+## The Wins
+
+The port produced real gains: a scalar inline-dequant kernel took throughput from 2.67 to 6.20 t/s at `-npl 8` (42c9b876), and a fused QKV kernel proved correct and beat the scalar version by 3x, though still 4.4% below the base (02d77753). A fused RMS+MUL kernel ported cleanly and fired 3500 times per decode at parity (6196eb28). By iteration 25, QKV fusion validated on Qwen3-32B with a 48% prefill gain at zero token-generation cost (b981835d).
+
+## The Dead Ends
+
+Not everything translated. QKV fusion stalled on a pool allocator (5d94bb41), a cooperative-warp kernel hit parity with no gain (2e2f9a2f), and ESIMD Q4K needed seven revisions before the fp16 cache architecture produced usable output (a8ed182b). Iteration 23 profiled `MUL_MAT` at 79% of wall time, which told me the per-kernel road had run its course (4b30210a).
+
+## What 26 Iterations Buys
+
+By the end I knew exactly which levers translated from Qwen3 to Gemma 4 and which didn't—information no amount of reading could have given me. The cleanroom port inventory was complete (673b2135), and the next move was clearly graph-level fusion rather than more kernel work. Some days are about the number; this one was about the map.

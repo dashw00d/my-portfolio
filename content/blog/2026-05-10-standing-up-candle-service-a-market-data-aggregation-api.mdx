@@ -1,0 +1,34 @@
+---
+title: "Standing Up Candle Service: A Market Data Aggregation API"
+date: "2026-05-10"
+excerpt: "From design doc to a deployed FastAPI service with multiple upstream clients, workers, and rate limiting in one evening."
+tags: ["Python", "FastAPI", "SQLite", "Market Data", "Docker"]
+author: "Ryan Dashwood"
+---
+## Design Then Build
+
+I wrote the design spec and implementation plan for a candle data service (9b676473, 9451b0de), then built it in a single evening. The service aggregates OHLCV candles from multiple upstream market data providers and serves them through a uniform API.
+
+## The Foundation
+
+I scaffolded the project (fb506bef) and added a config loader with TOML and environment overrides (4885757b), SQLite connection helpers with schema (db4a80f3), API-key auth (a3fb52d1), and a token-bucket rate limiter (344c8ffd). The rate limiter is essential—the upstreams have free-tier limits, and a token bucket that respects them prevents getting throttled into uselessness.
+
+## The Core
+
+The heart of the service is a pure candle merge function (d8ae035a). Keeping it pure means I can test merging independently of HTTP, storage, or scheduling. I added HTTP clients for Dexscreener, Jupiter, and Gecko (b411c36d) and built workers on top: discovery (ae55b6cf), Jupiter ticks and five-minute candles (0ab0fef7), a Gecko backfill worker with priority scoring (3fe3cf60), and a prune worker for tick retention (3acdb363).
+
+## The API
+
+I added a health endpoint with worker heartbeats (dd01d028), pool endpoints (a74c2440), candle and batch-candle endpoints (1188fd27), admin endpoints (8f5f0ed2), and a FastAPI main app with worker lifespan management (1a936768).
+
+## Shipping and Fixing
+
+Docker, compose, and a README rounded out the scaffold (c3a33d3b). Then came the real-world fixes: Jupiter chunking, Gecko target config, candle limit caps, and a clearer main-app error (682d02c2). I fixed the deploy to expose port 8000 rather than binding a host port, since the Coolify proxy reaches the container over the Docker network (095c7032). I migrated Jupiter to the price/v2 endpoint, then price/v3, and fixed a `Retry-After: 0` backoff bug (a7d9095b, c23e5ff4), rotated Jupiter through the universe to match free-tier rates (379d26fc), and added a freshness term to Gecko priority (e77d244f).
+
+## Handoff Docs
+
+I wrote an API guide (66a3c4e2). Building a service for other consumers means the API doc is part of the deliverable, not an afterthought.
+
+## What Made One Evening Possible
+
+A clear spec and a pure core. Because merging is a pure function and clients are swappable, the workers and endpoints are mostly wiring. The hard part was the upstreams, and those only revealed themselves under real traffic.

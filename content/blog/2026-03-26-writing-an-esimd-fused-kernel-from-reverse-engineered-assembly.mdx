@@ -1,0 +1,36 @@
+---
+title: "Writing an ESIMD Fused Kernel From Reverse-Engineered Assembly"
+date: "2026-03-26"
+excerpt: "SLM-tiled GEMM, SPIR-V decompilation, and a corrected Q4_K dequant that finally produced coherent output."
+tags: ["SYCL", "ESIMD", "Kernels", "Reverse Engineering", "Performance"]
+author: "Ryan Dashwood"
+---
+## SLM-Tiled GEMM and Graph Recording
+
+The day began with a discovery: upstream `MUL_MAT` already uses XMX through oneDNN (2b048245), which changed my assumptions about where the speedup had to come from. I then built an SLM-tiled GEMM for SYCL graph recording with env-var tuning (358a3521), moving shared-memory tiles into the recorded graph so the launch overhead disappeared.
+
+## The ABI Adapter and the int32 Overflow
+
+I wrote an IPEX hybrid v1 ABI adapter (e4c35471) that worked up to initialization and then blocked on an int32 overflow. Partial success like that is useful—it tells you the ABI shape is nearly right and the failure is a width or layout issue, not a missing function.
+
+## Decompiling the Fused Kernels
+
+To understand the fast path I decompiled the IPEX fused kernels to SPIR-V (c74dbe67) and wrote a comprehensive decompilation reference (686a49e7). That reference is what let me reconstruct the kernels rather than guess at them: exact signatures, wire points, and the fusion pattern.
+
+## Building ESIMD Infrastructure
+
+I scaffolded the ESIMD fused kernel infrastructure (5839b56e), implemented SiLU+MUL graph-level fusion in the SYCL backend (816d727c), and corrected the MLP fusion pattern to `MUL_MAT + MUL_MAT + GLU/SWIGLU` (2ebaf6b4).
+
+## Getting Q4_K Right
+
+The meat was Q4_K dequantization. The first version had the wrong logic (49c952a2), then a corrected y-offset mapping that finally produced coherent output (c3e13a51), then a vectorized dot product using scalar dequant plus a SIMD reduce (26840adf). Each step was verified against output, not just compiled.
+
+I confirmed the MLP fusion actually triggers—five-plus fusions per token across three GPUs (2d31430f)—and improved quant loading to go from 2.04 to 2.21 t/s (1f83a723).
+
+## Documenting the Port
+
+I kept a progress log with a continuation guide (f27c1209, b84a25d1) and an Intel parity contract (155ef484). On a project this deep, the log is the only way to resume after sleep without re-deriving everything.
+
+## The Lesson
+
+Reverse engineering a fused kernel is mostly discipline: decompile, reconstruct, verify numerically, and only then optimize. Skipping the verification step is how you get a fast kernel that computes the wrong thing.

@@ -1,0 +1,36 @@
+---
+title: "Bootstrapping MobCrafter on an Intel Arc A770"
+date: "2026-04-13"
+excerpt: "A 46-commit sprint that stood up a ComfyUI pool, Dockerized pipelines, and a rigging bridge for character generation."
+tags: ["Docker", "ComfyUI", "Intel Arc", "Python", "AI"]
+author: "Ryan Dashwood"
+---
+## A New Project, Fast
+
+MobCrafter went from initial commit to a working stack in a day. The goal is a character-generation and rigging pipeline, and I wanted it running on an Intel Arc A770 rather than a rented GPU. I ported the pipeline to Arc and added a Qwen-Image-Edit refinement pass (5837a597).
+
+## The ComfyUI Pool
+
+The architectural decision that made the day tractable was a unified ComfyUI pool. I wrote the spec around it (239cf055), added a `ComfyPool` client with queue-depth dispatch (efc4230d), and stood up three role-free ComfyUI services in `docker-compose` (fa859366). Modeling each model backend as a pool member means dispatch is a queue-depth problem instead of a hardcoded routing problem.
+
+## Docker and Vendoring
+
+I added a thin ComfyUI Dockerfile with a whitelist shim (fbd7a570), a Blender 4.4.3 plus Instant Meshes image (73ba1b83), a vendor staging script (cbd0fd4d), and an infra Makefile for the stack lifecycle (778b19d0). I also vendored the sitecustomize and startup scripts from arclab (c4f45c1b) so the Arc-specific patches travel with the project. The whitelist shim controls which ComfyUI nodes are available, which matters when running untrusted or experimental graphs.
+
+## The Pipeline
+
+I migrated the armor and edit drivers onto the pool (3f3cc572, 3aac8264), added a model installer with tests (9daf51d9), and wired the HY-Motion workflow against the real node classes (3e540549). A Hunyuan3D 2.1 workflow with a bind-mounted XPU patch (3145c079) filled in the 3D generation step, and I implemented HY-Motion FBX retargeting (85619a1b).
+
+The full smoke test ran green end to end (4954038e). Getting a smoke test green on a brand-new stack is the moment the stack becomes real.
+
+## Meanwhile on AustinsElite
+
+I also fixed an email and equipment formatting issue (3252ffed), told the mailer to ignore a plain-text flag that was corrupting output (09ba1f2a), added a checkmark and patched a print bug (f6321360), and displayed CC in the email queue (c5121d3d).
+
+## Also in the Kernel Lab
+
+The Gemma 4 port continued: QKV fusion default-on gave a 46% prefill gain on Qwen3 (9ab5d1e4), and the ESIMD Q6_K kernel ported to complete the cleanroom inventory (673b2135).
+
+## The Feeling
+
+A greenfield day where the pieces clicked. The pool abstraction is the part I'm proudest of—it turned a pile of model-specific scripts into a dispatchable system.

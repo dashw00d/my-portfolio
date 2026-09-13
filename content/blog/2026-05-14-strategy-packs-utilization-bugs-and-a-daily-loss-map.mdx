@@ -1,0 +1,22 @@
+---
+title: "Strategy Packs, Utilization Bugs, and a Daily-Loss Map"
+date: "2026-05-14"
+excerpt: "Building out dex-trader's strategy editor and fixing subtle paper-trading bugs around utilization and loss tracking."
+tags: ["Trading", "Dashboard", "Debugging", "TypeScript"]
+author: "Ryan Dashwood"
+---
+## Strategy Packs and Editors
+
+I checkpointed the strategy packs and editors (57105259), giving dex-trader a real way to define and tweak trading strategies in the dashboard. A strategy pack is a named configuration with entry and exit behavior, and the editor makes it editable without touching code.
+
+## Fixing Utilization
+
+I fixed strategy utilization (08eeb876) and trimmed the generated packs. Utilization is the fraction of capital a strategy actually deploys, and it was being over-reported—which would make a strategy look more active and more profitable than it was. I also deduped and refactored the trade-behavior path (f9504cf9) to remove some subtle bugs that came from two code paths computing behavior slightly differently.
+
+## Keeping the Loss Map Fresh
+
+I fixed a bug where the per-tick daily-loss map went stale across same-tick closes (97c20ec5). If two positions close within the same price tick, the daily-loss accumulator needs to reflect both. Missing the second one understates realized loss, which is exactly the wrong direction for a safety limit.
+
+## Paper Trading Puts the Bugs on Display
+
+This is the value of paper trading as a debugging tool: because nothing is at risk, I run scenarios that reveal logic errors quickly. The utilization and loss-cascade bugs would be much harder to diagnose with real capital and real consequences.

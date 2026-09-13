@@ -1,0 +1,22 @@
+---
+title: "Starting Dex Trader, a Solana Paper-Trading Dashboard"
+date: "2026-05-13"
+excerpt: "An initial commit for a paper-trading dashboard—charting and simulation against live DEX data, with no real orders."
+tags: ["Solana", "Trading", "Dashboard", "Web3"]
+author: "Ryan Dashwood"
+---
+## The Initial Commit
+
+I started `dex-trader` (0cbbdedf), a Solana paper-trading dashboard. The premise is simple: watch live DEX data, simulate entries and exits, and track the results without risking capital.
+
+## Why Paper Trading First
+
+The immediate value of paper trading is that it forces the strategy logic to be explicit without the psychological weight of real money. A dashboard that shows simulated positions against live prices is a fast feedback loop for both the strategy and the UI—you learn quickly whether the data you're showing is the data a trader actually needs.
+
+## Building on Existing Work
+
+This sits downstream of the candle service and edge lab. The candle service provides the market data; edge lab provides the research pipeline; dex-trader is where a selected strategy can be watched in something approaching real time. Drawing the boundary at "no real orders" keeps the project safe to iterate on aggressively.
+
+## The Beginning
+
+A single commit to start. The interesting decisions—which data to surface, how to represent a simulated position, how to attribute outcomes—come next.

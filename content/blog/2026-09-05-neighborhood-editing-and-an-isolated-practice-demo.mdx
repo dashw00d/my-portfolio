@@ -1,0 +1,20 @@
+---
+title: "Neighborhood Editing and an Isolated Practice Demo"
+date: "2026-09-05"
+excerpt: "Simplifying how neighborhoods are edited and adding a complete practice environment for Lake Forest POA."
+tags: ["Laravel", "Livewire", "Demo Environment", "UX"]
+author: "Ryan Dashwood"
+---
+## Simplifying Neighborhood Editing
+
+I simplified neighborhood editing in the Lake Forest POA portal (7b5d6be5). Editing neighborhood data had accumulated steps that made a routine task feel heavy, and the simplification removed them. For a portal run by volunteer board members, every avoided step matters more than it would for a trained admin.
+
+## An Isolated Practice Demo
+
+I added a complete isolated practice demo (7b5d6be5) and preserved isolated practice storage across config caching (cc1ff242). An isolated practice environment lets the board try real workflows—payments, documents, approvals—without touching production data. The second commit is the subtle one: config caching was causing the practice environment to share storage with production, which would defeat the whole point.
+
+Isolation is easy to claim and hard to guarantee. Testing that the storage paths stay separate across a config cache rebuild is exactly the kind of verification that makes a demo environment safe.
+
+## Demos as Onboarding
+
+A practice environment is also onboarding. New board members can learn the portal by doing, and a demo that mirrors production gives me a place to walk through features without exposing resident data. Both the resident demo and the practice environment exist because a portal for a neighborhood has to earn trust before it's used for money.

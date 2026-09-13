@@ -1,0 +1,34 @@
+---
+title: "Building ArcLLM, a Local OpenAI-Compatible API Stack"
+date: "2026-03-08"
+excerpt: "One session took ArcLLM from an empty repo to streaming chat, tool calls, the responses API, persistence, and worker queues."
+tags: ["AI", "Python", "Local LLM", "API", "Infrastructure"]
+author: "Ryan Dashwood"
+---
+## Starting From an Empty Repository
+
+Some days are maintenance. This one was greenfield. I started ArcLLM as a local API stack (8d4426dd) meant to sit in front of local models and speak the OpenAI surface so the rest of my tooling doesn't care whether inference is remote or local.
+
+The first commit established the project shape: a small server, a completion command, and config plumbing. I added ArcLLM completions and config commands (620faa73) so I could point it at a model directory and get a response without editing code.
+
+## Streaming and Tool Calling
+
+Streaming came next (671defe7), because nothing feels local if you wait for the whole response. I implemented the chat and completion streaming paths against the same interface, which forced me to be disciplined about how tokens, deltas, and finish reasons are represented.
+
+Tool calling was the interesting part (3e7a39e9). I implemented OpenAI-style tool calls, including the shape of the `tools` array and the `tool_calls` response, so existing clients connect without a shim. Getting the streaming tool-call deltas right took a couple of iterations—partial JSON fragments have to be accumulated before you can parse them.
+
+## The Responses API and Persistence
+
+I then added support for the Responses API (a8bfe7be) and persisted the responses store across restarts (8096adeb). That second part matters more than it sounds: a stateless responses endpoint is easy, but one that remembers a response id after a restart is what makes chained calls usable during long local sessions.
+
+## Worker Queueing and Capacity Limits
+
+I closed the day with worker queueing and capacity limits (e1ade130). Local hardware has a hard ceiling, so I added a queue that tracks in-flight requests and refuses to oversubscribe the model. Requests beyond capacity wait rather than thrashing the GPU, which keeps latency predictable under load.
+
+## Side Projects
+
+I also imported a small `triple-temps-indicator` tool (307ba4c5) for displaying temperature and utilization, and made a quick `my-portfolio` tweak (2713dd65) that I didn't fully name—sometimes you just need to commit and move on.
+
+## Reflections
+
+Building an OpenAI-compatible layer is mostly an exercise in shape-matching. The value is that every client I already have keeps working, and I can swap the backend without touching application code. The queue and persistence work are the foundation I'll lean on later when I put this under real traffic.

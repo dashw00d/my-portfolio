@@ -1,0 +1,20 @@
+---
+title: "Consolidating the Runtime Core and Parquet Research Tooling"
+date: "2026-05-21"
+excerpt: "Finishing the dex-trader runtime consolidation and unifying edge-lab's parquet tooling."
+tags: ["Refactor", "Python", "Architecture", "Trading", "Parquet"]
+author: "Ryan Dashwood"
+---
+## The Runtime Consolidation
+
+I consolidated the dex-trader runtime core pipeline (2ebb35a9) and merged the refactor branch (PR #4, 823f7170). After several days of splitting stores and refactoring lifecycle, this was the step that pulled the pieces back together into a single coherent pipeline.
+
+Consolidation is the necessary counterpart to splitting. Splitting improves local clarity but multiplies the number of seams; consolidation reduces the seams to the ones that earn their existence. Doing both in the same week means the final shape is deliberate rather than either a monolith or a pile of fragments.
+
+## Parquet Research Tooling
+
+In edge-lab I consolidated the parquet research tooling (3344b2b6). The freshness pipeline writes per-day parquet files, and the read paths had grown multiple ad hoc loaders. Consolidating them means one way to read research data, one place to handle schema drift, and one place to optimize.
+
+## A Maintenance Day
+
+Two consolidation commits, no new features. After the intensity of the previous week, a day spent reducing duplication is the right move. The codebase gets smaller and easier to change while nothing about the product changes.

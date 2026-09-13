@@ -1,0 +1,26 @@
+---
+title: "Launch Data, Officer Access, and a Resident Demo for Lake Forest"
+date: "2026-08-09"
+excerpt: "Final prep for the POA launch: demo data, flexible officer access, map refinement, and a resident walkthrough."
+tags: ["Laravel", "Livewire", "Launch", "Maps", "Product"]
+author: "Ryan Dashwood"
+---
+## Preparing to Launch
+
+I prepared launch data and refined the neighborhood map (8bae9854), then added flexible officer access and unified the admin entry (875cd48e). Unifying admin entry matters for a board-run portal—officers change frequently, and a single obvious place to sign in and administer reduces the support burden.
+
+## Map and Navigation
+
+I improved site navigation and the neighborhood map (9ffd5d10), addressed map review feedback (0287713d), made the map auto-zoom to home on first load (8c6563c6), closed the mobile menu on outside taps (fa226c01), and polished navigation while restoring the favicon (ab930584). Auto-zoom on first load is a small thing that makes the map feel oriented instead of lost.
+
+## Transactions That Belong in a Portal
+
+I added presentation data and password changes (6bcc74bf) and configured the Lake Forest notification sender (a4142488). Notifications coming from an unknown sender get ignored or reported, so a properly configured sender identity is a deliverability feature.
+
+## The Resident Demo
+
+I added a resident demo (658a7fae). A demo account lets a board member or prospective resident explore the portal without real data, which is essential for walkthroughs and for reassuring people that the portal works before they commit to using it.
+
+## Wrapping the Feature Push
+
+I merged the various-improvements branch (PR #5, 82d59006). After several intense days, the portal is at launch quality: payments, documents, compliance, community, and a map. The remaining work is operational—onboarding the board and watching the first real payment cycle.

@@ -1,0 +1,30 @@
+---
+title: "Rebranding to ArcLab and Patching a Modern Jinja Parser Into llama-server"
+date: "2026-03-25"
+excerpt: "Rebrand, hybrid llama-server build, IPEX reverse-engineering notes, and a sandbox with a parallel job queue."
+tags: ["Local LLM", "SYCL", "Intel", "Python", "Tooling"]
+author: "Ryan Dashwood"
+---
+## Rebranding and Restructuring
+
+The local-inference work got a proper name today: arclab. The rebrand came with real structure—llama-server configs, arc-tools, docs, and benchmarks (aa70333d). Renaming a project is a good excuse to reorganize it, and I took it.
+
+## Patching llama-server for Qwen3
+
+The substantive work was patching `llama-server` with a new Jinja parser for Qwen3 (e7c5bbbd). The stock parser couldn't handle the template features Qwen3 uses, which corrupted chat formatting at the server layer. The patched parser fixes the template render, and I built a hybrid `llama-server` that keeps IPEX/XMX acceleration while using the modern template parser (171600cc). That combination is the point: fast kernels and correct prompt formatting in one binary.
+
+## The IPEX Architecture Warning
+
+I wrote a `CLAUDE.md` documenting the IPEX performance architecture as a warning (04c0218a), then revised it from a guardrail into context (a2931cbd) because a warning reads as "don't touch" when what I actually wanted was "understand this before you touch it." I also added a plan for Qwen3.5 and Nemotron model architecture support (b719842c) and updated the overview to reflect the patched Qwen3-32B production config (ce3af621).
+
+## The Experiment Sandbox
+
+Late in the day I built an experiment sandbox with a parallel job queue and an orchestration loop (68c33f4a), plus a spec doc and MiniMax-M2.7 tuner integration (4ebb225f). Benchmarking is inherently parallel and easy to get wrong, so a sandbox that queues jobs and records results removes a lot of manual bookkeeping.
+
+## Upstream SYCL and Reverse Engineering
+
+I got a Qwen3.5-27B build running on upstream SYCL with a fused GDN kernel (d2ba7f48), then wrote up an IPEX `libggml-sycl` reverse-engineering analysis (955eeb59). That document became the roadmap for the days that followed—once I understood how IPEX staged its kernels, I could start reproducing the fast paths.
+
+## Why the Rebrand Mattered
+
+ArcLLM was an API. ArcLab is a lab: builds, configs, benchmarks, and a sandbox. The name change reflects that most of the value is in the integration work, not any single server.

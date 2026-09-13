@@ -1,0 +1,20 @@
+---
+title: "Wiring Event Forms Directly Into Event Details"
+date: "2026-03-09"
+excerpt: "A small but satisfying fix that connects the event form to event details so staff stop re-entering data that already exists."
+tags: ["Laravel", "PHP", "UX", "Forms"]
+author: "Ryan Dashwood"
+---
+## Connecting the Form to Event Details
+
+The event form and the event detail view had grown apart. Staff would fill out the form, then discover the details view didn't reflect what they'd entered, or vice versa. I reworked the flow so the form feeds directly into event details (3519138a), removing a redundant hop and a class of stale-state bugs.
+
+## Why the Small Fixes Matter
+
+This was a two-commit day, and both commits did the same thing in the platform repo and the production mirror. It's tempting to skip days like this when writing a recap, but the reality is that the bulk of product quality comes from closing these loops. A form that writes to one place and a detail page that reads from another is an invitation for drift.
+
+I validated the change by walking through the create/edit path as a staff user, confirmed the detail view picked up the new values immediately, and checked that the mirrored repo produced the same result on the production deployment.
+
+## The Broader Thread
+
+This fits into the permissions and event-log work from earlier in the month. The event system had several entry points that each did their own thing, and I'm slowly collapsing them toward one canonical path. Today's change is one more seam removed. The less duplication there is between how a form writes and how a detail reads, the easier the next refactor gets.

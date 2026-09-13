@@ -1,0 +1,18 @@
+---
+title: "Configuring IMAP Sync State Fanout"
+date: "2026-07-19"
+excerpt: "Making sync state fan out predictably and pinning an implementation that can be tested."
+tags: ["Email", "IMAP", "Testing", "Architecture"]
+author: "Ryan Dashwood"
+---
+## Fanning Out Sync State
+
+I configured IMAP sync state fanout (1a792958) and pinned a testable implementation (6a7b9fc4). Fanout means one source mailbox's sync state can drive multiple downstream targets—for example, the same mailbox appearing in several shared views without each target maintaining its own independent cursor.
+
+## Why Testability Was the Pin
+
+The second commit is the more interesting one. I deliberately pinned an implementation that can be tested, which often means accepting an interface that's slightly less convenient in exchange for a seam where tests can run. With mail sync, the alternatives are untestable integrations against live servers, and I've learned that untestable imports rot.
+
+## Two Commits, Mirror Only
+
+Both changes landed in the platform and mail-deploy repos. A short day, but a meaningful one: fanout is an architectural decision, and testability is a constraint I'd rather bake in early than retrofit.

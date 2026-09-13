@@ -1,0 +1,22 @@
+---
+title: "PDF Downloads for Form Submissions"
+date: "2026-09-08"
+excerpt: "Adding a PDF download path so form submissions can be saved and shared as documents."
+tags: ["Laravel", "PDF", "Feature", "Forms"]
+author: "Ryan Dashwood"
+---
+## The Feature
+
+I added PDF download functionality for form submissions (15c239da). Submissions had lived only as records in the admin UI, which is fine for viewing but awkward for sharing. A PDF makes a submission something you can attach to an email, print, or archive.
+
+## Why PDF
+
+A form submission is frequently part of an offline workflow—a signed quote, an event request, an application. Generating a document from it means staff stop re-typing data from the screen into another format. PDF is boring and universal, which is exactly what a document that leaves the system should be.
+
+## Rendering Is Its Own Problem
+
+PDF generation always surfaces layout issues you don't see in HTML: page breaks, missing fonts, content that runs off the edge. I kept the layout simple and verified it against real submissions rather than a hand-crafted example.
+
+## A Focused Feature
+
+One feature, one day. The mail infrastructure work continues around it, but a straightforward user-facing improvement landed cleanly.

@@ -1,0 +1,36 @@
+---
+title: "56 Commits: A Monorepo, a Coolify Cutover, and a POA Production Container"
+date: "2026-08-14"
+excerpt: "Consolidating Austin's Elite into a monorepo and rehearsing an isolated Coolify deployment down to the proxy rules."
+tags: ["Monorepo", "Coolify", "Docker", "Deployment", "Infrastructure"]
+author: "Ryan Dashwood"
+---
+## The Monorepo
+
+I initialized the Austin's Elite platform monorepo (fbd1f88c) and merged the staff, mail, and public projects into it (1de2b397, 5229439e, 8e7b467e). Consolidating the apps that deploy together is the same reasoning as the TinyCLD monorepo: atomic changes across surfaces and one build story.
+
+## Security Cleanup
+
+I removed committed Composer authentication (3ffb4d37) and embedded Twilio test credentials (9c52466a). Credentials in a repo are a problem whether the repo is private or not, and finding them during a consolidation is exactly when to fix them.
+
+## A Production-Shaped Test Environment
+
+I built a local SMTP relay capture (5c4b3f88), showed live Staff context projections in Mail (c70f3850), and built production-shaped public intake and product labs (f790ac50, c23e68c5). A test environment that matches production shape catches production-only bugs—especially around email and integrations.
+
+## Rehearsing the Cutover
+
+The bulk of the day was an isolated Coolify rehearsal. I prepared Staff for isolated deployment (86585e47), fixed the Staff image health smoke (64c54fcc), kept Staff staging out of search indexes (d3f88acf), prepared Public for an isolated rehearsal (cf5cf39a), used Coolify-compatible Dockerfile secrets (b1ebdd9a), prepared an immutable Mail deployment (6a32d4bf), mounted licensed packages from the deployment host (409f2dbf), and bridged Mail image publishing to the monorepo (812157c0).
+
+Then came the access controls: routing Coolify Mail traffic to PocketBase (44f31c25), protecting the Mail rehearsal at the proxy (7a9995d1), keeping rehearsal credentials out of image labels (19fa0882), using native app auth (d84eec0d), simplifying access controls (ebe6ea26), and honoring staging Basic Auth flags (06634df7). Documenting the simple rehearsal access (bfeec0ae) closed that loop.
+
+## The Cutover Itself
+
+I built a guarded production cutover (b9fd40ca), verified the production environment at runtime (94adbcc7), resolved effective environment values (5b9358ae), handled Coolify deployment visibility lag (c0873133), escaped runtime environment values (1de80b94), made cutover restores server-to-server (e9eacbd5), prevented Cloudflare from rewriting Staff HTML (83745f5f), allowed Staff sessions on temporary hostnames (f94742bd), and fixed nginx temp directory ownership (57dbb366).
+
+## Lake Forest Production
+
+I added a Coolify production container for Lake Forest POA (eb9ffe77), installed Composer dependencies with runtime extensions (e42abd92), provided Filament assets to the frontend build (e9465c1f), trusted production proxy headers (a908fd65), and added an unpaid balance to the resident payment demo (b1891f5a).
+
+## Cutovers Are Full of Tiny Truths
+
+Cloudflare rewriting HTML, nginx directory ownership, session cookies on temp hostnames—none of these are architectural, and each one can take the site down. A rehearsal exists precisely to surface them before real users do.

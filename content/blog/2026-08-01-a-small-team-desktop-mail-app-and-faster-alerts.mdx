@@ -1,0 +1,18 @@
+---
+title: "A Small-Team Desktop Mail App and Faster Alerts"
+date: "2026-08-01"
+excerpt: "Adding a desktop mail client for small teams and making new-mail alerts snappier."
+tags: ["Email", "Desktop", "UI", "Notifications"]
+author: "Ryan Dashwood"
+---
+## The Desktop App
+
+I added a small-team desktop mail app (ef38e506). A dedicated desktop client gives staff a persistent, always-visible surface for mail instead of a browser tab that competes with everything else. The "small team" framing kept the scope tight: it's not trying to be a general email client, it's a focused window into the shared inbox.
+
+## Faster Alerts
+
+I refreshed new mail and sped up desktop alerts (cc75f5e2). Alert latency is the whole point of a desktop client—if mail arrives and the notification lags, the client is worse than a scheduled check. I focused on the polling and notification path to get the delay down.
+
+## One Focused Feature
+
+A short day, one coherent feature. The mail platform now has a desktop presence to go with the web and mobile surfaces, which means the same shared inbox is reachable however a staff member prefers to work.

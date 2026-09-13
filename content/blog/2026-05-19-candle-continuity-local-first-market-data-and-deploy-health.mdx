@@ -1,0 +1,32 @@
+---
+title: "Candle Continuity, Local-First Market Data, and Deploy Health"
+date: "2026-05-19"
+excerpt: "A 32-commit day making candle-service fast and continuous while moving dex-trader to local-first data."
+tags: ["FastAPI", "SQLite", "Performance", "Trading", "Data Pipelines"]
+author: "Ryan Dashwood"
+---
+## Candle Continuity
+
+The candle-service focus was continuity: making the candles API center on rolling continuity (a6c52456), fixing pool continuity row handling (f414dba7), and precomputing pool continuity for fast listings (632e0d36). I sped up the continuity metadata path (8db9e2ae) and prioritized continuity repair (c1a9e04a). For a market data API, a continuous series is the feature—gaps make downstream indicators lie.
+
+## Deploy Health and Event-Loop Hygiene
+
+A cluster of fixes kept the server healthy: speeding up deploy health and build cache (6f7fdaf9), deferring worker startup until the app is live (4e6cbf11), delaying heavy workers until the server is listening (1e8d8ff3), running continuity refresh off the event loop (2bf1f94a), keeping prune cleanup off the request loop (cb9b3f37), and isolating candle API SQLite reads (a2b3de53). Every one of these is about not blocking the request loop with background work—a single synchronous task can make the whole API feel broken.
+
+## Data Quality and Quotas
+
+I derived pool scores from market quality (675fb855), repaired stale pool scores (c77bccb0), refreshed stale eligibility state (73b31100), tightened pool identity matching, and widened Dexpaprika discovery while throttling bad candidates (ea5cf627). I serialized internal SQLite writes (3b2df8d5) and fixed candle row access (816169d7). I also added consumer feedback scheduling (629f757c) so the service can learn which pools consumers actually care about.
+
+## dex-trader Goes Local-First
+
+I made dex-trader local-first for market data (a1936d74) and mirrored that in edge-lab (a777a287). The idea is to prefer locally cached data and only hit upstreams when necessary. I removed the dead candle-service repair path (86ca4e00), added cautious local candle gap fill (d0d38ec3), merged all candle sources during local repair (b73b2fa9), focused repair by pool (2c6268f4), and quoted missing drag costs locally (8e1c6fe1). I also repaired the local candle intelligence pipeline (5868ea80) and balanced free API usage (2117cb63).
+
+Local-first is both a resilience and a cost decision: the dashboard keeps working when an upstream is down or rate-limited, and the free tiers last longer.
+
+## AustinsElite Too
+
+I added a schema for strategy packs and paper controls to dex-trader (0453166b) and, separately, position snapshot work in AustinsElite.
+
+## A Systems Day
+
+No single dramatic feature—just making a distributed data system fast, continuous, and self-sufficient. That's the work that makes everything built on top of it possible.

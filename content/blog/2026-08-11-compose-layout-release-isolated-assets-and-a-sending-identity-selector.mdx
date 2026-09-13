@@ -1,0 +1,22 @@
+---
+title: "Compose Layout, Release-Isolated Assets, and a Sending Identity Selector"
+date: "2026-08-11"
+excerpt: "Back in the mail platform: draft safety, per-release web assets, and choosing who you're sending as."
+tags: ["Email", "Docker", "Deployment", "UX"]
+author: "Ryan Dashwood"
+---
+## Draft Safety
+
+I hardened the compose layout and draft safety (e3c5a755). A draft that's lost because someone navigated away or the app restarted is a trust failure—staff will stop trusting a composer that eats their writing. The hardening covers persistence and the layout around it.
+
+## Isolating Web Assets by Release
+
+I isolated web assets by release (e96f669b) and refreshed reused web release stamps (6f0c2bbe). Per-release asset isolation means a cached asset from a previous deploy can't be served against a new build. The stamp refresh handles the case where a release reuses files but the version label didn't change—the subtle cache-busting case that produces "it works locally, not in production."
+
+## Sending Identity
+
+I added a sidebar sending identity selector (8d78eb02). Staff often operate on behalf of multiple identities—a personal address and a shared one—and making the active sender visible prevents the embarrassing mistake of sending a personal reply from a shared inbox or vice versa.
+
+## Back to Mail
+
+After a stretch on the POA portal, this was a return to the mail platform. The pairing of a compose-hardening day with a release-safe asset change is characteristic: one user-facing reliability fix, one infrastructure reliability fix, mirrored across both repos.

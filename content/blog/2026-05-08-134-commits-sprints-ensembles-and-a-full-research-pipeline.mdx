@@ -1,0 +1,30 @@
+---
+title: "134 Commits: Sprints, Ensembles, and a Full Research Pipeline"
+date: "2026-05-08"
+excerpt: "The largest single day in the repo—a three-track roadmap executed as six sprints, ending with walk-forward ensembles and a filter-quality bundle."
+tags: ["Python", "Backtesting", "Machine Learning", "Architecture", "Research"]
+author: "Ryan Dashwood"
+---
+## The Roadmap
+
+I opened with a comprehensive three-track roadmap covering robustness, adaptability, and expansion (3631f6ae), added an XPU-first principle and a CPU-drift audit (86c961e6), and turned it into sprint plans (a8548bf4). Then I executed.
+
+## Robustness and Adaptability
+
+The robustness track added a compute-placement audit with hot-loop detection (20a25f1a), a persisted baseline (a88af615), a JSON-schema regression test (0c13c157), and a pytest guard against CPU drift (18ad34da). Robustness work is about catching silent behavior changes early, and a baseline that fails the build is the only reliable way to do that.
+
+I also built decorrelated candidate selection (391c9d86), per-family and per-label diversity caps (72f093ba), an acceptance-tier classifier (0c6e82fd), a drawdown-targeted exit profile builder (415701d0), capacity-aware packaging (3e7d5689), permutation null tests (248f42c3), a null-fail penalty (56c19b82), and a calibration layer with Brier score, isotonic, and Platt scaling (ed37fb5e, f4ef53a2). Calibration surfaces are how you know whether a score means what it says.
+
+## Expansion
+
+On adaptability I added a live ingest runner with dedup and late/gap detection (5e59e17d), a deployed-candidate registry with a "deploy never places an order" regression test (0905f31d), a candidate health runner with a registerable detector battery (6dd10563), alerting with JSONL and webhook sinks (4c69b6fe, ab2a2c5f), and a counterflow detector with a synthetic-injection acceptance test (e53b032d, 65a10a75).
+
+The expansion track added cross-chain lead-lag features (6a2ff7c1), cross-market portfolios with clone rejection (57e11ed6), and a market-add playbook retrospected from the E3 work (39d75874).
+
+## The Big Finishers
+
+The day ended with the biggest architectural pieces: a filter-quality bundle with microstructure proxies, a LightGBM meta-labeler, and regime features (52f07705), vectorized Hurst and permutation entropy (6094f81c), a strategy ensemble engine with vote, stacked, and regime-router modes (2034f4b9), and a purged and embargoed walk-forward ensemble with per-fold refits (0991c497). Walk-forward with purging and embargo is the correct way to validate a trading strategy, and having it built in means I can't accidentally fool myself with leakage.
+
+## What 134 Commits Means
+
+It's not 134 independent ideas—it's one ambitious plan executed methodically, with each commit a small verifiable step. The roadmap and sprint structure are what made a day this large possible without losing the thread.

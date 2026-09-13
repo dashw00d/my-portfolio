@@ -1,0 +1,26 @@
+---
+title: "Chapter Recovery and a Deterministic Density Study"
+date: "2026-08-31"
+excerpt: "Adding recovery and validation to the book processor, then running a structured density experiment on the output."
+tags: ["Python", "NLP", "Research", "CLI", "Data"]
+author: "Ryan Dashwood"
+---
+## Chapter Recovery
+
+I added chapter recovery to the book processor and integrated `fiction-protocols` for inter-project communication (ce72cda6), with new CLI commands for recovery and validation and refined artifact management. Processing real books means encountering genuinely malformed structures, and recovery—rather than rejection—is what lets the pipeline handle the long tail.
+
+Inter-project communication via a shared protocol is a pattern I keep reaching for: projects stay independent but agree on how to hand off data.
+
+## Prompt Guidelines and Dependencies
+
+I added model-facing prompt guidelines and a `PROMPT_PILLARS.md`, plus NLP dependencies (c8f11382). I also implemented a CLI command for GPU memory utilization. Writing down prompt-construction rules pays off because prompt behavior is otherwise folklore that lives in one person's head.
+
+## The Density Study
+
+I implemented a deterministic density blast study (051b206b) with candidate builders, convergence logic, and evidence stitching, plus documentation and a YAML configuration for an "insight farm." Deterministic is the key word—an experiment whose results vary run to run can't be compared, so the candidate generation is seeded and reproducible.
+
+An insight farm is a nice abstraction: instead of running one experiment by hand, define candidates and let a loop generate, evaluate, and record evidence.
+
+## Research Tooling for Text
+
+The trajectory across the last two days is from ingestion to experimentation. First make the text accessible and structured; then build a reproducible harness to ask questions of it. The second part is where the interesting results will come from.

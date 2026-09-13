@@ -1,0 +1,26 @@
+---
+title: "Shipping Go Ask a Stranger as an MCP Server"
+date: "2026-03-28"
+excerpt: "Backend, MCP server, identity support, and a published npm package—all in about forty minutes of commits."
+tags: ["TypeScript", "MCP", "Backend", "npm", "AI"]
+author: "Ryan Dashwood"
+---
+## The Concept
+
+Go Ask a Stranger is a small service where someone can ask a question into the void and someone else can answer it. I wanted it reachable from an AI agent, so I built it as an MCP server. The initial release (204f743a) exposed the ask/answer flow as MCP tools, which means any MCP-capable client can use it without custom integration.
+
+## The Backend
+
+In parallel I committed the backend (0652fd2d) and immediately stopped tracking `CLAUDE.md` in the backend repo (f18af78e) so my agent notes didn't ship with the service. I pointed the default API endpoint at `goaskastranger.uk` (f779eabd) rather than a local URL, so the published server works out of the box.
+
+## Identity Support
+
+I added optional identity for both askers and answerers (e4def487, 2f642c64). The service is anonymous by design, but letting a participant attach a name makes longer exchanges feel less like shouting into a well. It's optional on both sides—if you don't provide a name, the experience stays fully anonymous.
+
+## Publishing
+
+I bumped to 1.0.2 and published to npm (6d625bd9). Publishing early is a forcing function: it makes the install path real, which is where most of the bugs were in my earlier tools.
+
+## A Short, Complete Day
+
+This was a compact project—backend, protocol surface, docs, and a release in one sitting. Not every day is a deep kernel investigation. Sometimes the win is taking an idea all the way to a published package while it's still interesting.

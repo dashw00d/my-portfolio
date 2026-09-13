@@ -1,0 +1,26 @@
+---
+title: "Permissions Refactor, Cache Busting, and Tracking Separation"
+date: "2026-03-03"
+excerpt: "Merging the permissions refactor, stabilizing the E2E login helper, and separating tracking so analytics events stop bleeding into each other."
+tags: ["Laravel", "PHP", "Refactor", "Testing", "Analytics"]
+author: "Ryan Dashwood"
+---
+## Finishing the Login Helper
+
+I carried the Playwright work from the previous night across midnight, hardening the login helper with redirect and session stabilization (14b311d8). The helper now waits for the session cookie to be present and the final URL to settle before handing control back to the test, which removed the intermittent failures that had made the suite untrustworthy.
+
+## Merging the Permissions Refactor
+
+The permissions refactor had been sitting in a branch long enough. I merged pull request #11 (404b4c61) after an overnight pass (3278454b) to make sure the normalization work from the day before still held. Merging felt good—it consolidated scattered permission checks under one path and made the admin surface easier to reason about.
+
+## Cache Busting and Fixing Permissions Again
+
+Merging exposed a caching issue: after the refactor, some pages were still serving fragments built under the old role assumptions. I did a cache bust (85b127ae) to force a clean rebuild, then fixed a leftover permissions edge case (9b10c4fd) where a role that should have had read access was being denied on a nested view. The fix was small, but it confirmed the value of the logging I added the day before—I could see the exact session values in the denial line.
+
+## Separating Tracking
+
+The most interesting work of the day was tracking separation (16f7014c). Analytics events for different user flows were sharing enough state that a conversion in one area could inflate metrics in another. I split the tracking calls so each flow emits its own event namespace, which keeps the funnels honest. I also left a fairly large explanatory comment (a4ae3a1) documenting why the separation exists, so the next person to touch it doesn't collapse it back into a single helper.
+
+## Notes on Rhythm
+
+This was a short, tidy day: merge, bust cache, fix, document. After a long stretch of permissions work it was satisfying to land it and immediately harden the edges. The takeaway is that merges are not the finish line—the cache and the data layer usually have one more thing to say.

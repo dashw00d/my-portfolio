@@ -1,0 +1,22 @@
+---
+title: "Mask Studio MVP and the First Working Character Generation"
+date: "2026-04-14"
+excerpt: "Adding real render smoke coverage, building a mask-editing tool, and getting character generation and armor to mostly work."
+tags: ["Python", "ComfyUI", "Tooling", "AI", "3D"]
+author: "Ryan Dashwood"
+---
+## Real Render Coverage
+
+I added real render smoke coverage to the MobCrafter pipeline (1664a897). Up to that point the smoke tests verified wiring, not output. Adding an actual render check means the pipeline fails when the image is wrong, not just when a process exits non-zero. For a generation pipeline that's the only meaningful test.
+
+## Mask Studio MVP
+
+I built the Mask Studio MVP and a stack verification workflow (c3f78ea3). Character generation needs masks for inpainting and refinement, and editing those masks by hand in a generic tool was slowing the loop down. The MVP lets me open an image, paint a mask, and feed it straight back into the pipeline. The stack verification workflow runs the whole chain so I can confirm every service is healthy before starting a batch.
+
+## Character Generation and Armor
+
+By the afternoon, character generation and armor were sort of working (81892c16). "Sort of" is doing real work there—the output was recognizable but the armor attachment wasn't reliable. Still, it's the first end-to-end result, and it exposed the exact problems to solve next: consistent proportions, clean seams, and stable rigging.
+
+## The Plateau Is the Point
+
+Days like this feel unfinished because the headline is "mostly working." But going from zero to a visible character in two days is the hard part. Everything after this is tuning, and tuning is a much better problem than not knowing whether the architecture holds.

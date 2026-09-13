@@ -1,0 +1,26 @@
+---
+title: "Polish Day: Dark Theme, Favicons, Push, and the First-Day Mail Experience"
+date: "2026-07-30"
+excerpt: "Nine paired commits making the mail workspace feel finished—branding, themes, mobile push, and preference persistence."
+tags: ["Email", "UI", "Mobile", "Theming", "Deployment"]
+author: "Ryan Dashwood"
+---
+## Making It Feel Like a Product
+
+Today was a polish day, and polish is what turns a working tool into something staff will actually adopt. Every change landed in both the platform and mail-deploy repos.
+
+## Branding and Theme
+
+I polished the mail folders and workspace branding (fbdb3bd0), shipped branded production favicons (c3a23235), added the Austin's Elite dark theme (4319b5ef), fixed mobile themes and push notifications (8bc0cd5e), and fixed mail search while switching to the official favicon (d6a9cffc). A dark theme is more than aesthetics for staff working long shifts, and a favicon is the difference between a tab you recognize and a tab you hunt for.
+
+## The First-Day Experience
+
+I put deliberate work into the first-day mail experience (cfa30be9) and made staff mail easier to adopt (44cfa8bb). The first time someone opens the client determines whether they'll open it again. Empty-state copy, obvious next actions, and a sensible default layout all matter more in that first session than any feature that comes later.
+
+## Mobile and Persistence
+
+I fixed an Android OTA loop and added an assigned shortcut (fe378dd0), and fixed preference persistence across sessions (ea9745b3). The OTA loop was a genuine bug—users stuck repeatedly downloading an update—and persistence bugs are the kind everyone notices but no one reports because they assume it's their fault.
+
+## The Invisible Work
+
+There's nothing here that would headline a changelog, and it's some of the highest-leverage work in the project. Adoption is a function of these details.

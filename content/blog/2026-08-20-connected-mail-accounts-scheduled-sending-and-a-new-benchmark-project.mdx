@@ -1,0 +1,26 @@
+---
+title: "Connected Mail Accounts, Scheduled Sending, and a New Benchmark Project"
+date: "2026-08-20"
+excerpt: "Adding connected accounts and scheduled send to Mail, guiding admin event workflows, and starting a small-LLM benchmark."
+tags: ["Email", "Laravel", "AI", "Benchmarking", "Feature"]
+author: "Ryan Dashwood"
+---
+## Connected Mail Accounts
+
+I added connected mail accounts and scheduled sending (0b4e2a34). Connecting external accounts means staff can send from their real identity while the platform still tracks the thread. Scheduled sending matters for a business that communicates across time zones—writing a reply now and sending it at a sensible hour is a real workflow.
+
+## Honest List Behavior
+
+I made sidebar navigation reset filters (3df04ed4) and made list refreshes authoritative (720eee27). Both fixes address the same problem: a list that shows a stale or filtered view when the user expects the truth. Authoritative refresh means a reload always reflects the server state.
+
+## Guiding Admins
+
+I guided admins through event workflows (2468778b) and truncated long calendar event titles (8b3c56a2). A staff portal used by rotating admins benefits from guidance baked into the flow rather than documentation nobody reads.
+
+## Small LLM Benchmark
+
+I made the initial commit of `small-llm-benchmark` with source, docs, and configs (556c5a5a). After months of building local inference infrastructure, a benchmark harness is the natural next step—I want to compare small models on the tasks I actually care about rather than trusting general leaderboards.
+
+## A Product and a Lab
+
+One half of the day shipping features to a product, the other half starting an experiment. That balance is what keeps the work interesting and the toolkit current.

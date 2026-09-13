@@ -1,0 +1,34 @@
+---
+title: "49 Commits Building a Resident Portal: Payments, Permissions, and Documents"
+date: "2026-08-07"
+excerpt: "A full day of Lake Forest POA work—receipts, check deposits, capability-based auth, mailing labels, and compliance cases."
+tags: ["Laravel", "Livewire", "Stripe", "Authorization", "Product"]
+author: "Ryan Dashwood"
+---
+## Payment Workflows
+
+The bulk of the day was payments. I made resident payment status situational and schedule-aware (894ec39a), added official receipt numbers and phone-first check recording (3bee2558), fixed the receipt print layout to fit one page (0b0ab1ab), and promoted check deposit to a first-class treasurer workflow (f3989f6b).
+
+I overhauled the pay-link UX around remaining balances and bulk chase (549ebad7), synced flexible Stripe autopay schedules including monthly (c90e608f), hardened the one-time Stripe checkout lifecycle (1b677a95), disambiguated legacy Stripe plan products (4e690ad2), matched Stripe plans to resident balances (13e2029c), handled replacement checkout races (709351f7), and closed resident payment edge cases (952e6587).
+
+Then I added one-click "open next year dues" for assessments (a74f7e2e). The through-line is that payments aren't a button—they're a lifecycle with races, retries, and reconciliation.
+
+## Capability-Based Authorization
+
+I added capability-based authorization and role-aware admin navigation (cf74878a) and addressed the review feedback (1d96562e). Moving from role checks to capability checks means permissions are described by what someone can do rather than by a role label, which is far more flexible for a board that has officers with overlapping responsibilities.
+
+## Documents and Communication
+
+I added primary contact self-service with treasurer contact cleanup (a8483295), Avery 5160 mailing label preview and print (5679bd46), explicit document destinations with transfer-safe access (50f3ffec), resident personal document storage (4e2bd7ba), a unified contact and suggestion inbox with category routing (92eea52b), an architectural application resident and reviewer workspace (8e6a7b5d), and a compliance case notices timeline and workspace (b8f836d3). Each shipped with review fixes.
+
+## Demo Data and Polish
+
+I seeded a full demo neighborhood for walkthroughs (deb90472), expanded it later (c6bef676), and wrote copy-paste URLs into the demo video script (17d8f649). A realistic demo dataset is what makes a feature walkthrough believable, and the video script is a reminder that this is a product someone has to sell.
+
+## The Table Polish Saga
+
+A small arc: tighten the resident list to three columns (4818a4e9), disable the table gold hover accent on mobile (bb29b577), remove it entirely (f58e6919), then restore it desktop-only (4c457aef). Sometimes the right answer is only found by trying all three.
+
+## What a Portal Needs
+
+Trust. Receipts, reconciliation, capability checks, and document access boundaries are the unglamorous features that make a resident portal something people will actually use for money.

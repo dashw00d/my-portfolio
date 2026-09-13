@@ -1,0 +1,38 @@
+---
+title: "Building Edge Lab and Porting It to a Triple-Arc XPU Rig"
+date: "2026-05-07"
+excerpt: "Phase 1 through 9 of a trading research platform, then a hard pivot from numba-dpex to torch.xpu, Triton, and IPEX."
+tags: ["Python", "Triton", "Intel Arc", "Performance", "Backtesting"]
+author: "Ryan Dashwood"
+---
+## Phase 1 Through 9 in One Day
+
+I built out edge-lab in structured phases: skeleton, database layer, and initial schema (bf75df7a), then legacy migration with sources and backfill plus features and outcomes parity (7a066bcf). Phase 5 added a backend and cruncher with a byte-equality parity gate (66517153)—the gate matters because a backtest that silently drifts is worse than one that fails. Phases 6 and 9 added a FastAPI surface and a Coinbase CEX adapter (f401e2e7), and phases 7 and 8 added LLM idea generation and a CLI client (229c9265).
+
+I preserved the DEX edge registry in a reference directory (62bd6a50) so the migration wouldn't drop institutional knowledge.
+
+## Backends: CUDA First
+
+I added a CUDA backend with automatic CPU fallback (46ae1c05). That gave me a working accelerator path while I turned to the hardware I actually wanted to use.
+
+## The XPU Bring-Up
+
+The substantial work was an Intel XPU backend for a triple A770 rig—a full port awaiting hardware test (6faeda49). I wrote the design for the bring-up and efficiency foundation (578ef270), then planned it in two phases (b9f45f7a).
+
+## Replacing numba-dpex
+
+The plan originally used `numba-dpex`, but the device discovery and kernel story didn't hold up. I replaced the stack with `torch.xpu` plus Triton and IPEX (f72fd046), rewrote the plan around it (9dce7d7d), and swapped the `numba-dpex` score-edges kernel for a Triton-XPU version (7d0a7ec9).
+
+I rewrote the XPU backend on `torch.xpu` streams with Triton dispatch (3ef107fb), ported device discovery and gated score-edges parity (7676fea3), and retired the old multi-device module in favor of streams (e9e4f4a0).
+
+## Making It Fast and Reproducible
+
+I added a persistent per-device tensor cache for static score-edges inputs (5f44d757), a `warmup()` method with FastAPI lifespan wiring to pre-JIT kernels (7bb1b40f), and repeat-call parity plus warmup idempotence guards (faa305ea). Pre-JIT at boot is the difference between a first request that takes seconds and one that takes milliseconds.
+
+## AustinsElite Side
+
+I also swapped an availability requirement for a punctuality requirement and required a headshot on the application (e71723ea), and fixed step-two validation so it validates on Next instead of only at final submit (6f6abfa2).
+
+## The Shape of a Bring-Up
+
+Porting to new hardware is equal parts planning and invalidating the plan. The `numba-dpex` to `torch.xpu` swap was the key call—better to change stacks early than fight a foundation that limits the ceiling.

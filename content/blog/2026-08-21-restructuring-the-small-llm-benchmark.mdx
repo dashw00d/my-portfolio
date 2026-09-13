@@ -1,0 +1,18 @@
+---
+title: "Restructuring the Small LLM Benchmark"
+date: "2026-08-21"
+excerpt: "A single commit reorganizing the benchmark project and adding the features the first pass revealed."
+tags: ["AI", "Benchmarking", "Python", "Project Structure"]
+author: "Ryan Dashwood"
+---
+## The Restructure
+
+I updated the project structure with new features and enhancements (fdfeb1da). The initial commit had established the shape, and one day of use revealed that the harness needed clearer separation between models, tasks, and results.
+
+## Why Restructure Immediately
+
+It's tempting to leave a young project's structure alone until it hurts. I restructured early because the benchmark's whole value is comparability—if models, tasks, and result storage aren't cleanly separated, results from different runs aren't directly comparable, and the benchmark is useless. Project structure in a measurement tool is a correctness concern, not aesthetics.
+
+## One Commit, Big Consequences
+
+A single commit that changes the skeleton of a project. The next day's work would be built on this shape, so getting it right early was worth a focused day.

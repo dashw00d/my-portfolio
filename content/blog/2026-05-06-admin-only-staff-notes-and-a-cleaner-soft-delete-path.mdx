@@ -1,0 +1,22 @@
+---
+title: "Admin-Only Staff Notes and a Cleaner Soft-Delete Path"
+date: "2026-05-06"
+excerpt: "Restricting sensitive notes, cleaning up soft-deleted staff, and gating the employment application behind real requirements."
+tags: ["Laravel", "PHP", "Security", "Admin", "UX"]
+author: "Ryan Dashwood"
+---
+## Staff Notes Restricted to Admins
+
+I surfaced staff notes on the profile view but restricted them to admins only (42facc6d). Notes about staff are sensitive by nature, and putting them on a broadly visible profile would have been a mistake. The change is small, but access control on sensitive fields is exactly where small mistakes matter most.
+
+## Cleaning Up After Soft-Deleted Staff
+
+I made soft-deleting a staff member revoke pending requests and remove future assignments (0f8a5c84). Previously a deleted staff member could still be attached to future events, which created confusing schedules and assignments nobody could act on. Cleaning up the relationships at delete time keeps the schedule truthful.
+
+## Gating the Employment Application
+
+I gated the employment application behind eight requirement checkboxes plus a situational question (923c5558). Applicants now have to acknowledge each requirement individually, which sets expectations before they invest time in the form and gives staff a clear signal that the applicant read them. The situational question adds a small, structured judgment sample instead of relying only on free-text answers.
+
+## The Pattern
+
+All three changes are about making the boundaries of the system explicit—who can see what, what happens to relationships when an entity leaves, and what a user must acknowledge before proceeding. Explicit boundaries are easier to reason about and harder to accidentally violate.

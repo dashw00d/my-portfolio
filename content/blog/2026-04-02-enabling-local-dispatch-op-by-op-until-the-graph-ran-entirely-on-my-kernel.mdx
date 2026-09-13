@@ -1,0 +1,41 @@
+---
+title: "Enabling Local Dispatch Op by Op Until the Graph Ran Entirely on My Kernel"
+date: "2026-04-02"
+excerpt: "47 commits and a progressive enablement series that ended with full local decode dispatch at 7.0 t/s and 100% correctness."
+tags: ["SYCL", "Kernels", "Performance", "Debugging", "Local LLM"]
+author: "Ryan Dashwood"
+---
+## A Marathon of Small Enables
+
+This was a 47-commit day, and almost all of it followed one pattern: enable a single op in local dispatch, benchmark it, record throughput and correctness, repeat. I built a task queue and iteration harness with an agent brief (4c63fc70) so the loop could run consistently, then a supervisor/worker session architecture (4fead0af) to keep the work organized.
+
+## Clearing the Gate
+
+The early win was a local wrapper backend that hit 54.4 t/s median and cleared the Tier 3 to Tier 4 gate (cc6a6b09). That established the baseline was real before I started carving pieces onto it.
+
+## The Progressive Enablement Series
+
+From there I wired ops one at a time, each with a measured result:
+
+- `reorder_qw_q4_k` (6579d2e7)
+- `ggml_cpy_f32_f16_sycl` for the KV write path (f276f9d9)
+- `bin_bcast_sycl<op_add>` residual (0c66e308)
+- RMS norm (24892d53)
+- `dequantize_mul_mat_vec_q6_k` (fe3b77f8)
+- dev2dev memcpy boundary copies (19d11c67)
+
+Then I integrated `linear_forward_q4k` into dispatch and validated its numerical correctness (f1712d2c, f940152e), did the same for `mlp_forward_q4k` (7d38cc18, f92e73ac), and documented the SYCL context queue layout (af726691).
+
+## The Phase 11 Rewrite
+
+The afternoon brought a rewrite: local graph dispatch, device ownership, and the GQA, RoPE, unary, and GET_ROWS paths (1c04fcef). This is where it stopped being a pile of individually-enabled ops and became an actual graph.
+
+The rewrite surfaced two hard bugs. First, the Q4_K kernel layout was wrong—I converted it from structure-of-arrays to array-of-structures (0e23deef), then reversed course after more evidence and settled on the IPEX SoA layout with a verified two-stream `[N*128 payload][N*16 meta]` arrangement (0b2a334e, 7e683dce). Second, `tensor_nbytes` was wrong for view and permuted tensors, which broke SDP attention until I fixed it (a375311c).
+
+## The Finish
+
+From there I enabled the remaining ops as a measured series—binary f32, unary f32, RoPE, cpy, GET_ROWS, SDP attention, MLP fusion, and Q4_K matvec (267c55d6 through 06ad88c5)—and logged each with its throughput. The final commit enabled the full local decode dispatch with no skip flags, at 7.0 t/s and 100% correctness (fbb0a9fb).
+
+## What Made It Work
+
+The iteration log. Every step was recorded with a number, so a regression was obvious and a success was provable. A 47-commit debugging day only works if you can see the whole trail.

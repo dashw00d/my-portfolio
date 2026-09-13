@@ -1,0 +1,20 @@
+---
+title: "A Venue-Expert CTA and Wiring a Temps Indicator Into ArcLLM"
+date: "2026-03-16"
+excerpt: "Turning on the Whitney venue-expert call to action, plus folding a temperature/utilization indicator into the ArcLLM stack."
+tags: ["Laravel", "Frontend", "AI", "Local LLM", "UX"]
+author: "Ryan Dashwood"
+---
+## Enabling the Whitney Venue Expert CTA
+
+I enabled the Whitney venue-expert call to action on the venue sidebar (de06d04c). The CTA had existed in the markup but was effectively disabled, so visitors browsing a venue had no obvious path to talk to the venue expert for that location. Turning it on is a small change with a direct business consequence: the sidebar now does the job it was designed for. I mirrored it to the Next.js frontend (330ea2d7) so the experience is consistent across both surfaces.
+
+## Adding a Temps Indicator to ArcLLM
+
+The other half of the day was plumbing the `triple-temps-indicator` into ArcLLM (b472b0c3). Local model servers are opaque about thermal and utilization state, and I wanted a lightweight way to see whether the hardware was saturated or just idle-waiting. The indicator surfaces temperature and utilization together, which is the pair you actually need to tell the difference.
+
+Wiring it into ArcLLM means the API stack can report the hardware context alongside its own queue depth. When a request is slow, I can now distinguish a busy model from a throttling one.
+
+## The Pattern
+
+Two unrelated projects, both about connecting something that already existed to the place it was needed. The CTA was present but switched off; the indicator existed but wasn't visible from the API. A lot of useful work is just completing circuits.

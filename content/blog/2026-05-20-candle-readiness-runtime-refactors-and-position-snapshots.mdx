@@ -1,0 +1,24 @@
+---
+title: "Candle Readiness, Runtime Refactors, and Position Snapshots"
+date: "2026-05-20"
+excerpt: "Tightening candle readiness and quotas, refactoring dex-trader's runtime core, and preserving deleted position assignments."
+tags: ["FastAPI", "Refactor", "Laravel", "Trading", "Data Modeling"]
+author: "Ryan Dashwood"
+---
+## Candle Readiness and Quota Guardrails
+
+I added canonical candle readiness and quota guardrails to candle-service (da22323d) and tightened pool identity matching (473207c1). Readiness answers "is this series complete enough to use?"—a question every consumer needs to ask and none should answer ad hoc. Quota guardrails keep the service from burning its upstream allowances on low-value work. I also hardened the regime API reads (1c6f44e2).
+
+## dex-trader Runtime Core
+
+I refactored the runtime core (651b10eb) and split the paper exposure stores (fa544576) and paper page components (a3dfa302). Splitting a tangled runtime into a core with clear stores is the kind of refactor that pays off every time I need to change behavior. I added runtime parity and API balance fixes (c8e35655), tracked and prioritized Jupiter usage (e117ea32), fixed runtime candle volume and attention priority (b53ca7d6), and refactored the runtime lifecycle with strategy parity (1a442b5a).
+
+## Preserving Deleted Position Assignments
+
+In AustinsElite I preserved deleted position assignments (d8e7b32b), tracked the direct shift assigner (bc9dda3e), deleted requests for removed positions (f7825809), and gated snapshot position filters (08a1b10d). This was a codex-assisted branch (PR #13, ee527e70) and I addressed the review fixes (0df21fb9).
+
+The underlying problem is history: when a position is removed, the assignments that referenced it still matter for pay and audit. Preserving them while excluding them from active views is the correct balance.
+
+## Refactoring as Risk Reduction
+
+The runtime refactor and the position-snapshot work are both about making complex systems honest. Splitting stores makes state visible, and preserving deleted assignments keeps history intact. Neither is a user-facing feature, and both prevent future bugs.

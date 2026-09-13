@@ -1,0 +1,26 @@
+---
+title: "Turning a Hacky Local Server Into a Documented Project"
+date: "2026-03-17"
+excerpt: "A long documentation-and-research push that took ArcLLM from working code to a three-phase, gated roadmap."
+tags: ["AI", "Python", "Local LLM", "Documentation", "Architecture"]
+author: "Ryan Dashwood"
+---
+## Mapping the Codebase Before Changing It
+
+ArcLLM had grown quickly—completions, streaming, tool calls, the responses API, persistence, and a worker queue—and I'd been moving faster than my understanding. So I started the day by mapping the existing codebase (7fa0c780) and initializing proper project docs (f9606ef9). Writing down what's actually there is always humbling; there were definitely interactions I had half-forgotten.
+
+## Defining v1 Requirements and a Three-Phase Roadmap
+
+Once the map existed, I completed the project research (e03e310f), defined v1 requirements (b41a0173), and laid out a three-phase roadmap (6f5baa68). The phases weren't arbitrary—they came out of the research. Phase one was hardening the infrastructure, phase two was validating the existing event path, and phase three was completing it.
+
+## Planning With Verification in Mind
+
+For each phase I wrote a validation strategy before writing code. Phase one got a `test_infra.py` bench test for the INFRA-01/INFRA-02 asserts (6fd7aaee). Phase two got a GLM 500-token correctness benchmark with stall validation (07aa3f89). Phase three got an event-merge acceptance gate (c9e01aa3). This is the part I'd normally skip, and it's exactly the part that keeps a fast-moving prototype from silently regressing.
+
+## Completing the Event Path
+
+By the end of the night I had actually done the work the roadmap described: merged the phase-three event path and added cache events (147c9e84), then recorded the results in the key-results table (f46259b3). The plan and the implementation converged in a single evening because the plan was small enough to hold in my head.
+
+## Why This Day Mattered
+
+The code I wrote today was mostly documentation, and that's fine. A project with a clear map, explicit requirements, and gated phases is a project I can come back to after a week away. ArcLLM went from "a thing I built" to "a thing I can reason about."

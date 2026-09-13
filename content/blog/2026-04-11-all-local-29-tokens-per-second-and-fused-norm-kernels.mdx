@@ -1,0 +1,22 @@
+---
+title: "All-Local 29 Tokens Per Second and Fused Norm Kernels"
+date: "2026-04-11"
+excerpt: "Fusing QKV, inlining norm-weight application, and pushing block loads through the Q4_K path."
+tags: ["SYCL", "Kernels", "Performance", "Local LLM", "Optimization"]
+author: "Ryan Dashwood"
+---
+## The All-Local Baseline
+
+The standalone backend worked, but it leaned on a CPU fallback. Today I got an all-local run to 29 tokens per second for evaluation by fusing QKV, vectorizing loads, and correcting my measurement (1c72eaea). That last part matters—I'd been comparing numbers measured slightly differently, and fixing the methodology made the real gains visible.
+
+## Fusing RMS_NORM and MUL
+
+I fused RMS norm with the multiply that follows it by inlining the norm-weight application (9efbcb77). Fusing these two operations avoids materializing the intermediate tensor and removes a kernel launch per layer. Small per-layer wins compound across dozens of layers per token.
+
+## Block Loads for Q4_K
+
+I switched the Q4_K weight path to `block_load<128>` for full-block loads (bb1831b5). Loading a full block at once lets the hardware coalesce the access pattern instead of issuing narrower loads, which reduces memory pressure in the hot matmul loop.
+
+## Marking the Phase
+
+I updated the docs to reflect that the project had moved into an instruction-level optimization phase (77c97c7b). That framing is useful: the architectural work is done, and what remains is squeezing the kernels. Different phase, different mindset—now every change is measured against a throughput floor, and regressions get reverted rather than debugged into correctness.

@@ -1,0 +1,18 @@
+---
+title: "Checking for Mobile Updates When the Server Connects"
+date: "2026-08-03"
+excerpt: "A one-change day: mobile clients now check for updates as soon as they reach the server."
+tags: ["Mobile", "Email", "UX"]
+author: "Ryan Dashwood"
+---
+## The Change
+
+I made the mobile client check for updates when the server connects (f3864682), mirrored into the mail-deploy repo. Previously the update check happened on a schedule or on manual trigger, which meant a device that had just reconnected could keep running an old build.
+
+## Why Connection Is the Right Trigger
+
+A mobile client's update check should happen at the moment it's most likely to be able to act on the update—when it has connectivity. Checking on connect means a device that's been offline catches up immediately on reconnect, instead of waiting for the next scheduled check or a user-initiated refresh.
+
+## Small, Correct, Mirrored
+
+One logical change, two commits. This is the rhythm of the mail platform: make the clients behave predictably, and keep all the surfaces aligned.

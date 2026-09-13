@@ -1,0 +1,18 @@
+---
+title: "Updating the Public Form Notification Email"
+date: "2026-09-07"
+excerpt: "A single change routing public form notifications to the right inbox."
+tags: ["Laravel", "Email", "Configuration"]
+author: "Ryan Dashwood"
+---
+## The Change
+
+I updated the public form notification email (4c97c5a2). A form notification is only useful if it reaches the person who acts on it, and this routing was wrong.
+
+## Why This Counts
+
+It's one commit, and it's easy to dismiss as trivial. But a misrouted lead notification means a customer inquiry sits unseen, and the damage compounds with every hour. Small routing changes deserve the same attention as code changes because the failure mode is silent.
+
+## Between Bigger Pushes
+
+The week around this day was heavy on mail infrastructure. This was a quiet correction in the middle of it—the kind of fix that keeps the system honest while the larger work continues.

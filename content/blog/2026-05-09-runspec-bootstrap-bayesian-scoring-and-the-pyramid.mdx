@@ -1,0 +1,34 @@
+---
+title: "RunSpec, Bootstrap, Bayesian Scoring, and the Pyramid"
+date: "2026-05-09"
+excerpt: "Consolidating config into a RunSpec, adding bootstrap and Bayesian layers, and turning a research pyramid into a funnel."
+tags: ["Python", "Architecture", "Bayesian", "Backtesting", "Research"]
+author: "Ryan Dashwood"
+---
+## Config Consolidation With RunSpec
+
+The morning's big structural change was a `RunSpec` that unifies configuration (9b41bdf9). I wired an orchestration layer with a profile loader, executor, stages, and CLI/API verbs (683e14c2), added `pyyaml` and a sweep seed, and threaded meta-label knobs through (d82403af). Consolidating config means a research run is now described by one object instead of a dozen scattered arguments.
+
+## Cockpit and Bootstrap
+
+I rewired the cockpit and pump onto `RunSpec` with cooperative cancellation (9bfee005, 80de07da). Then I added a `BootstrapSpec` with data-ingest stages (db_init, universe, ohlcv), derivation stages (seed registry, exit profiles, legacy corpus), and prerequisite checks (2653d539, ddf4cc14, 3de085d2), surfaced through the CLI, REST, and cockpit data panel (22961c3e).
+
+## Bayesian Layers
+
+I added closed-form Beta-Binomial Bayesian edge scoring (a72a2427), a Gaussian HMM regime feature as a bootstrap stage (012430cb), and a Bayesian optimization mode for the exit grid (8565def0). The Beta-Binomial estimator is appealing because it gives a principled edge estimate with uncertainty instead of a point win rate.
+
+## Diversity and the Corpus
+
+I added a legacy corpus ingest pipeline (f71771e3), an LLM-prior mutation mode that samples mutation patterns from that corpus (64160bd0), cross-cell ensembles (acd1de19), and regime-specialized baskets (9bf69964). Using a legacy corpus as a prior for mutation is a nice way to reuse accumulated research instead of starting each sweep cold.
+
+## Turning the Pyramid Into a Funnel
+
+The performance arc of the day was the pyramid. I added a champions ledger with per-tier promotion (958f5e5d), a `--pyramid` wrapper that auto-chains tiers (6a69f49b), caching so pump cells stop rebuilding (e4d0fcdc), and a quick-tier profiling loop that exposed hidden multipliers and cut wall time by 18% (873cb4b8). I fixed smoke profile timing to get under two minutes and resolved a Bayesian optimization hydration bottleneck (cfdfbdee).
+
+## Merges and Cleanup
+
+The day was a long series of focused branches merged back in: runspec, cockpit rewiring, LLM-prior mutation, cross-cell ensembles, corpus ingest, regime baskets, bootstrap foundation, data ingest, derivation stages, surfaces, Bayesian scoring, and Bayesian BO exits. A registry-driven profile now hooks every shipped feature into a default path (322489e0).
+
+## The Trajectory
+
+Edge Lab went from "a pipeline" to "a research system" today. The pyramid and the profile system are the parts that make it reusable—the next experiment is a config change, not a new script.

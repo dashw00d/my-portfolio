@@ -1,0 +1,34 @@
+---
+title: "Standalone Inference Working: Shared Memory and a CPU Fallback"
+date: "2026-04-04"
+excerpt: "The standalone backend finally produced inference after fixing ABI layout, shared-memory buffers, and a simple CPU fallback."
+tags: ["SYCL", "Kernels", "ABI", "Local LLM", "Performance"]
+author: "Ryan Dashwood"
+---
+## Fixing the ABI Layout
+
+After a full day of stub work, the standalone path could start but still crashed. The first fixes were ABI-level: aligning `api_version` to 8 bytes to match the expected struct layout (0b20b67b) and correcting the description ABI while adding lazy standalone queue init and allocation tracing (e2aaf6dd). Allocation tracing was worth the detour—it turned a silent crash into a visible allocation sequence.
+
+## Getting Model Loading to Work
+
+Standalone model loading reached three-GPU allocation (6db5de4d). Then I fixed host buffer allocation and an `init_tensor` return value that standalone mode was ignoring (6683bfd2). Small return-value bugs are vicious in interposition layers because the caller's behavior changes based on a value nobody logs by default.
+
+## Forcing Local Dispatch
+
+I forced local dispatch for all phases and fixed `supports_op` (71a953f7), then handled all graph phases locally with CPU fallback stubs (fdf6b096). The CPU fallback was the pragmatic move: rather than block on implementing every last op, fall back to CPU for the gaps so inference works end to end, then fill the gaps.
+
+## Q4_K GET_ROWS and Shared Memory
+
+I implemented Q4_K GET_ROWS dequant with direct shared-memory access (a2e01195). Then came the key realization: the standalone crash was caused by buffer allocation, and switching all standalone buffers to `malloc_shared` fixed it (2f5f14c9). With that, standalone inference worked using the CPU backend fallback for all ops (633893fe).
+
+## Refining the Memory Model
+
+I reordered Q4_K from AoS to SoA at load time and learned that ESIMD needs device memory specifically (2808aa02). I added device memory with host-staged CPU fallback (7c1c21e6) and then settled on a stable configuration: shared memory plus a simple CPU fallback (490f5448).
+
+## A Full Circle
+
+Two days ago standalone boot was blocked at SYCL init. Tonight it completes inference. It's slower than the IPEX-backed path because of the CPU fallback, but it's mine end to end, and every remaining op is now a straightforward optimization rather than an architectural unknown.
+
+## Side Note
+
+I also added VS Code configuration for Godot development in Gear to Glory (43fba45f)—a small quality-of-life win for the game project.

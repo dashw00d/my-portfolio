@@ -1,0 +1,30 @@
+---
+title: "The Postmark Cutover, Backups, and Unified Health Checks"
+date: "2026-09-09"
+excerpt: "A verified mail cutover with correct BCC delivery, migration-aware health checks, and backup recovery tests."
+tags: ["Postmark", "Email", "Backups", "Observability", "Deployment"]
+author: "Ryan Dashwood"
+---
+## Preparing the Cutover
+
+I merged main and prepared the Postmark mail cutover (b9ce940b), prepared verified Postmark automation servers (82b409c0), and recorded the prepared state. A mail cutover is one of the few changes where "mostly working" is a disaster—messages that fail to deliver during a cutover may never be retried.
+
+## Fixing BCC
+
+I fixed Postmark BCC delivery using envelope recipients (39606f1a). Provider APIs don't all treat BCC the same way, and using envelope recipients is the reliable mechanism. I also enforced one internal form email and preserved styles in mailbox copies (6e8fba7c), and copied Logistics on sales form notifications alongside Ryan (37308bf9).
+
+## Clearing the Formatting Checks
+
+I prepared a verified Postmark cutover and cleared the Mail formatting checks (36b1e1a3), then merged the staff/public mail overhaul (PR #51, 55f66a25). Letting the formatting checks go clean before a cutover means a formatting failure can't masquerade as a delivery problem.
+
+## Verified Rollout
+
+I recorded the Postmark production rollout with verified delivery tests (b5888989). "Verified delivery tests" is the operative phrase—a cutover isn't done until a real message has round-tripped. I corrected public reply targets and cleaned up email presentation (e8b26723), and recorded verified quote BCC formatting and routing (c83a039e).
+
+## Health and Backups
+
+I added migration-aware health checks and documented unified ServerChirp environments (d4f746ec). A health check that doesn't understand migrations reports healthy while the schema is behind—migration-aware checks close that gap. I hardened ServerChirp backups and verified production mail health (1a7a4dd4), recorded verified backup size and recovery checks (eff55c2f), checked public upload runtime health and documented a PHP pool fix (71923e71), fixed Mail cancellation and Sentry redaction while adding a scoped inbound catch-all (5fadda2a), and recorded the catch-all deployment with private routing verification (2d7c1b46).
+
+## Cutovers Are Verification Projects
+
+The actual provider switch is a config change. Almost all of today's work was proving it worked: delivery tests, backup recovery, health checks, and routing verification. That ratio is correct.

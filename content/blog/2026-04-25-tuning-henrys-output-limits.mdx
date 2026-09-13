@@ -1,0 +1,18 @@
+---
+title: "Tuning Henry's Output Limits"
+date: "2026-04-25"
+excerpt: "A one-commit day adjusting token limits on the local model personas behind the churner."
+tags: ["Local LLM", "AI", "Configuration"]
+author: "Ryan Dashwood"
+---
+## The Change
+
+I tuned the output limits for Henry and the churner (bc18fc09). Unbounded output from a local model is a resource hazard—a single verbose generation can occupy a GPU slot far longer than intended and starve the queue. Capping output limits keeps throughput predictable and prevents one job from monopolizing the fleet.
+
+## Capping Is a Design Choice
+
+An output cap isn't just a safety valve; it forces a decision about what the model is actually for. The churner produces structured rows, so it needs tight limits. Henry has longer conversational turns and needs more room. Tuning each to its job is better than setting one global cap.
+
+## A Quiet Day
+
+One commit, one config change, verified against a supervised run. I'm including it because most of engineering is these small adjustments—the fleet doesn't get better in big rewrites, it gets better in careful increments. The big kernel days are memorable, but the tuning days are what keep everything running.

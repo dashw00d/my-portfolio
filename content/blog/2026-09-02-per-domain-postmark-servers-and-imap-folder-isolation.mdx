@@ -1,0 +1,34 @@
+---
+title: "Per-Domain Postmark Servers and IMAP Folder Isolation"
+date: "2026-09-02"
+excerpt: "Thirteen mail fixes: lifecycle support, per-domain servers, folder isolation, and thread-marker preservation."
+tags: ["Email", "Postmark", "IMAP", "Multi-Tenancy", "Reliability"]
+author: "Ryan Dashwood"
+---
+## ServerChirp Lifecycle and Ports
+
+I added support for the ServerChirp lifecycle and mail ports (57745d22). ServerChirp is the mail server context the platform runs on, and honoring its lifecycle means the client starts and stops in step with the server rather than fighting it.
+
+## Per-Domain Postmark Servers
+
+I supported per-domain Postmark servers (01912093) and added a pre-MX client setup suite (e67d974f). Running mail for multiple domains through a single provider account means each domain needs its own sending identity and server configuration. The pre-MX setup suite is the checklist that must pass before DNS points at the system—getting that wrong means deliverability problems that are painful to unwind.
+
+## Making Inbound Real
+
+I marked inbound messages delivered (2e24f2c3), accepted mailbox logins while bounding CSS sanitizing (e06957c9), scoped client logins to a mailbox (bde1f9e4), and isolated IMAP folders by mailbox (fc23fccf). That last fix is a multi-tenancy boundary: without it, one mailbox's folders can leak into another's view. I also handled complete IMAP status requests (a044939d).
+
+## Thread Correctness
+
+I kept replied threads in the inbox (0e63e3d2) and preserved thread markers after replies (141cb20f). A reply that moves the thread out of the inbox or loses its markers breaks the mental model of an inbox—these are small behaviors that users notice immediately.
+
+## Staff Ownership
+
+I configured explicit sales representatives (93bf2344) and preserved creator ownership for clientless events (8d1e766f). Explicit ownership beats inferred ownership, especially for events that have no client attached.
+
+## Deployment and Performance
+
+I bounded deployment build concurrency (a1fe37c7). Concurrent builds competing for resources is a classic way to make a deploy fail in a way that looks random.
+
+## The Mail Moat
+
+Mail correctness is a moat: it's a deep pile of small, non-obvious behaviors. Every one of today's fixes is the kind of thing you only learn by running mail for real users.

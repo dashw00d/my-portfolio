@@ -1,0 +1,36 @@
+---
+title: "Enforcing Cancelled-Pay Restrictions Across the Staff Stack"
+date: "2026-08-17"
+excerpt: "Making staffing and check-in respect cancelled client pay everywhere, plus a new AI writer project."
+tags: ["Laravel", "Authorization", "State Machines", "Caching", "SEO"]
+author: "Ryan Dashwood"
+---
+## Cancelled Pay Blocks Staffing
+
+The core theme was making event staffing respect client pay status. I implemented event staffing restrictions based on client pay status (5aa1931b) with an `allowsStaffingWrites` method, then extended it to the web and mobile controllers (c37713ae), blocked check-in for cancelled assignments (9279263a), and rejected cancelled assignments in the staff clock service (0fba3f62). I also added cancellation checks in the event deletion path and notification service (54e8b493).
+
+The rule is simple—don't schedule staff for an event whose client payment is cancelled—and enforcing it required touching every entry point: web staffing, mobile staffing, check-in, and clock-in. When a rule matters, it has to live in one method and be called from every write path, or the next path someone adds will violate it.
+
+## Cache Correctness for Assignments
+
+I enhanced the assignment retrieval and caching logic with a fresh-lookup method and assignment-specific cache tags (945815ac), so a change is immediately visible rather than waiting for a broad invalidation. I also revealed hidden assignments on any staffing reopen, not only Published (546460d6), and made the event workflow resolve pay status from the title for legacy events (68938dd8).
+
+## Legacy Handling
+
+I excluded client-cancelled events including legacy titles with an empty pay status (68938dd8). Legacy data never matches the new model cleanly, and the practical answer is a compatibility method that recognizes the old shapes.
+
+## Profile Photos and Deploys
+
+I implemented dedicated profile photo upload with new routes and a modal (0f795818) so staff applying without a photo have a clear path to add one, and I fixed the Coolify image deploy startup (f3ca67d1).
+
+## New Project: AI Writer
+
+I initialized `ai-writer` (ad668853). A fresh repo is always an energizing counterpoint to a day of enforcing rules in an existing codebase.
+
+## SEO and Venues
+
+I shipped unused-next venue slug redirects and SEO presentation (df9a28b6), committed remaining venue-cutover work (f103bfb8), ignored Windows `Zone.Identifier` sidecar files (e3a11c98), used stored venue-framed H1s on programmatic SEO pages (83c7a18a), and kept the venue transfer brief on main (6469ff1f).
+
+## One Rule, Many Doors
+
+The most valuable engineering here isn't the rule—it's making it impossible to bypass. A business rule enforced in one method and called everywhere is a rule; the same rule scattered across controllers is a suggestion.

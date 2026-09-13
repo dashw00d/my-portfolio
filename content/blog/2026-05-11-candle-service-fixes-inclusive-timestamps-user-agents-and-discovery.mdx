@@ -1,0 +1,26 @@
+---
+title: "Candle Service Fixes: Inclusive Timestamps, User Agents, and Discovery"
+date: "2026-05-11"
+excerpt: "A day of upstream-integration fixes, plus a new drag-curve worker and a broader discovery query set."
+tags: ["Python", "FastAPI", "Market Data", "Debugging"]
+author: "Ryan Dashwood"
+---
+## Respecting Inclusive Timestamps
+
+I fixed the Gecko client to respect its inclusive `before_timestamp` semantics (9596a616). An off-by-one on an inclusive boundary means you either re-fetch the same candle forever or skip one. I also fixed admin queue accuracy in the same commit—the queue view was reporting counts that didn't match what the workers actually had pending.
+
+## Custom User Agents
+
+I set a custom user agent on the HTTP clients and marked an upstream as exhausted when it returns errors (c0439b6c). A proper user agent is polite and often the difference between being served and being blocked. Treating repeated upstream errors as exhaustion stops a worker from hammering a dead endpoint.
+
+## Discovery and Drag Curves
+
+I expanded the discovery queries and added a drag-curve worker plus API (e5291416). Drag curves track how a token's price behaves after an initial move, which is useful for characterizing follow-through versus fade. Adding it as a worker means it runs continuously and exposes results through the same API surface as everything else.
+
+## API Examples
+
+I updated the API docs to use an actual dev key in the examples (4a361094) so consumers can copy-paste a working call instead of a placeholder that fails.
+
+## Integration Work Is the Work
+
+A data aggregation service lives or dies on its upstream integrations. Today was all boundary handling: inclusive semantics, rate limits, user agents, and error classification. None of it is glamorous, but it's what makes the data trustworthy.

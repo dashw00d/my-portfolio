@@ -1,0 +1,34 @@
+---
+title: "Proposal Redesign, Remote SpeechEdit Editing, and Live Project Demos"
+date: "2026-09-12"
+excerpt: "A wide day: redesigning the proposal workspace, enabling remote collaborative editing in SpeechEdit, and adding live demos to this site."
+tags: ["Astro", "React", "SpeechEdit", "Collaboration", "AI"]
+author: "Ryan Dashwood"
+---
+## Proposal Redesign
+
+I introduced a proposal redesign brief and new proposal components (712573fe), updated the proposal components for improved layout and styling (4ca8b0bb), and added a proposal workspace with copy editing and mobile checkout (3a64fe6e). I then enhanced styling and functionality across components (09003e28), enhanced UI components with new styles (d66943b3), and updated components for layout and accessibility (bb27c6eb).
+
+A client proposal has to do several jobs at once: present the work credibly, let the client review and edit, and handle a mobile checkout. Doing all three in one coherent surface is the design problem, and the redesign was mostly about making the workspace feel like one place instead of a document with bolted-on controls.
+
+## Live Project Demos
+
+I added live project demos with previews and links (079dfaa4). A portfolio that says "I built this" is weaker than one that lets you open it. Live demos turn claims into evidence.
+
+## SpeechEdit Goes Remote
+
+I prepared the editor release and fixed a browser Whisper GPU fallback (4b323307), finished transcription with chapters and added visible fallback recovery (cceb7f89), and added compressed share-for-review links with proposed edits and owner approval (442f58dc). Then the big one: I enabled full remote editing with shared autosave and compact 8 fps proxies (c949b305) and preserved timestamp-based clip and style identifiers in shared projects (c817438f).
+
+Collaborative editing of media is hard because identifiers have to survive merges. If clip and style IDs are position-based, two people editing at once will collide. Timestamp-based IDs make concurrent edits mergeable, and compact low-frame-rate proxies make remote editing viable over a normal connection.
+
+## Fiction Codec Audit
+
+I enhanced the handoff documentation with September 12 audit updates for a 500k to 1m context migration, updated the delivery-order state, added chapter extraction tests for wrapper divs, and introduced reconciliation request and receipt schemas (53beacdf). The reconciliation schemas are the start of making the extraction pipeline explain its own disagreements.
+
+## The Client Work
+
+I handled Staff claim contention and routing errors and clarified Mail send uncertainty (63f3336a), then recorded verified Staff, public, and Mail reliability deployments (7f1ad81b). "Clarify send uncertainty" is a quietly important fix—telling a user that a send may or may not have happened is better than a false success or a false failure.
+
+## A Day Across Four Codebases
+
+A portfolio, a video editor, a book pipeline, and a staff platform. The through-line is making systems explain themselves: live demos, review links, reconciliation schemas, and unambiguous send states all reduce the distance between what happened and what the user can see.

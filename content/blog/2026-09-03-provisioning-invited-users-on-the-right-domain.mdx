@@ -1,0 +1,18 @@
+---
+title: "Provisioning Invited Users on the Right Domain"
+date: "2026-09-03"
+excerpt: "A mail provisioning fix plus two planning docs for small-team quality of life and mobile diagnostics."
+tags: ["Email", "Multi-Tenancy", "Documentation", "Mobile"]
+author: "Ryan Dashwood"
+---
+## Provisoning on the Selected Domain
+
+I fixed mail provisioning for invited users so they're created on the selected domain (480a814d). With per-domain Postmark servers, provisioning on the wrong domain means a user's mailbox exists somewhere their sending identity doesn't match. It's a quiet failure that surfaces later as mail that won't send or arrives from the wrong address.
+
+## Planning Docs
+
+I captured a small-team quality-of-life plan (f5456169) and defined mobile bundle mismatch diagnostics (49d48447). The mobile bundle mismatch doc is the more interesting one—when a mobile client loads a bundle that doesn't match the server, the symptoms are confusing and hard to attribute. Writing down how to diagnose it means the next occurrence is a ten-minute fix instead of an afternoon.
+
+## The Value of Writing the Diagnosis First
+
+It's tempting to treat diagnostics as something to figure out when the problem happens. But the cost of diagnosis under pressure is high, and writing the plan when calm is cheap. Docs like this are how a repeated problem becomes a solved one.
