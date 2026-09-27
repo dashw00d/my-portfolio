@@ -1,6 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { AV1_TYPE, H264_TYPE, games, media } from "../lib/games";
+import { AV1_TYPE, H264_TYPE, MEDIA_VERSION, games, media } from "../lib/games";
 import { SITE_URL } from "../lib/site";
 import "../styles/games.css";
 
@@ -79,8 +79,8 @@ const theaterData = games.map((g) => ({
           aria-hidden="true"
           data-reel
         >
-          <source src="/games/media/reel.av1.mp4" type={AV1_TYPE} />
-          <source src="/games/media/reel.h264.mp4" type={H264_TYPE} />
+          <source src={`/games/media/reel.av1.mp4?v=${MEDIA_VERSION}`} type={AV1_TYPE} />
+          <source src={`/games/media/reel.h264.mp4?v=${MEDIA_VERSION}`} type={H264_TYPE} />
         </video>
         <div class="gx-hero-shade" aria-hidden="true"></div>
 
@@ -178,7 +178,7 @@ const theaterData = games.map((g) => ({
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" /></svg>
                   Watch the trailer
                 </button>
-                <a class="gx-link" href={m.trailerAv1} download={`${g.slug}_trailer_av1.mp4`}>
+                <a class="gx-link" href={m.trailerAv1} download={`${g.slug}_trailer.mp4`}>
                   Download{g.sizeMb ? ` · ${g.sizeMb} MB` : ""}
                 </a>
               </div>
@@ -282,13 +282,60 @@ const theaterData = games.map((g) => ({
   }
 
   document.documentElement.classList.add("gx-js");
-  const AV1 = 'video/mp4; codecs="av01.0.08M.10"';
+  const AV1 = 'video/mp4; codecs="av01.0.08M.08"';
   const data: Trailer[] = JSON.parse(document.getElementById("gx-data")?.textContent ?? "[]");
   const root = document.querySelector<HTMLElement>("[data-accent-root]");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   const probe = document.createElement("video");
-  const av1 = probe.canPlayType(AV1) === "probably" || probe.canPlayType(AV1) === "maybe";
+  let av1 = probe.canPlayType(AV1) === "probably" || probe.canPlayType(AV1) === "maybe";
+
+  // --- AV1 safety net ---------------------------------------------------------------------------------------
+  // A browser can claim AV1 and still decode it to black (some hardware decode paths do). Once a video is well
+  // underway, sample a tiny copy of its frame; if an AV1 stream is pure black, fall back to H.264 everywhere.
+  const sample = document.createElement("canvas");
+  sample.width = 32;
+  sample.height = 18;
+  const isBlack = (v: HTMLVideoElement) => {
+    const ctx = sample.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return false;
+    try {
+      ctx.drawImage(v, 0, 0, sample.width, sample.height);
+      const px = ctx.getImageData(0, 0, sample.width, sample.height).data;
+      let sum = 0;
+      for (let i = 0; i < px.length; i += 4) sum += px[i] + px[i + 1] + px[i + 2];
+      return sum / (px.length / 4) / 3 < 3;
+    } catch {
+      return false;
+    }
+  };
+  const toH264 = (v: HTMLVideoElement) => {
+    const at = v.currentTime;
+    const playing = !v.paused;
+    if (v.querySelector("source")) {
+      v.querySelectorAll("source").forEach((s) => s.src.includes(".av1.") && s.remove());
+      v.load();
+    } else if (v.src.includes(".av1.")) {
+      v.src = v.src.replace(".av1.", ".h264.");
+    }
+    v.currentTime = at;
+    if (playing) v.play().catch(() => undefined);
+  };
+  const guard = (v: HTMLVideoElement) => {
+    const check = () => {
+      if (!av1 || v.currentTime < 1.5 || v.readyState < 2) return;
+      v.removeEventListener("timeupdate", check);
+      if (v.currentSrc.includes(".av1.") && isBlack(v)) {
+        av1 = false;
+        document.querySelectorAll<HTMLVideoElement>("video").forEach((other) => {
+          if (other.currentSrc.includes(".av1.") || other.querySelector('source[src*=".av1."]')) toH264(other);
+        });
+      }
+    };
+    v.addEventListener("timeupdate", check);
+    v.addEventListener("loadstart", () => v.addEventListener("timeupdate", check));
+  };
+  document.querySelectorAll<HTMLVideoElement>("video").forEach(guard);
 
   // --- hero reel -------------------------------------------------------------------------------------------
   const reel = document.querySelector<HTMLVideoElement>("[data-reel]");

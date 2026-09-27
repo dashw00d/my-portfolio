@@ -19,16 +19,21 @@ export interface GameTrailer {
   sizeMb: number;
 }
 
-export const AV1_TYPE = 'video/mp4; codecs="av01.0.08M.10"';
+// 8-bit AV1: some hardware decoders (Chrome's VA-API path on Linux/NVIDIA) render 10-bit AV1 as black.
+export const AV1_TYPE = 'video/mp4; codecs="av01.0.08M.08"';
 export const H264_TYPE = 'video/mp4; codecs="avc1.640028"';
 
 // Videos live in public/games/media/ — gitignored, rsynced to the server's shared/games-media, which each
 // release links back in (ServerChirp linked path) — so they never bloat the repo.
+/** Bump when the videos are re-encoded: the query string busts browser and Cloudflare caches. */
+export const MEDIA_VERSION = "2";
+const v = `?v=${MEDIA_VERSION}`;
+
 export const media = (slug: string) => ({
-  trailerAv1: `/games/media/${slug}/trailer.av1.mp4`,
-  trailerH264: `/games/media/${slug}/trailer.h264.mp4`,
-  previewAv1: `/games/media/${slug}/preview.av1.mp4`,
-  previewH264: `/games/media/${slug}/preview.h264.mp4`,
+  trailerAv1: `/games/media/${slug}/trailer.av1.mp4${v}`,
+  trailerH264: `/games/media/${slug}/trailer.h264.mp4${v}`,
+  previewAv1: `/games/media/${slug}/preview.av1.mp4${v}`,
+  previewH264: `/games/media/${slug}/preview.h264.mp4${v}`,
   poster: `/games/${slug}/poster.webp`,
   posterJpg: `/games/${slug}/poster.jpg`,
 });
@@ -52,7 +57,7 @@ export const games: GameTrailer[] = [
       "Fonts: Cinzel Decorative and EB Garamond, SIL OFL 1.1.",
       "Icons: game-icons.net, CC BY 3.0. Textures: Poly Haven, CC0.",
     ],
-    sizeMb: 52,
+    sizeMb: 18,
   },
   {
     slug: "gear_to_glory",
@@ -71,7 +76,7 @@ export const games: GameTrailer[] = [
       "Cinzel and Alegreya Sans: SIL Open Font License 1.1.",
       "Captured from an isolated copy of the game with fresh user data.",
     ],
-    sizeMb: 60,
+    sizeMb: 20,
   },
   {
     slug: "emberhold",
@@ -90,7 +95,7 @@ export const games: GameTrailer[] = [
       "Existing Emberhold music, sound effects and narrator lines. No new voice-over.",
       "Cinzel and Alegreya Sans: SIL Open Font License 1.1.",
     ],
-    sizeMb: 25,
+    sizeMb: 21,
   },
   {
     slug: "walled_garden",
@@ -110,6 +115,6 @@ export const games: GameTrailer[] = [
       "Game icons: Lorc, Skoll and Delapouite, game-icons.net (CC BY 3.0).",
       "Title font: Permanent Marker, Apache 2.0.",
     ],
-    sizeMb: 21,
+    sizeMb: 20,
   },
 ];
