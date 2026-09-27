@@ -25,15 +25,16 @@ export const H264_TYPE = 'video/mp4; codecs="avc1.640028"';
 
 // Videos live in public/games/media/ — gitignored, rsynced to the server's shared/games-media, which each
 // release links back in (ServerChirp linked path) — so they never bloat the repo.
-/** Bump when the videos are re-encoded: the query string busts browser and Cloudflare caches. */
+/** Bump (and rename the files to match) when the videos are re-encoded. The version is in the file name, not
+ *  a query string: this zone's Cloudflare cache ignores query strings. */
 export const MEDIA_VERSION = "2";
-const v = `?v=${MEDIA_VERSION}`;
+const v = `v${MEDIA_VERSION}.mp4`;
 
 export const media = (slug: string) => ({
-  trailerAv1: `/games/media/${slug}/trailer.av1.mp4${v}`,
-  trailerH264: `/games/media/${slug}/trailer.h264.mp4${v}`,
-  previewAv1: `/games/media/${slug}/preview.av1.mp4${v}`,
-  previewH264: `/games/media/${slug}/preview.h264.mp4${v}`,
+  trailerAv1: `/games/media/${slug}/trailer.av1.${v}`,
+  trailerH264: `/games/media/${slug}/trailer.h264.${v}`,
+  previewAv1: `/games/media/${slug}/preview.av1.${v}`,
+  previewH264: `/games/media/${slug}/preview.h264.${v}`,
   poster: `/games/${slug}/poster.webp`,
   posterJpg: `/games/${slug}/poster.jpg`,
 });

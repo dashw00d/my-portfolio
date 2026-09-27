@@ -79,8 +79,8 @@ const theaterData = games.map((g) => ({
           aria-hidden="true"
           data-reel
         >
-          <source src={`/games/media/reel.av1.mp4?v=${MEDIA_VERSION}`} type={AV1_TYPE} />
-          <source src={`/games/media/reel.h264.mp4?v=${MEDIA_VERSION}`} type={H264_TYPE} />
+          <source src={`/games/media/reel.av1.v${MEDIA_VERSION}.mp4`} type={AV1_TYPE} />
+          <source src={`/games/media/reel.h264.v${MEDIA_VERSION}.mp4`} type={H264_TYPE} />
         </video>
         <div class="gx-hero-shade" aria-hidden="true"></div>
 
