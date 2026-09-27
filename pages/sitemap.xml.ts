@@ -35,6 +35,7 @@ export const GET: APIRoute = () => {
     ["/cleanlogs", "monthly", "0.4"],
     ["/card", "monthly", "0.4"],
     ["/community-data-center", "monthly", "0.6"],
+    ["/games", "monthly", "0.7"],
   ];
 
   const body = [

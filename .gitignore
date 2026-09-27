@@ -37,3 +37,6 @@ __pycache__/
 .vscode/
 *.swp
 *.swo
+
+# /games/ trailer videos: rsynced to the server (shared/games-media), not committed
+public/games/media/

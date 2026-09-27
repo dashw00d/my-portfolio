@@ -1,0 +1,442 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { AV1_TYPE, H264_TYPE, games, media } from "../lib/games";
+import { SITE_URL } from "../lib/site";
+import "../styles/games.css";
+
+const title = "Four Worlds, Sixty Seconds Each | Game Trailers by Ryan Stefan";
+const description =
+  "Four gameplay trailers, one minute each: A Most Unfortunate Dynasty, Gear to Glory, Emberhold and Walled Garden. Every shot captured from the live game.";
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  name: "Four worlds. Sixty seconds each.",
+  description,
+  url: `${SITE_URL}/games`,
+  author: { "@type": "Person", name: "Ryan Stefan" },
+  hasPart: games.map((g) => ({
+    "@type": "VideoObject",
+    name: `${g.title} — gameplay trailer`,
+    description: `${g.tagline} ${g.blurb}`,
+    thumbnailUrl: `${SITE_URL}${media(g.slug).posterJpg}`,
+    contentUrl: `${SITE_URL}${media(g.slug).trailerH264}`,
+    duration: "PT60S",
+    uploadDate: "2026-09-26",
+  })),
+};
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const theaterData = games.map((g) => ({
+  slug: g.slug,
+  title: g.title,
+  tagline: g.tagline,
+  accent: g.accent,
+  titleFont: g.titleFont,
+  titleCase: g.titleCase,
+  ...media(g.slug),
+}));
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  path="/games"
+  keywords="game trailers, gameplay trailer, indie games, A Most Unfortunate Dynasty, Gear to Glory, Emberhold, Walled Garden, Ryan Stefan"
+  ogImage={`${SITE_URL}/games/og.jpg`}
+  jsonLd={jsonLd}
+  showNav={false}
+  showFooter={false}
+>
+  <Fragment slot="head">
+    <meta name="theme-color" content="#07080b" />
+    <link rel="preload" href="/games/fonts/eb-garamond.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/games/reel-poster.webp" as="image" />
+  </Fragment>
+
+  <div class="gx" style={`--accent:${games[0].accent}`} data-accent-root>
+    <div class="gx-wash" aria-hidden="true"></div>
+    <div class="gx-grain" aria-hidden="true"></div>
+
+    <header class="gx-bar">
+      <a class="gx-brand" href="/">Ryan Stefan <span>/ dashwood.net</span></a>
+      <nav class="gx-bar-nav" aria-label="Trailers">
+        {games.map((g, i) => (
+          <a href={`#${g.slug}`} style={`--accent:${g.accent}`}><span>{pad(i + 1)}</span>{g.title.replace("A Most Unfortunate ", "")}</a>
+        ))}
+      </nav>
+    </header>
+
+    <main>
+      <section class="gx-hero" aria-labelledby="gx-title">
+        <video
+          class="gx-hero-reel"
+          muted
+          loop
+          playsinline
+          preload="metadata"
+          poster="/games/reel-poster.webp"
+          aria-hidden="true"
+          data-reel
+        >
+          <source src="/games/media/reel.av1.mp4" type={AV1_TYPE} />
+          <source src="/games/media/reel.h264.mp4" type={H264_TYPE} />
+        </video>
+        <div class="gx-hero-shade" aria-hidden="true"></div>
+
+        <div class="gx-hero-inner">
+          <p class="gx-eyebrow gx-rise" style="--d:0">The gameplay collection · 2026</p>
+          <h1 id="gx-title" class="gx-display">
+            <span class="gx-rise" style="--d:1">Four worlds.</span>
+            <em class="gx-rise" style="--d:2">Sixty seconds each.</em>
+          </h1>
+          <p class="gx-lede gx-rise" style="--d:3">
+            Four games in development, four one-minute trailers. Every shot is captured from the live game —
+            real systems, real play — then cut to the beat.
+          </p>
+          <div class="gx-cta gx-rise" style="--d:4">
+            <button class="gx-btn gx-btn-primary" type="button" data-play-all>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" /></svg>
+              Play all four
+              <span class="gx-btn-meta">4:00</span>
+            </button>
+            <a class="gx-btn gx-btn-ghost" href={`#${games[0].slug}`}>Browse the trailers</a>
+          </div>
+        </div>
+
+        <ol class="gx-hero-index gx-rise" style="--d:5" aria-label="The four games">
+          {games.map((g, i) => (
+            <li style={`--accent:${g.accent}`}>
+              <a href={`#${g.slug}`}>
+                <span class="gx-num">{pad(i + 1)}</span>
+                <span class="gx-index-title" style={`font-family:${g.titleFont}`}>{g.title}</span>
+                <span class="gx-index-genre">{g.genre}</span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {games.map((g, i) => {
+        const m = media(g.slug);
+        return (
+          <section
+            id={g.slug}
+            class:list={["gx-chapter", i % 2 === 1 && "gx-flip"]}
+            style={`--accent:${g.accent}`}
+            data-chapter={i}
+            aria-labelledby={`${g.slug}-title`}
+          >
+            <div class="gx-chapter-num" aria-hidden="true">{pad(i + 1)}</div>
+
+            <figure class="gx-frame gx-reveal">
+              <button
+                class="gx-frame-button"
+                type="button"
+                data-open={i}
+                aria-label={`Watch the ${g.title} trailer (1 minute)`}
+              >
+                <video
+                  class="gx-preview"
+                  muted
+                  loop
+                  playsinline
+                  preload="none"
+                  poster={m.poster}
+                  aria-hidden="true"
+                  data-preview
+                >
+                  <source src={m.previewAv1} type={AV1_TYPE} />
+                  <source src={m.previewH264} type={H264_TYPE} />
+                </video>
+                <span class="gx-frame-shade" aria-hidden="true"></span>
+                <span class="gx-play" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" /></svg>
+                </span>
+                <span class="gx-frame-meta" aria-hidden="true">
+                  <span>Trailer</span><span>1:00</span><span>1080p60</span>
+                </span>
+              </button>
+            </figure>
+
+            <div class="gx-copy gx-reveal">
+              <p class="gx-eyebrow gx-accent">{pad(i + 1)} — {g.genre}</p>
+              <h2
+                id={`${g.slug}-title`}
+                class:list={["gx-title", g.titleCase === "upper" && "gx-title-upper"]}
+                style={`font-family:${g.titleFont}`}
+              >
+                {g.title}
+              </h2>
+              <p class="gx-tagline">{g.tagline}</p>
+              <p class="gx-blurb">{g.blurb}</p>
+              <ul class="gx-facts" aria-label="At a glance">
+                {g.facts.map((f) => <li>{f}</li>)}
+              </ul>
+              <div class="gx-actions">
+                <button class="gx-btn gx-btn-accent" type="button" data-open={i}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" /></svg>
+                  Watch the trailer
+                </button>
+                <a class="gx-link" href={m.trailerAv1} download={`${g.slug}_trailer_av1.mp4`}>
+                  Download{g.sizeMb ? ` · ${g.sizeMb} MB` : ""}
+                </a>
+              </div>
+              <p class="gx-beats" aria-label="In the trailer">
+                {g.beats.map((b) => <span>{b}</span>)}
+              </p>
+            </div>
+          </section>
+        );
+      })}
+
+      <section class="gx-about" aria-labelledby="gx-about-title">
+        <h2 id="gx-about-title" class="gx-display gx-display-sm">
+          Made from the <em>real thing.</em>
+        </h2>
+        <div class="gx-stats">
+          <div><strong>4</strong><span>trailers</span></div>
+          <div><strong>240</strong><span>seconds of gameplay</span></div>
+          <div><strong>60</strong><span>frames per second</span></div>
+          <div><strong>AV1</strong><span>10-bit, streamed small</span></div>
+        </div>
+        <p class="gx-about-copy">
+          No mock-ups and no pre-rendered cinematics. Each game is driven by scripted staging —
+          who stands where, where the camera looks — while its own systems do the rest: the takedowns,
+          the meltdowns, the dead rising at dusk. The edits are cut to the music's beat grid and delivered
+          at broadcast loudness.
+        </p>
+      </section>
+
+      <section class="gx-credits" aria-labelledby="gx-credits-title">
+        <h2 id="gx-credits-title" class="gx-eyebrow">Credits &amp; licences</h2>
+        <div class="gx-credit-grid">
+          {games.map((g) => (
+            <details style={`--accent:${g.accent}`}>
+              <summary>{g.title}</summary>
+              {g.credits.map((c) => <p>{c}</p>)}
+            </details>
+          ))}
+        </div>
+      </section>
+    </main>
+
+    <footer class="gx-foot">
+      <p>Trailers produced by <a href="/">Ryan Stefan</a>.</p>
+      <p><a href="/projects/">More projects</a><a href="/#contact-form">Get in touch</a></p>
+    </footer>
+
+    <dialog class="gx-theater" aria-label="Trailer player" data-theater>
+      <div class="gx-theater-glow" aria-hidden="true"></div>
+      <div class="gx-theater-top">
+        <div>
+          <p class="gx-eyebrow gx-accent" data-t-count></p>
+          <h2 class="gx-theater-title" data-t-title></h2>
+          <p class="gx-theater-tag" data-t-tag></p>
+        </div>
+        <div class="gx-theater-controls">
+          <button type="button" class="gx-icon" data-t-prev aria-label="Previous trailer">
+            <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" /></svg>
+          </button>
+          <button type="button" class="gx-icon" data-t-next aria-label="Next trailer">
+            <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg>
+          </button>
+          <button type="button" class="gx-icon" data-t-close aria-label="Close player">
+            <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+      </div>
+      <div class="gx-theater-stage">
+        <video class="gx-theater-video" controls playsinline preload="auto" autofocus data-t-video></video>
+        <div class="gx-upnext" data-t-upnext hidden>
+          <span>Up next</span><strong data-t-upnext-title></strong>
+        </div>
+      </div>
+      <ol class="gx-rail" aria-label="All trailers">
+        {games.map((g, i) => (
+          <li>
+            <button type="button" data-t-jump={i} style={`--accent:${g.accent}`}>
+              <img src={media(g.slug).poster} alt="" loading="lazy" width="320" height="180" />
+              <span>{g.title}</span>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </dialog>
+  </div>
+
+  <script type="application/json" id="gx-data" set:html={JSON.stringify(theaterData)} />
+</BaseLayout>
+
+<script>
+  interface Trailer {
+    slug: string;
+    title: string;
+    tagline: string;
+    accent: string;
+    titleFont: string;
+    titleCase: string;
+    trailerAv1: string;
+    trailerH264: string;
+    poster: string;
+  }
+
+  document.documentElement.classList.add("gx-js");
+  const AV1 = 'video/mp4; codecs="av01.0.08M.10"';
+  const data: Trailer[] = JSON.parse(document.getElementById("gx-data")?.textContent ?? "[]");
+  const root = document.querySelector<HTMLElement>("[data-accent-root]");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  const probe = document.createElement("video");
+  const av1 = probe.canPlayType(AV1) === "probably" || probe.canPlayType(AV1) === "maybe";
+
+  // --- hero reel -------------------------------------------------------------------------------------------
+  const reel = document.querySelector<HTMLVideoElement>("[data-reel]");
+  if (reel && !reduceMotion) {
+    reel.play().catch(() => undefined);
+  }
+
+  // --- the page's colour follows the chapter in view ---------------------------------------------------------
+  const chapters = [...document.querySelectorAll<HTMLElement>("[data-chapter]")];
+  const accentObserver = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting && root) {
+          root.style.setProperty("--accent", data[Number(e.target.getAttribute("data-chapter"))].accent);
+        }
+      }
+    },
+    { rootMargin: "-45% 0px -45% 0px" },
+  );
+  chapters.forEach((c) => accentObserver.observe(c));
+
+  // --- reveal on scroll -------------------------------------------------------------------------------------
+  const revealObserver = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) {
+          e.target.classList.add("is-in");
+          revealObserver.unobserve(e.target);
+        }
+      }
+    },
+    { rootMargin: "0px 0px -12% 0px" },
+  );
+  document.querySelectorAll(".gx-reveal").forEach((el) => revealObserver.observe(el));
+
+  // --- previews: hover on desktop, in view on touch -----------------------------------------------------------
+  const previews = [...document.querySelectorAll<HTMLVideoElement>("[data-preview]")];
+  const start = (v: HTMLVideoElement) => {
+    if (reduceMotion) return;
+    if (v.preload === "none") v.preload = "auto";
+    v.play().catch(() => undefined);
+    v.closest(".gx-frame")?.classList.add("is-playing");
+  };
+  const stop = (v: HTMLVideoElement) => {
+    v.pause();
+    v.closest(".gx-frame")?.classList.remove("is-playing");
+  };
+  if (finePointer) {
+    previews.forEach((v) => {
+      const frame = v.closest(".gx-frame");
+      frame?.addEventListener("pointerenter", () => start(v));
+      frame?.addEventListener("pointerleave", () => stop(v));
+      frame?.addEventListener("focusin", () => start(v));
+      frame?.addEventListener("focusout", () => stop(v));
+    });
+  } else {
+    const inView = new IntersectionObserver(
+      (entries) => entries.forEach((e) => (e.isIntersecting ? start : stop)(e.target as HTMLVideoElement)),
+      { threshold: 0.6 },
+    );
+    previews.forEach((v) => inView.observe(v));
+  }
+
+  // --- theater ---------------------------------------------------------------------------------------------
+  const theater = document.querySelector<HTMLDialogElement>("[data-theater]");
+  const video = document.querySelector<HTMLVideoElement>("[data-t-video]");
+  const q = <T extends Element>(sel: string) => theater?.querySelector<T>(sel) ?? null;
+  const tTitle = q<HTMLElement>("[data-t-title]");
+  const tTag = q<HTMLElement>("[data-t-tag]");
+  const tCount = q<HTMLElement>("[data-t-count]");
+  const upNext = q<HTMLElement>("[data-t-upnext]");
+  const upNextTitle = q<HTMLElement>("[data-t-upnext-title]");
+  let current = 0;
+  let playAll = false;
+  let advance: number | undefined;
+
+  const load = (i: number) => {
+    if (!theater || !video) return;
+    current = (i + data.length) % data.length;
+    const t = data[current];
+    theater.style.setProperty("--accent", t.accent);
+    if (tTitle) {
+      tTitle.textContent = t.title;
+      tTitle.style.fontFamily = t.titleFont;
+      tTitle.classList.toggle("gx-title-upper", t.titleCase === "upper");
+    }
+    if (tTag) tTag.textContent = t.tagline;
+    if (tCount) tCount.textContent = `${String(current + 1).padStart(2, "0")} / ${String(data.length).padStart(2, "0")}${playAll ? " · playing all" : ""}`;
+    theater.querySelectorAll("[data-t-jump]").forEach((b, n) => b.toggleAttribute("aria-current", n === current));
+    if (upNext) upNext.hidden = true;
+    window.clearTimeout(advance);
+    video.poster = t.poster;
+    video.src = av1 ? t.trailerAv1 : t.trailerH264;
+    video.play().catch(() => undefined);
+  };
+
+  const open = (i: number, all = false) => {
+    if (!theater) return;
+    playAll = all;
+    previews.forEach(stop);
+    reel?.pause();
+    if (!theater.open) theater.showModal();
+    document.documentElement.classList.add("gx-locked");
+    load(i);
+  };
+
+  const close = () => {
+    video?.pause();
+    window.clearTimeout(advance);
+    if (theater?.open) theater.close();
+  };
+
+  theater?.addEventListener("close", () => {
+    video?.pause();
+    window.clearTimeout(advance);
+    document.documentElement.classList.remove("gx-locked");
+    if (reel && !reduceMotion) reel.play().catch(() => undefined);
+  });
+
+  video?.addEventListener("ended", () => {
+    if (current === data.length - 1 && !playAll) return;
+    if (current === data.length - 1) {
+      playAll = false;
+      return;
+    }
+    if (upNext && upNextTitle) {
+      upNextTitle.textContent = data[current + 1].title;
+      upNext.hidden = false;
+    }
+    advance = window.setTimeout(() => load(current + 1), 1800);
+  });
+
+  document.querySelectorAll<HTMLElement>("[data-open]").forEach((el) =>
+    el.addEventListener("click", () => open(Number(el.dataset.open))),
+  );
+  document.querySelector("[data-play-all]")?.addEventListener("click", () => open(0, true));
+  q("[data-t-prev]")?.addEventListener("click", () => load(current - 1));
+  q("[data-t-next]")?.addEventListener("click", () => load(current + 1));
+  q("[data-t-close]")?.addEventListener("click", close);
+  theater?.querySelectorAll<HTMLElement>("[data-t-jump]").forEach((b) =>
+    b.addEventListener("click", () => load(Number(b.dataset.tJump))),
+  );
+  theater?.addEventListener("click", (e) => {
+    if (e.target === theater) close();   // a click on the backdrop
+  });
+  document.addEventListener("keydown", (e) => {
+    if (!theater?.open || e.target === video) return;   // (the player's own controls seek with the arrows)
+    if (e.key === "ArrowRight") load(current + 1);
+    else if (e.key === "ArrowLeft") load(current - 1);
+  });
+</script>
