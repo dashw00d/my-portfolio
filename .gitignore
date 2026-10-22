@@ -40,3 +40,6 @@ __pycache__/
 
 # /games/ trailer videos: rsynced to the server (shared/games-media), not committed
 public/games/media/
+
+# Southern Star walkthrough video: rsynced to the server (shared/southern-star-media), not committed
+public/p/southern-star/media/

@@ -1,0 +1,89 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+
+// The video is gitignored: public/p/southern-star/media/ is rsynced to the server's shared/southern-star-media,
+// which each release links back in. The version is in the file name because Cloudflare ignores query strings.
+const video = "/p/southern-star/media/walkthrough.v1.mp4";
+const poster = "/p/southern-star/walkthrough-poster.jpg";
+---
+
+<BaseLayout
+  title="Southern Star website walkthrough"
+  description="A private walkthrough of the Southern Star website."
+  path="/p/southern-star/walkthrough"
+  robots="noindex,nofollow,noarchive"
+  privatePage
+  showNav={false}
+  showFooter={false}
+>
+  <main class="ss-walkthrough">
+    <header>
+      <p class="eyebrow">Southern Star · Maxwell, Texas</p>
+      <h1>Website walkthrough</h1>
+    </header>
+
+    <video controls playsinline preload="metadata" poster={poster} width="1920" height="1080">
+      <source src={video} type="video/mp4" />
+    </video>
+
+    <p class="fallback">
+      Video not playing? <a href={video} download>Download it</a> (27 MB).
+    </p>
+  </main>
+</BaseLayout>
+
+<style>
+  @font-face {
+    font-family: "EB Garamond";
+    src: url("/games/fonts/eb-garamond.woff2") format("woff2");
+    font-display: swap;
+  }
+
+  :global(body) {
+    background: #f7f4ee;
+  }
+
+  .ss-walkthrough {
+    margin: 0 auto;
+    padding: clamp(2rem, 6vw, 4.5rem) clamp(1rem, 4vw, 2rem);
+    max-width: 72rem;
+    color: #303636;
+    font-family: "EB Garamond", Georgia, serif;
+    text-align: center;
+  }
+
+  .eyebrow {
+    margin: 0 0 0.5rem;
+    color: #8a7a62;
+    font-size: 0.85rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0 0 clamp(1.5rem, 4vw, 2.5rem);
+    font-size: clamp(2.2rem, 5vw, 3.6rem);
+    font-weight: 400;
+    letter-spacing: 0.04em;
+  }
+
+  video {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+    background: #000;
+    box-shadow: 0 20px 50px -20px rgb(48 54 54 / 0.45);
+  }
+
+  .fallback {
+    margin: 1.25rem 0 0;
+    color: #6b6f6c;
+    font-size: 1.05rem;
+  }
+
+  .fallback a {
+    color: inherit;
+    text-underline-offset: 3px;
+  }
+</style>
